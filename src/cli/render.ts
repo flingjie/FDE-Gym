@@ -320,6 +320,28 @@ const ERROR_TABLE: LocalizedError[] = [
     },
   },
   {
+    code: "SKILL_EXISTS_UNRELATED",
+    "zh-CN": {
+      message: "目标位置已存在一个非 FDE Gym 的 Skill，已拒绝覆盖。",
+      nextActions: ["移除或改名该 Skill 后重试。", "确认目标 CODEX_HOME 是否正确。"],
+    },
+    "en-US": {
+      message: "A non-FDE-Gym Skill already exists at the target; refusing to overwrite.",
+      nextActions: ["Remove or rename the existing Skill and retry.", "Confirm the target CODEX_HOME is correct."],
+    },
+  },
+  {
+    code: "SKILL_SOURCE_MISSING",
+    "zh-CN": {
+      message: "找不到要安装的 Skill 源文件。",
+      nextActions: ["先构建 CLI（npm run build）后重试。", "确认从已安装的 FDE Gym 包目录运行。"],
+    },
+    "en-US": {
+      message: "The Skill source files were not found.",
+      nextActions: ["Build the CLI (npm run build) and retry.", "Run from the installed FDE Gym package."],
+    },
+  },
+  {
     code: "EVIDENCE_OUTPUT_REJECTED",
     "zh-CN": {
       message: "证据追踪器输出被拒绝。",
