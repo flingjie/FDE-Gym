@@ -8,7 +8,7 @@ import {
 } from "../agents/evidence-tracker.js";
 import { validateProblemBrief } from "../agents/coach.js";
 import type { QuestionAssessment } from "../agents/contracts.js";
-import type { CustomerCapsule, EvaluatorCapsule } from "../scenarios/schema.js";
+import type { CustomerCapsule, EvaluatorCapsule, ScenarioEventCandidate } from "../scenarios/schema.js";
 import type { RunAggregate } from "../security/context-firewall.js";
 import { applyEvidencePatch } from "../evidence/graph.js";
 import {
@@ -17,8 +17,24 @@ import {
   calculateSupportRatio,
   validateBriefStructure,
 } from "../evidence/brief-validator.js";
-import { ProblemBriefSchema } from "./domain.js";
-import type { BriefValidationResult, ProblemBrief, RunEvent, TranscriptTurn } from "./domain.js";
+import { selectScenarioEvents, type EventTriggerContext } from "../simulation/event-scheduler.js";
+import type { Rng } from "../simulation/rng.js";
+import {
+  ChallengeResponseSchema,
+  PitchArtifactSchema,
+  ProblemBriefSchema,
+  SolutionProposalSchema,
+} from "./domain.js";
+import type {
+  BriefValidationResult,
+  ChallengeResponse,
+  LocalizedText,
+  PitchArtifact,
+  ProblemBrief,
+  RunEvent,
+  SolutionProposal,
+  TranscriptTurn,
+} from "./domain.js";
 import { decide } from "./state-machine.js";
 import { appendEvents, type StoreOptions } from "./event-store.js";
 import type { RunState } from "./reducer.js";
@@ -485,5 +501,316 @@ export async function requestClarification(
     acceptedEvents: events,
     updatedState: { ...state, phase: "DISCOVERY" },
     clarificationBudgetUsed: input.clarificationBudgetUsed + 1,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Solution gate (Task 9): submit-design
+// ---------------------------------------------------------------------------
+
+export interface SubmitSolutionDesignInput {
+  /** Aggregate before submit; `phase` must be SOLUTION_DESIGN. */
+  state: RunAggregate;
+  proposal: SolutionProposal;
+  commandId: string;
+  store?: StoreOptions;
+}
+
+export interface SubmitSolutionDesignResult {
+  runId: string;
+  acceptedEvents: RunEvent[];
+  updatedState: RunAggregate;
+}
+
+/**
+ * Run the SOLUTION_DESIGN structural gate for a submitted Solution Proposal.
+ * Emits `design.submitted` + `phase.changed` (SOLUTION_DESIGN -> CHALLENGE).
+ *
+ * The gate is deterministic and structural only: it re-validates the proposal
+ * against `SolutionProposalSchema` (defense-in-depth — the command boundary
+ * already parsed it), which enforces an objective, an evidence-linked approach
+ * (`approachEvidenceIds` non-empty), assumptions, at least one alternative,
+ * trade-offs, risks, a validation plan, and a rollout plan. A proposal that
+ * fails validation THROWS (ZodError) and persists nothing — no `design.submitted`,
+ * no `phase.changed`.
+ */
+export async function submitSolutionDesign(
+  input: SubmitSolutionDesignInput,
+): Promise<SubmitSolutionDesignResult> {
+  const { state, proposal, commandId } = input;
+  const runId = state.runId;
+
+  // Phase guard: `decide` enforces SOLUTION_DESIGN and throws otherwise. Its
+  // phase-changed collapse is superseded by our explicit events below.
+  const runState: RunState = { runId, phase: state.phase, seq: 0 };
+  decide(runState, { type: "submit-design", commandId, proposal });
+
+  // Re-validate (structural gate). Throws before any event is emitted.
+  SolutionProposalSchema.parse(proposal);
+
+  const events: RunEvent[] = [
+    { type: "design.submitted", runId, commandId, proposal },
+    { type: "phase.changed", runId, commandId, from: "SOLUTION_DESIGN", to: "CHALLENGE" },
+  ];
+
+  await appendEvents(runId, events, input.store);
+
+  return {
+    runId,
+    acceptedEvents: events,
+    updatedState: { ...state, proposal, phase: "CHALLENGE" },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Challenge injection (Task 9): deterministic challenge wave
+// ---------------------------------------------------------------------------
+
+export interface ChallengeInterruption {
+  challengeId: string;
+  /** The learner-visible interruption text — exactly the scenario's `prompt`. */
+  reply: LocalizedText;
+  stakeholderId: string;
+}
+
+export interface ChallengeInjectionInput {
+  /** Aggregate; `phase` must be CHALLENGE. */
+  state: RunAggregate;
+  capsule: CustomerCapsule;
+  /** The scenario's authored event candidates (challenge/constraint changes). */
+  candidates: readonly ScenarioEventCandidate[];
+  rng: Rng;
+  commandId: string;
+  /** Challenge ids already injected by an earlier wave; skipped to avoid re-injection. */
+  alreadyInjectedChallengeIds?: readonly string[];
+  store?: StoreOptions;
+}
+
+export interface ChallengeInjectionResult {
+  runId: string;
+  injectedChallengeIds: string[];
+  interruptions: ChallengeInterruption[];
+  /** `challenge.injected` precedes its `customer.replied` for every injected challenge. */
+  acceptedEvents: RunEvent[];
+  updatedState: RunAggregate;
+}
+
+/**
+ * Build the scheduler's trigger-context snapshot from the public aggregate +
+ * the customer capsule. All ids are PUBLIC identifiers only:
+ *   - `revealedEvidenceIds`    = the `evidenceId` of every disclosed disclosure unit;
+ *   - `unresolvedContradictionIds` = ids of `active` `contradiction`-kind graph nodes;
+ *   - `questionCount`          = number of public transcript turns;
+ *   - `challengeResponseCount` = responses already recorded.
+ */
+function buildTriggerContext(state: RunAggregate, capsule: CustomerCapsule): EventTriggerContext {
+  const disclosed = new Set(state.disclosedDisclosureUnitIds);
+  const revealedEvidenceIds = dedupe(
+    capsule.disclosureUnits
+      .filter((unit) => disclosed.has(unit.id))
+      .map((unit) => unit.evidenceId),
+  );
+  const unresolvedContradictionIds = state.graph.nodes
+    .filter((node) => node.kind === "contradiction" && node.status === "active")
+    .map((node) => node.id);
+  return {
+    phase: state.phase,
+    questionCount: state.transcript.length,
+    revealedEvidenceIds,
+    unresolvedContradictionIds,
+    challengeResponseCount: state.challengeResponses.length,
+  };
+}
+
+/**
+ * Select and inject the deterministic challenge wave for the current run state.
+ *
+ * ORDER (structural — a challenge can never be erased by a later failure):
+ *   1. Build the trigger context and `selectScenarioEvents` with the seeded rng.
+ *   2. Drop candidates already injected in an earlier wave.
+ *   3. For each selected candidate, emit `challenge.injected` (the authoritative
+ *      record carrying the scenario's `prompt`), THEN render the learner-visible
+ *      interruption as a `customer.replied` turn whose `reply` is verbatim the
+ *      scenario's `prompt` (the Customer can never invent scoring criteria — the
+ *      text is the scenario's), attributed to the capsule's first stakeholder.
+ *
+ * The injected events are appended before the interruption turns in the SAME
+ * write, so the selected event is durable even if a future model-render step
+ * were to fail. The run stays in CHALLENGE (no `phase.changed` here); the
+ * learner addresses the injected challenges via `respond-challenge`.
+ */
+export async function runChallengeInjection(
+  input: ChallengeInjectionInput,
+): Promise<ChallengeInjectionResult> {
+  const { state, capsule, candidates, rng, commandId } = input;
+  const runId = state.runId;
+
+  // Phase guard: only legal once the run has entered CHALLENGE.
+  if (state.phase !== "CHALLENGE") {
+    // `decide` has no `challenge.injected` command; enforce the phase here with
+    // the same stable error code the rest of the pipeline uses.
+    throw new OrchestratorError(
+      "INVALID_PHASE_COMMAND",
+      `challenge injection is not valid in phase ${state.phase ?? "UNSTARTED"}`,
+    );
+  }
+
+  const context = buildTriggerContext(state, capsule);
+  const selected = selectScenarioEvents(candidates, context, rng);
+
+  const alreadyInjected = new Set(input.alreadyInjectedChallengeIds ?? []);
+  const toInject = selected.filter((candidate) => !alreadyInjected.has(candidate.id));
+
+  const stakeholderId = capsule.stakeholders[0]?.id ?? "customer";
+
+  const events: RunEvent[] = [];
+  const interruptions: ChallengeInterruption[] = [];
+  for (const candidate of toInject) {
+    const challengeId = candidate.id;
+    const prompt = candidate.prompt;
+    // 1. The authoritative injected record — persisted first.
+    events.push({ type: "challenge.injected", runId, commandId, challengeId, prompt });
+    // 2. The learner-visible customer interruption (text is the scenario's prompt).
+    events.push({
+      type: "customer.replied",
+      runId,
+      commandId,
+      questionId: challengeId,
+      reply: prompt,
+      stakeholderId,
+    });
+    interruptions.push({ challengeId, reply: prompt, stakeholderId });
+  }
+
+  await appendEvents(runId, events, input.store);
+
+  return {
+    runId,
+    injectedChallengeIds: toInject.map((candidate) => candidate.id),
+    interruptions,
+    acceptedEvents: events,
+    updatedState: { ...state },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Challenge response gate (Task 9): respond-challenge
+// ---------------------------------------------------------------------------
+
+export interface RespondToChallengeInput {
+  /** Aggregate; `phase` must be CHALLENGE. */
+  state: RunAggregate;
+  response: ChallengeResponse;
+  commandId: string;
+  /** The injected challenge ids the learner must answer before advancing. */
+  mandatoryChallengeIds: readonly string[];
+  store?: StoreOptions;
+}
+
+export interface RespondToChallengeResult {
+  runId: string;
+  challengesAddressed: boolean;
+  acceptedEvents: RunEvent[];
+  updatedState: RunAggregate;
+}
+
+/**
+ * Record a Challenge Response and decide whether the learner has addressed
+ * every mandatory challenge. Emits `challenge.responded`; when (and only when)
+ * every mandatory challenge id has a recorded response, it additionally emits
+ * `phase.changed` (CHALLENGE -> PITCH).
+ *
+ * The gate is structural: the response is re-validated against
+ * `ChallengeResponseSchema` (impact, keep/change decision, rationale, a new
+ * risk-or-validation action). A learner MAY retain the design
+ * (`decision: "keep"`) — that is structurally accepted; whether the rationale
+ * is evidence-based is a coaching/quality concern deferred to scoring (Task 10),
+ * not a structural gate here. An invalid response THROWS (ZodError) and persists
+ * nothing.
+ */
+export async function respondToChallenge(
+  input: RespondToChallengeInput,
+): Promise<RespondToChallengeResult> {
+  const { state, response, commandId } = input;
+  const runId = state.runId;
+
+  // Phase guard (discard the unconditional CHALLENGE -> PITCH collapse).
+  const runState: RunState = { runId, phase: state.phase, seq: 0 };
+  decide(runState, { type: "respond-challenge", commandId, response });
+
+  // Re-validate (structural gate). Throws before any event is emitted.
+  ChallengeResponseSchema.parse(response);
+
+  const responses = [...state.challengeResponses, response];
+  const challengesAddressed = input.mandatoryChallengeIds.every((id) =>
+    responses.some((entry) => entry.challengeId === id),
+  );
+
+  const events: RunEvent[] = [{ type: "challenge.responded", runId, commandId, response }];
+  let phase = state.phase;
+  if (challengesAddressed) {
+    events.push({ type: "phase.changed", runId, commandId, from: "CHALLENGE", to: "PITCH" });
+    phase = "PITCH";
+  }
+
+  await appendEvents(runId, events, input.store);
+
+  return {
+    runId,
+    challengesAddressed,
+    acceptedEvents: events,
+    updatedState: { ...state, challengeResponses: responses, phase },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Pitch gate (Task 9): submit-pitch
+// ---------------------------------------------------------------------------
+
+export interface SubmitPitchInput {
+  /** Aggregate; `phase` must be PITCH. */
+  state: RunAggregate;
+  pitch: PitchArtifact;
+  commandId: string;
+  store?: StoreOptions;
+}
+
+export interface SubmitPitchResult {
+  runId: string;
+  acceptedEvents: RunEvent[];
+  updatedState: RunAggregate;
+}
+
+/**
+ * Run the PITCH structural gate for a submitted Pitch Artifact. Emits
+ * `pitch.submitted` + `phase.changed` (PITCH -> REVIEW).
+ *
+ * Deterministic and structural only: re-validates against `PitchArtifactSchema`
+ * (audience, problem, recommendation, expected value, evidence ids, risks, an
+ * explicit ask, and next steps). An invalid pitch THROWS (ZodError) and persists
+ * nothing.
+ */
+export async function submitPitch(input: SubmitPitchInput): Promise<SubmitPitchResult> {
+  const { state, pitch, commandId } = input;
+  const runId = state.runId;
+
+  // Phase guard.
+  const runState: RunState = { runId, phase: state.phase, seq: 0 };
+  decide(runState, { type: "submit-pitch", commandId, pitch });
+
+  // Re-validate (structural gate). Throws before any event is emitted.
+  PitchArtifactSchema.parse(pitch);
+
+  const events: RunEvent[] = [
+    { type: "pitch.submitted", runId, commandId, pitch },
+    { type: "phase.changed", runId, commandId, from: "PITCH", to: "REVIEW" },
+  ];
+
+  await appendEvents(runId, events, input.store);
+
+  return {
+    runId,
+    acceptedEvents: events,
+    updatedState: { ...state, pitch, phase: "REVIEW" },
   };
 }
