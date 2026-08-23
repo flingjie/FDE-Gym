@@ -1,0 +1,63 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { z } from "zod";
+import type { AgentRole } from "../core/domain.js";
+import type { AgentInvocationResult, AgentRuntime } from "./agent-runtime.js";
+
+/**
+ * FDE Gym — deterministic fixture runtime.
+ *
+ * Maps `(role, invocationId)` to a fixture JSON object (in-memory map and/or
+ * files under `<fixtureDir>/<role>/<invocationId>.json`). No network, no model
+ * nondeterminism — every CI test runs through this. The fixture's output is
+ * validated against the role's strict OUTPUT schema so a bad fixture fails
+ * loudly rather than injecting malformed data into the product.
+ */
+
+export interface FixtureAgentRuntimeOptions {
+  /** Root directory containing `<role>/<invocationId>.json` fixture files. */
+  fixtureDir?: string;
+  /** In-memory map keyed by `${role}:${invocationId}` → raw output value. */
+  fixtures?: Record<string, unknown>;
+}
+
+export class FixtureAgentRuntime implements AgentRuntime {
+  private readonly fixtureDir: string | undefined;
+  private readonly fixtures: Record<string, unknown>;
+
+  constructor(options: FixtureAgentRuntimeOptions = {}) {
+    this.fixtureDir = options.fixtureDir;
+    this.fixtures = options.fixtures ?? {};
+  }
+
+  async invoke<TInput, TOutput>(
+    role: AgentRole,
+    _input: TInput,
+    options: {
+      runId: string;
+      invocationId: string;
+      freshContext: true;
+      tools: "disabled";
+      outputSchema: z.ZodType<TOutput>;
+      timeoutMs: number;
+    },
+  ): Promise<AgentInvocationResult<TOutput>> {
+    const raw = this.resolve(role, options.invocationId);
+    const output = options.outputSchema.parse(raw);
+    return { invocationId: options.invocationId, output };
+  }
+
+  private resolve(role: AgentRole, invocationId: string): unknown {
+    const key = `${role}:${invocationId}`;
+    if (Object.prototype.hasOwnProperty.call(this.fixtures, key)) {
+      return this.fixtures[key];
+    }
+    if (this.fixtureDir) {
+      const file = join(this.fixtureDir, role, `${invocationId}.json`);
+      if (existsSync(file)) {
+        return JSON.parse(readFileSync(file, "utf8")) as unknown;
+      }
+    }
+    throw new Error(`no fixture for ${key}`);
+  }
+}
