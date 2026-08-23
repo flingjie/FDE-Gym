@@ -10,7 +10,7 @@ import { validateProblemBrief } from "../agents/coach.js";
 import type { QuestionAssessment } from "../agents/contracts.js";
 import type { CustomerCapsule, EvaluatorCapsule, ScenarioEventCandidate } from "../scenarios/schema.js";
 import type { RunAggregate } from "../security/context-firewall.js";
-import { applyEvidencePatch } from "../evidence/graph.js";
+import { applyEvidencePatch, createEmptyEvidenceGraph } from "../evidence/graph.js";
 import {
   BRIEF_DANGLING_EVIDENCE_REFERENCE,
   SUPPORT_RATIO_THRESHOLD,
@@ -28,6 +28,7 @@ import {
 import type {
   BriefValidationResult,
   ChallengeResponse,
+  Locale,
   LocalizedText,
   PitchArtifact,
   ProblemBrief,
@@ -35,9 +36,10 @@ import type {
   SolutionProposal,
   TranscriptTurn,
 } from "./domain.js";
+import { InvalidPhaseCommandError } from "./errors.js";
 import { decide } from "./state-machine.js";
 import { appendEvents, type StoreOptions } from "./event-store.js";
-import type { RunState } from "./reducer.js";
+import { createInitialRunState, type RunState } from "./reducer.js";
 
 /**
  * FDE Gym — discovery turn orchestrator (the wiring layer for Tasks 8–10).
@@ -812,5 +814,138 @@ export async function submitPitch(input: SubmitPitchInput): Promise<SubmitPitchR
     runId,
     acceptedEvents: events,
     updatedState: { ...state, pitch, phase: "REVIEW" },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Retry (Task 10): spawn a clean, isolated second attempt
+// ---------------------------------------------------------------------------
+
+export interface CreateRetryOptions {
+  /** The new attempt's run id (deterministic, caller-supplied — no randomness). */
+  newRunId: string;
+  /** Idempotency key for both the parent's `retry.started` and the new run's `start`. */
+  commandId: string;
+  /** Defaults to the parent's scenario. */
+  scenarioId?: string;
+  /** Defaults to the parent's locale. */
+  locale?: Locale;
+  /** Carried through unchanged (the run seed is caller-owned; not in the aggregate). */
+  seed?: number;
+  /** Exactly 2 or 3 learner-visible focus summaries from the previous attempt. */
+  focusSummaries: LocalizedText[];
+  store?: StoreOptions;
+}
+
+export interface CreateRetryResult {
+  parentRunId: string;
+  runId: string;
+  scenarioId: string;
+  locale: Locale;
+  seed: number | undefined;
+  focusSummaries: LocalizedText[];
+  /** The new run's minimal state (DISCOVERY). */
+  state: RunState;
+  /** The new run's fresh aggregate: graph/ledger/transcript/sessions cleared. */
+  aggregate: RunAggregate;
+  /** Events persisted to the NEW run. */
+  newRunEvents: RunEvent[];
+  /** Events persisted to the PARENT run (the durable `retry.started` link). */
+  parentEvents: RunEvent[];
+}
+
+export const INVALID_RETRY_FOCUS = "INVALID_RETRY_FOCUS" as const;
+
+/**
+ * Start a clean retry of a REVIEW-phase attempt.
+ *
+ * Semantics (verbatim from the brief):
+ *   - NEW `runId`; the parent link is recorded durably as a `retry.started`
+ *     event on the PARENT run (`run.started` has no parent field).
+ *   - Scenario and locale default to the parent's; the seed is carried through
+ *     options unchanged.
+ *   - The Evidence Graph, disclosure ledger, transcript, and granted hints are
+ *     CLEARED; the new run carries only the 2-3 learner-visible focus summaries
+ *     (`previousAttemptReview`). The Customer and Evidence Tracker therefore
+ *     receive NO previous transcript (their firewall inputs build only from the
+ *     new run's empty transcript/graph).
+ *   - The new run starts in DISCOVERY: `start` (SCENARIO) followed immediately
+ *     by `accept` (SCENARIO → DISCOVERY).
+ *
+ * Deterministic: no randomness, no wall-clock. `newRunId` is caller-supplied so
+ * the CLI (Task 11) controls the identity.
+ */
+export async function createRetry(
+  parentRun: RunAggregate,
+  options: CreateRetryOptions,
+): Promise<CreateRetryResult> {
+  if (parentRun.phase !== "REVIEW") {
+    throw new InvalidPhaseCommandError("retry", parentRun.phase);
+  }
+  if (options.focusSummaries.length < 2 || options.focusSummaries.length > 3) {
+    throw new OrchestratorError(
+      INVALID_RETRY_FOCUS,
+      "retry requires 2 or 3 focus summaries",
+    );
+  }
+
+  const scenarioId = options.scenarioId ?? parentRun.scenarioId;
+  const locale = options.locale ?? parentRun.locale;
+  const newRunId = options.newRunId;
+  const commandId = options.commandId;
+
+  // Fresh run: `start` (SCENARIO) then `accept` (SCENARIO -> DISCOVERY).
+  const fresh = createInitialRunState(newRunId);
+  const startEvents = decide(fresh, {
+    type: "start",
+    commandId,
+    scenarioId,
+    locale,
+    parentRunId: parentRun.runId,
+  });
+  const acceptEvents = decide(
+    { runId: newRunId, phase: "SCENARIO", seq: startEvents.length },
+    { type: "accept", commandId: `${commandId}:accept` },
+  );
+  const newRunEvents: RunEvent[] = [...startEvents, ...acceptEvents];
+
+  // Fresh aggregate: graph/ledger/transcript/sessions cleared.
+  const aggregate: RunAggregate = {
+    runId: newRunId,
+    scenarioId,
+    locale,
+    phase: "DISCOVERY",
+    transcript: [],
+    graph: createEmptyEvidenceGraph(),
+    disclosedDisclosureUnitIds: [],
+    grantedHints: [],
+    pendingQuestion: null,
+    hintRequest: null,
+    coachTask: "hint",
+    brief: null,
+    proposal: null,
+    pitch: null,
+    challengeResponses: [],
+    previousAttemptReview: { focusSummaries: options.focusSummaries },
+  };
+
+  const parentEvents: RunEvent[] = [
+    { type: "retry.started", runId: parentRun.runId, commandId, newRunId },
+  ];
+
+  await appendEvents(parentRun.runId, parentEvents, options.store);
+  await appendEvents(newRunId, newRunEvents, options.store);
+
+  return {
+    parentRunId: parentRun.runId,
+    runId: newRunId,
+    scenarioId,
+    locale,
+    seed: options.seed,
+    focusSummaries: options.focusSummaries,
+    state: { runId: newRunId, phase: "DISCOVERY", seq: newRunEvents.length },
+    aggregate,
+    newRunEvents,
+    parentEvents,
   };
 }

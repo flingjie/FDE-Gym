@@ -1,0 +1,63 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { resolveBaseDir } from "../core/event-store.js";
+import {
+  LearnerProfileSchema,
+  type LearnerProfile,
+} from "../profile/learner-profile.js";
+
+/**
+ * FDE Gym — durable learner-profile storage under the store root.
+ *
+ * The profile lives at `<root>/profile.json` (single learner per local
+ * machine). Reads validate against `LearnerProfileSchema` and fail closed on
+ * corruption; a missing file returns `null` (no profile yet).
+ */
+
+export interface ProfileStoreOptions {
+  /** Overrides `$FDE_GYM_HOME`/`~/.fde-gym` — used by tests. */
+  baseDir?: string;
+}
+
+function profileFile(baseDir: string): string {
+  return join(baseDir, "profile.json");
+}
+
+/** Validate and write the profile. Fails (throws) on an invalid profile rather than persisting garbage. */
+export async function saveLearnerProfile(
+  profile: LearnerProfile,
+  options: ProfileStoreOptions = {},
+): Promise<void> {
+  const baseDir = options.baseDir ?? resolveBaseDir();
+  const validated = LearnerProfileSchema.parse(profile);
+  await mkdir(baseDir, { recursive: true });
+  await writeFile(profileFile(baseDir), JSON.stringify(validated, null, 2) + "\n", "utf8");
+}
+
+/** Load and validate the profile; `null` when none has been saved yet. */
+export async function loadLearnerProfile(
+  options: ProfileStoreOptions = {},
+): Promise<LearnerProfile | null> {
+  const baseDir = options.baseDir ?? resolveBaseDir();
+  let raw: string;
+  try {
+    raw = await readFile(profileFile(baseDir), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("invalid learner profile: not valid JSON");
+  }
+
+  const result = LearnerProfileSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error(`invalid learner profile: ${result.error.message}`);
+  }
+  return result.data;
+}
