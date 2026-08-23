@@ -1,4 +1,9 @@
 import { SUPPORT_RATIO_THRESHOLD } from "../evidence/brief-validator.js";
+import type {
+  PassGateResults,
+  QuestionEfficiencyBreakdown,
+  ScoreBreakdown,
+} from "../core/domain.js";
 import { RAW_STAGE_WEIGHTS } from "./rubric.js";
 
 /**
@@ -88,59 +93,11 @@ export interface ScoreInput {
 // ---------------------------------------------------------------------------
 // Outputs
 // ---------------------------------------------------------------------------
-
-export interface QuestionEfficiencyBreakdown {
-  /** `gq` — newly revealed weight / total weight (question-driven only). */
-  gq: number;
-  /** `IGq` — 100 × min(1, questionBudget × gq). */
-  informationGain: number;
-  /** `Formq` — atomicity × neutrality × relevance × (1 - redundancy). */
-  form: number;
-  /** `QuestionEfficiencyq` — IGq × Formq. */
-  efficiency: number;
-}
-
-export interface PassGateResults {
-  /** `final >= 75`. */
-  finalScore: boolean;
-  /** `briefSupport >= 0.75`. */
-  briefSupport: boolean;
-  /** `unacknowledgedCriticalContradictions === 0`. */
-  noUnacknowledgedCriticalContradiction: boolean;
-  /** The pitch carries an explicit ask. */
-  pitchExplicitAsk: boolean;
-  /** No leak-guard violation. */
-  noLeakGuardViolation: boolean;
-}
-
-export interface ScoreBreakdown {
-  /** Final coverage ratio (clamped 0..1). */
-  coverage: number;
-  /** `100 × coverage` (the percentage form used by Discovery). */
-  coveragePercent: number;
-  /** Mean of `Formq` across questions (0 when there are none). */
-  averageForm: number;
-  /** `min(1, questionBudget / max(questionCount, 1))`. */
-  budgetFactor: number;
-  /** `QE` — question efficiency. */
-  questionEfficiency: number;
-  discovery: number;
-  framing: number;
-  solution: number;
-  challenge: number;
-  pitch: number;
-  process: number;
-  /** `Raw = 25% Discovery + 20% Framing + 20% Solution + 10% Challenge + 15% Pitch + 10% Process`. */
-  raw: number;
-  /** `min(12, L1 + 3×L2 + 6×L3)`. */
-  hintPenalty: number;
-  /** `min(10, 2×criticalUnsupported + 5×unacknowledgedCriticalContradictions)`. */
-  integrity: number;
-  /** `round(clamp(Raw - hintPenalty - integrity, 0, 100))`. */
-  final: number;
-  questions: QuestionEfficiencyBreakdown[];
-  passes: PassGateResults;
-}
+//
+// The three output shapes (`QuestionEfficiencyBreakdown`, `PassGateResults`,
+// `ScoreBreakdown`) are defined in `core/domain.ts` (imported above) so the
+// `score.computed` event's Zod schema and `calculateScore`'s return type can
+// never drift.
 
 // ---------------------------------------------------------------------------
 // Clamps

@@ -29,7 +29,7 @@ const cleanEvents: RunEvent[] = [
   { type: "run.started", runId: "r1", commandId: "c1", scenarioId: "scn-1", locale: "zh-CN" },
   { type: "phase.changed", runId: "r1", commandId: "c2", from: "SCENARIO", to: "DISCOVERY" },
   { type: "question.asked", runId: "r1", commandId: "c3", questionId: "q1", question: "每天有多少告警？" },
-  { type: "customer.replied", runId: "r1", commandId: "c4", questionId: "q1", reply: text, stakeholderId: "s1" },
+  { type: "customer.replied", runId: "r1", commandId: "c4", questionId: "q1", reply: text, stakeholderId: "s1", disclosedDisclosureUnitIds: [] },
   { type: "evidence.patched", runId: "r1", commandId: "c5", patch: { patchId: "p1", expectedVersion: 0, addNodes: [], addEdges: [], invalidateNodeIds: [] } },
   { type: "hint.granted", runId: "r1", commandId: "c6", topic: "workflow", level: 1, hint: text },
 ];
@@ -121,7 +121,7 @@ describe("leak guard — public projection (public JSONL / snapshot)", () => {
     expect(projectPublic(unknown)).toBeNull();
   });
 
-  it("excludes raw evaluator output fields from projected review events", () => {
+  it("projects review events with learner-safe Coach feedback and no internal fields", () => {
     const review: RunEvent = {
       type: "review.completed",
       runId: "r1",
@@ -138,10 +138,16 @@ describe("leak guard — public projection (public JSONL / snapshot)", () => {
     const pub = projectPublic(review);
     expect(pub).not.toBeNull();
     const serialized = JSON.stringify(pub);
-    expect(serialized).not.toContain("missedOpportunities");
-    expect(serialized).not.toContain("decisionDivergencePoints");
+    // Task 11: missed opportunities and decision-divergence points are sanitized
+    // Coach feedback over public input only, so they are learner-safe and now
+    // projected (the replay surfaces them).
+    expect(serialized).toContain("missedOpportunities");
+    expect(serialized).toContain("decisionDivergencePoints");
     expect(serialized).toContain("strengths");
     expect(serialized).toContain("nextFocus");
+    // Hidden/internal fields never surface.
+    expect(serialized).not.toContain("canary");
+    expect(serialized).not.toContain("commandId");
   });
 });
 

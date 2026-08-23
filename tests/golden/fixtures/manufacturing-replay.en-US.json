@@ -1,0 +1,179 @@
+{
+  "mode": "recorded",
+  "runId": "run-golden",
+  "scenarioId": "manufacturing-alert-triage",
+  "locale": "en-US",
+  "phase": "REVIEW",
+  "stages": [
+    {
+      "from": "SCENARIO",
+      "to": "SCENARIO"
+    },
+    {
+      "from": "SCENARIO",
+      "to": "DISCOVERY"
+    },
+    {
+      "from": "DISCOVERY",
+      "to": "PROBLEM_FRAMING"
+    },
+    {
+      "from": "PROBLEM_FRAMING",
+      "to": "SOLUTION_DESIGN"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "CHALLENGE"
+    },
+    {
+      "from": "CHALLENGE",
+      "to": "PITCH"
+    },
+    {
+      "from": "PITCH",
+      "to": "REVIEW"
+    }
+  ],
+  "transcript": [
+    {
+      "turnId": "cmd-ask-1:turn",
+      "seq": 0,
+      "question": "每天会产生多少条设备告警？",
+      "customerReply": "About 12,000 equipment alerts are generated daily.",
+      "stakeholderId": "vp-operations"
+    },
+    {
+      "turnId": "cmd-ask-2:turn",
+      "seq": 1,
+      "question": "当前的告警处理流程是怎样的？",
+      "customerReply": "All alerts are treated as equally important, with no prioritization.",
+      "stakeholderId": "technical-lead"
+    }
+  ],
+  "graphDiffs": [
+    {
+      "patchId": "p-1",
+      "expectedVersion": 0,
+      "addNodes": [
+        {
+          "id": "ev-workflow-1",
+          "kind": "fact",
+          "claim": "About 12,000 equipment alerts daily",
+          "status": "active",
+          "sourceTranscriptIds": [
+            "cmd-ask-1:turn"
+          ],
+          "weight": 2
+        }
+      ],
+      "addEdges": [],
+      "invalidateNodeIds": []
+    },
+    {
+      "patchId": "p-2",
+      "expectedVersion": 1,
+      "addNodes": [
+        {
+          "id": "ev-assumption-1",
+          "kind": "assumption",
+          "claim": "Alerts lack prioritization",
+          "status": "active",
+          "sourceTranscriptIds": [],
+          "weight": 1
+        }
+      ],
+      "addEdges": [],
+      "invalidateNodeIds": []
+    }
+  ],
+  "questionMetrics": [
+    {
+      "turnId": "cmd-ask-1:turn",
+      "informationGain": 2,
+      "nodeCount": 1
+    },
+    {
+      "turnId": "cmd-ask-2:turn",
+      "informationGain": 1,
+      "nodeCount": 1
+    }
+  ],
+  "hints": [
+    {
+      "topic": "workflow",
+      "level": 1,
+      "hint": "Think about the starting point: who receives alerts?"
+    }
+  ],
+  "eventInjections": [
+    {
+      "challengeId": "event-budget-cut",
+      "prompt": "【Budget】The project budget has been reduced by 70%."
+    }
+  ],
+  "artifacts": {
+    "briefId": "brief-1",
+    "proposalId": "proposal-1",
+    "pitchId": "pitch-1",
+    "briefSubmissions": 1,
+    "proposalSubmissions": 1,
+    "pitchSubmissions": 1
+  },
+  "score": {
+    "coverage": 0.25,
+    "coveragePercent": 25,
+    "averageForm": 0.5,
+    "budgetFactor": 1,
+    "questionEfficiency": 20,
+    "discovery": 21.25,
+    "framing": 75,
+    "solution": 100,
+    "challenge": 100,
+    "pitch": 100,
+    "process": 97,
+    "raw": 66.8125,
+    "hintPenalty": 3,
+    "integrity": 0,
+    "final": 64,
+    "questions": [
+      {
+        "gq": 0.25,
+        "informationGain": 100,
+        "form": 1,
+        "efficiency": 100
+      },
+      {
+        "gq": 0,
+        "informationGain": 0,
+        "form": 0,
+        "efficiency": 0
+      }
+    ],
+    "passes": {
+      "finalScore": false,
+      "briefSupport": true,
+      "noUnacknowledgedCriticalContradiction": true,
+      "pitchExplicitAsk": true,
+      "noLeakGuardViolation": true
+    }
+  },
+  "strengths": [
+    "Clear problem framing"
+  ],
+  "weaknesses": [
+    "Assumptions not fully validated"
+  ],
+  "missedOpportunities": [
+    "Did not probe the root cause"
+  ],
+  "decisionDivergencePoints": [
+    {
+      "id": "ddp-1",
+      "description": "Chose to change the design rather than keep it"
+    }
+  ],
+  "nextFocus": [
+    "Strengthen evidence support",
+    "Address engineer trust"
+  ]
+}

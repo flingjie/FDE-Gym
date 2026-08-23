@@ -144,6 +144,26 @@ export async function loadRun(runId: string, options: StoreOptions = {}): Promis
   return state;
 }
 
+/**
+ * Load a run's committed, hash-chain-validated events. Throws `RUN_NOT_FOUND`
+ * for a missing run and `EVENT_CHAIN_INVALID` for a tampered chain. Used by the
+ * replay projector and the CLI resume path to fold the full `RunAggregate`.
+ */
+export async function loadEvents(runId: string, options: StoreOptions = {}): Promise<RecordedEvent[]> {
+  const baseDir = options.baseDir ?? resolveBaseDir();
+  const file = eventsFile(baseDir, runId);
+
+  let exists = true;
+  try {
+    await access(file);
+  } catch {
+    exists = false;
+  }
+  if (!exists) throw new RunNotFoundError(runId);
+
+  return readRecordedEvents(baseDir, runId);
+}
+
 function recordEvent(
   domainEvent: RunEvent,
   seq: number,

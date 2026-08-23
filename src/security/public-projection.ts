@@ -1,5 +1,6 @@
 import type {
   ChallengeResponse,
+  DecisionDivergencePoint,
   EvidenceGraphPatch,
   HintLevel,
   Locale,
@@ -8,6 +9,7 @@ import type {
   ProblemBrief,
   RunEvent,
   RunPhase,
+  ScoreBreakdown,
   SolutionProposal,
 } from "../core/domain.js";
 
@@ -45,8 +47,11 @@ export type PublicEvent =
       verdict: "pass" | "fail";
       strengths: LocalizedText[];
       weaknesses: LocalizedText[];
+      missedOpportunities: LocalizedText[];
+      decisionDivergencePoints: DecisionDivergencePoint[];
       nextFocus: LocalizedText[];
     }
+  | { type: "score.computed"; runId: string; score: ScoreBreakdown }
   | { type: "retry.started"; runId: string; newRunId: string }
   | { type: "run.completed"; runId: string }
   | { type: "run.aborted"; runId: string; reason?: string };
@@ -114,17 +119,25 @@ export function projectPublic(event: RunEvent): PublicEvent | null {
     case "pitch.submitted":
       return { type: "pitch.submitted", runId: event.runId, pitch: event.pitch };
     case "review.completed":
-      // Learner-safe subset: verdict + strengths + weaknesses + focus.
-      // Missed opportunities and decision-divergence points reference hidden
-      // evaluator knowledge and are never projected.
+      // Learner-safe subset: verdict + strengths + weaknesses + focus. Missed
+      // opportunities and decision-divergence points are sanitized Coach
+      // feedback over PUBLIC input only (the Coach never sees ground truth) and
+      // are therefore learner-safe — Task 11 exposes them so the replay can
+      // show the full review. Per-criterion scores are not part of
+      // `FinalReviewResult` and never projected.
       return {
         type: "review.completed",
         runId: event.runId,
         verdict: event.review.verdict,
         strengths: event.review.strengths,
         weaknesses: event.review.weaknesses,
+        missedOpportunities: event.review.missedOpportunities,
+        decisionDivergencePoints: event.review.decisionDivergencePoints,
         nextFocus: event.review.nextFocus,
       };
+    case "score.computed":
+      // The score breakdown is numeric + boolean only — no hidden content.
+      return { type: "score.computed", runId: event.runId, score: event.score };
     case "retry.started":
       return { type: "retry.started", runId: event.runId, newRunId: event.newRunId };
     case "run.completed":

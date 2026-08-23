@@ -1,14 +1,17 @@
 import { readFileSync } from "fs";
 import { join } from "path";
+import { parse } from "yaml";
 import {
   PublicScenarioSchema,
   CustomerCapsuleSchema,
   EvaluatorCapsuleSchema,
+  ScenarioAuthoringSchema,
 } from "./schema.js";
 import type {
   PublicScenario,
   CustomerCapsule,
   EvaluatorCapsule,
+  ScenarioEventCandidate,
 } from "./schema.js";
 import type { AgentRole } from "../core/domain.js";
 
@@ -118,4 +121,25 @@ export function loadCustomerCapsule(id: string): CustomerCapsule {
 /** Convenience: loads the evaluator capsule for an id. */
 export function loadEvaluatorCapsule(id: string): EvaluatorCapsule {
   return loadScenarioForRole(id, "evidence_tracker");
+}
+
+/**
+ * Loads the scenario's authored event candidates (challenge/constraint changes)
+ * from the source YAML. The compiled partitions intentionally omit these
+ * (`events` are only in the authoring source); the CLI's challenge injection
+ * needs them.
+ */
+export function loadScenarioEventCandidates(id: string): ScenarioEventCandidate[] {
+  const sourcePath = join(process.cwd(), "scenarios", "source", `${id}.yaml`);
+  let raw: string;
+  try {
+    raw = readFileSync(sourcePath, "utf-8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw scenarioNotFoundError(id);
+    }
+    throw err;
+  }
+  const authoring = ScenarioAuthoringSchema.parse(parse(raw));
+  return authoring.events;
 }

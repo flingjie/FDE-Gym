@@ -6,9 +6,14 @@ import {
 import {
   extractEvidence,
 } from "../agents/evidence-tracker.js";
-import { validateProblemBrief } from "../agents/coach.js";
+import { runFinalReview, validateProblemBrief } from "../agents/coach.js";
 import type { QuestionAssessment } from "../agents/contracts.js";
-import type { CustomerCapsule, EvaluatorCapsule, ScenarioEventCandidate } from "../scenarios/schema.js";
+import type {
+  CustomerCapsule,
+  EvaluatorCapsule,
+  PublicScenario,
+  ScenarioEventCandidate,
+} from "../scenarios/schema.js";
 import type { RunAggregate } from "../security/context-firewall.js";
 import { applyEvidencePatch, createEmptyEvidenceGraph } from "../evidence/graph.js";
 import {
@@ -19,20 +24,27 @@ import {
 } from "../evidence/brief-validator.js";
 import { selectScenarioEvents, type EventTriggerContext } from "../simulation/event-scheduler.js";
 import type { Rng } from "../simulation/rng.js";
+import { calculateScore } from "../scoring/formulas.js";
+import { buildScoreInput, deriveAttemptReview } from "../scoring/score-input.js";
+import { createEmptyProfile, updateLearnerProfile, type LearnerProfile } from "../profile/learner-profile.js";
+import { loadLearnerProfile, saveLearnerProfile } from "../storage/fs-store.js";
 import {
   ChallengeResponseSchema,
   PitchArtifactSchema,
   ProblemBriefSchema,
+  ScoreBreakdownSchema,
   SolutionProposalSchema,
 } from "./domain.js";
 import type {
   BriefValidationResult,
   ChallengeResponse,
+  FinalReviewResult,
   Locale,
   LocalizedText,
   PitchArtifact,
   ProblemBrief,
   RunEvent,
+  ScoreBreakdown,
   SolutionProposal,
   TranscriptTurn,
 } from "./domain.js";
@@ -220,6 +232,7 @@ export async function runDiscoveryTurn(
     questionId: commandId,
     reply: turn.reply,
     stakeholderId: turn.stakeholderId,
+    disclosedDisclosureUnitIds: turn.disclosedDisclosureUnitIds,
   };
   const aggReply = foldReply(aggQuestion, turn, commandId);
 
@@ -680,6 +693,7 @@ export async function runChallengeInjection(
       questionId: challengeId,
       reply: prompt,
       stakeholderId,
+      disclosedDisclosureUnitIds: [],
     });
     interruptions.push({ challengeId, reply: prompt, stakeholderId });
   }
@@ -947,5 +961,104 @@ export async function createRetry(
     aggregate,
     newRunEvents,
     parentEvents,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Review (Task 11): final-review + score + profile
+// ---------------------------------------------------------------------------
+
+export interface SubmitReviewInput {
+  runtime: AgentRuntime;
+  /** Evaluator capsule (rubric/hint ladders/pass gates); the Coach's canary source. */
+  capsule: EvaluatorCapsule;
+  /** Customer capsule (disclosure units) — used only to derive the score's coverage. */
+  customerCapsule: CustomerCapsule;
+  /** Public scenario (question budget). */
+  publicScenario: PublicScenario;
+  /** The full run's committed events (needed for per-question score derivation). */
+  events: readonly RunEvent[];
+  /** Aggregate before review; `phase` must be REVIEW and brief+proposal+pitch set. */
+  state: RunAggregate;
+  commandId: string;
+  timeoutMs?: number;
+  canaries?: readonly string[];
+  store?: StoreOptions;
+  profileStore?: { baseDir?: string };
+  /** The learner profile BEFORE this attempt; defaults to the persisted/empty profile. */
+  profile?: LearnerProfile;
+}
+
+export interface SubmitReviewResult {
+  runId: string;
+  review: FinalReviewResult;
+  score: ScoreBreakdown;
+  acceptedEvents: RunEvent[];
+  updatedState: RunAggregate;
+  profile: LearnerProfile;
+}
+
+/**
+ * Run the REVIEW phase: invoke the Coach's `final-review` task, compute the
+ * deterministic `ScoreBreakdown` via `calculateScore`, persist
+ * `review.completed` + `score.computed`, and fold the attempt into the durable
+ * learner profile.
+ *
+ * The score uses DOCUMENTED deterministic fallbacks for the two inputs the
+ * current event model cannot supply (per-question form metrics and stage
+ * scores) — see `src/scoring/score-input.ts`. This is a Task 13 refinement
+ * point, not a blocker for Task 11.
+ */
+export async function submitReview(input: SubmitReviewInput): Promise<SubmitReviewResult> {
+  const { runtime, capsule, customerCapsule, publicScenario, events, state, commandId } = input;
+  const runId = state.runId;
+  const timeoutMs = input.timeoutMs ?? 60_000;
+  const canaries = input.canaries ?? [capsule.canary];
+  const store = input.store;
+
+  // Phase guard: `decide` enforces REVIEW (and emits nothing for `review`).
+  const runState: RunState = { runId, phase: state.phase, seq: 0 };
+  decide(runState, { type: "review", commandId });
+
+  // 1. Coach final-review through the firewall (public-only input).
+  const review = await runFinalReview({
+    runtime,
+    state: { ...state, coachTask: "final-review" },
+    capsule,
+    invocationId: `${commandId}:coach`,
+    timeoutMs,
+    canaries,
+  });
+
+  // 2. Deterministic score.
+  const scoreInput = buildScoreInput({
+    events,
+    aggregate: state,
+    customerCapsule,
+    evaluatorCapsule: capsule,
+    publicScenario,
+  });
+  const score = calculateScore(scoreInput);
+  // Defense-in-depth: the persisted score must satisfy the domain schema.
+  ScoreBreakdownSchema.parse(score);
+
+  // 3. Persist review.completed + score.computed (in that order).
+  const reviewEvent: RunEvent = { type: "review.completed", runId, commandId, review };
+  const scoreEvent: RunEvent = { type: "score.computed", runId, commandId, score };
+  await appendEvents(runId, [reviewEvent, scoreEvent], store);
+
+  // 4. Fold the attempt into the durable learner profile.
+  const base = input.profile ?? (await loadLearnerProfile(input.profileStore)) ?? createEmptyProfile();
+  const attempt = deriveAttemptReview(scoreInput, score, events, state);
+  const updatedProfile = updateLearnerProfile(base, { ...attempt, retryFocuses: review.nextFocus });
+  await saveLearnerProfile(updatedProfile, input.profileStore);
+
+  return {
+    runId,
+    review,
+    score,
+    acceptedEvents: [reviewEvent, scoreEvent],
+    updatedState: { ...state },
+    profile: updatedProfile,
   };
 }

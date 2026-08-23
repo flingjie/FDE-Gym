@@ -1,0 +1,179 @@
+{
+  "mode": "recorded",
+  "runId": "run-golden",
+  "scenarioId": "manufacturing-alert-triage",
+  "locale": "zh-CN",
+  "phase": "REVIEW",
+  "stages": [
+    {
+      "from": "SCENARIO",
+      "to": "SCENARIO"
+    },
+    {
+      "from": "SCENARIO",
+      "to": "DISCOVERY"
+    },
+    {
+      "from": "DISCOVERY",
+      "to": "PROBLEM_FRAMING"
+    },
+    {
+      "from": "PROBLEM_FRAMING",
+      "to": "SOLUTION_DESIGN"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "CHALLENGE"
+    },
+    {
+      "from": "CHALLENGE",
+      "to": "PITCH"
+    },
+    {
+      "from": "PITCH",
+      "to": "REVIEW"
+    }
+  ],
+  "transcript": [
+    {
+      "turnId": "cmd-ask-1:turn",
+      "seq": 0,
+      "question": "每天会产生多少条设备告警？",
+      "customerReply": "每天大约产生12,000条设备告警。",
+      "stakeholderId": "vp-operations"
+    },
+    {
+      "turnId": "cmd-ask-2:turn",
+      "seq": 1,
+      "question": "当前的告警处理流程是怎样的？",
+      "customerReply": "所有告警都被视为同等重要，没有优先级排序。",
+      "stakeholderId": "technical-lead"
+    }
+  ],
+  "graphDiffs": [
+    {
+      "patchId": "p-1",
+      "expectedVersion": 0,
+      "addNodes": [
+        {
+          "id": "ev-workflow-1",
+          "kind": "fact",
+          "claim": "每天约12,000条设备告警",
+          "status": "active",
+          "sourceTranscriptIds": [
+            "cmd-ask-1:turn"
+          ],
+          "weight": 2
+        }
+      ],
+      "addEdges": [],
+      "invalidateNodeIds": []
+    },
+    {
+      "patchId": "p-2",
+      "expectedVersion": 1,
+      "addNodes": [
+        {
+          "id": "ev-assumption-1",
+          "kind": "assumption",
+          "claim": "告警缺乏优先级排序",
+          "status": "active",
+          "sourceTranscriptIds": [],
+          "weight": 1
+        }
+      ],
+      "addEdges": [],
+      "invalidateNodeIds": []
+    }
+  ],
+  "questionMetrics": [
+    {
+      "turnId": "cmd-ask-1:turn",
+      "informationGain": 2,
+      "nodeCount": 1
+    },
+    {
+      "turnId": "cmd-ask-2:turn",
+      "informationGain": 1,
+      "nodeCount": 1
+    }
+  ],
+  "hints": [
+    {
+      "topic": "workflow",
+      "level": 1,
+      "hint": "思考当前告警处理的起点：谁收到告警？"
+    }
+  ],
+  "eventInjections": [
+    {
+      "challengeId": "event-budget-cut",
+      "prompt": "【预算更新】本项目预算被削减70%。"
+    }
+  ],
+  "artifacts": {
+    "briefId": "brief-1",
+    "proposalId": "proposal-1",
+    "pitchId": "pitch-1",
+    "briefSubmissions": 1,
+    "proposalSubmissions": 1,
+    "pitchSubmissions": 1
+  },
+  "score": {
+    "coverage": 0.25,
+    "coveragePercent": 25,
+    "averageForm": 0.5,
+    "budgetFactor": 1,
+    "questionEfficiency": 20,
+    "discovery": 21.25,
+    "framing": 75,
+    "solution": 100,
+    "challenge": 100,
+    "pitch": 100,
+    "process": 97,
+    "raw": 66.8125,
+    "hintPenalty": 3,
+    "integrity": 0,
+    "final": 64,
+    "questions": [
+      {
+        "gq": 0.25,
+        "informationGain": 100,
+        "form": 1,
+        "efficiency": 100
+      },
+      {
+        "gq": 0,
+        "informationGain": 0,
+        "form": 0,
+        "efficiency": 0
+      }
+    ],
+    "passes": {
+      "finalScore": false,
+      "briefSupport": true,
+      "noUnacknowledgedCriticalContradiction": true,
+      "pitchExplicitAsk": true,
+      "noLeakGuardViolation": true
+    }
+  },
+  "strengths": [
+    "清晰的问题定义"
+  ],
+  "weaknesses": [
+    "假设未充分验证"
+  ],
+  "missedOpportunities": [
+    "未追问根本原因"
+  ],
+  "decisionDivergencePoints": [
+    {
+      "id": "ddp-1",
+      "description": "选择了变更方案而非保留"
+    }
+  ],
+  "nextFocus": [
+    "强化证据支撑",
+    "处理工程师信任问题"
+  ]
+}

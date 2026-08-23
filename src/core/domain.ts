@@ -591,6 +591,12 @@ export const CustomerRepliedEventSchema = z
     questionId: z.string().min(1),
     reply: LocalizedTextSchema,
     stakeholderId: z.string().min(1),
+    /**
+     * Disclosure unit ids newly revealed by this reply. Internal to the event
+     * store: `projectPublic` never projects these (disclosure ids are hidden).
+     * Needed so `foldRunAggregate` can rebuild the disclosure ledger on resume.
+     */
+    disclosedDisclosureUnitIds: z.array(z.string().min(1)),
   })
   .strict();
 
@@ -670,6 +676,69 @@ export const ReviewCompletedEventSchema = z
   })
   .strict();
 
+// ---------------------------------------------------------------------------
+// Score breakdown (Task 11): the deterministic numeric score persisted by the
+// `review` command and reconstructed by the replay. Mirrors `calculateScore`'s
+// output (`src/scoring/formulas.ts`) so the replay can surface it without a
+// model call. All fields are learner-safe numbers/booleans — no hidden content.
+// ---------------------------------------------------------------------------
+
+export const QuestionEfficiencyBreakdownSchema = z
+  .object({
+    /** `gq` — newly revealed weight / total weight (question-driven only). */
+    gq: z.number(),
+    /** `IGq` — 100 × min(1, questionBudget × gq). */
+    informationGain: z.number(),
+    /** `Formq` — atomicity × neutrality × relevance × (1 - redundancy). */
+    form: z.number(),
+    /** `QuestionEfficiencyq` — IGq × Formq. */
+    efficiency: z.number(),
+  })
+  .strict();
+export type QuestionEfficiencyBreakdown = z.infer<typeof QuestionEfficiencyBreakdownSchema>;
+
+export const PassGateResultsSchema = z
+  .object({
+    finalScore: z.boolean(),
+    briefSupport: z.boolean(),
+    noUnacknowledgedCriticalContradiction: z.boolean(),
+    pitchExplicitAsk: z.boolean(),
+    noLeakGuardViolation: z.boolean(),
+  })
+  .strict();
+export type PassGateResults = z.infer<typeof PassGateResultsSchema>;
+
+export const ScoreBreakdownSchema = z
+  .object({
+    coverage: z.number(),
+    coveragePercent: z.number(),
+    averageForm: z.number(),
+    budgetFactor: z.number(),
+    questionEfficiency: z.number(),
+    discovery: z.number(),
+    framing: z.number(),
+    solution: z.number(),
+    challenge: z.number(),
+    pitch: z.number(),
+    process: z.number(),
+    raw: z.number(),
+    hintPenalty: z.number(),
+    integrity: z.number(),
+    final: z.number(),
+    questions: z.array(QuestionEfficiencyBreakdownSchema),
+    passes: PassGateResultsSchema,
+  })
+  .strict();
+export type ScoreBreakdown = z.infer<typeof ScoreBreakdownSchema>;
+
+export const ScoreComputedEventSchema = z
+  .object({
+    type: z.literal("score.computed"),
+    ...EVENT_BASE,
+    score: ScoreBreakdownSchema,
+  })
+  .strict();
+
 export const RetryStartedEventSchema = z
   .object({
     type: z.literal("retry.started"),
@@ -707,6 +776,7 @@ export const RunEventSchema = z.discriminatedUnion("type", [
   ChallengeRespondedEventSchema,
   PitchSubmittedEventSchema,
   ReviewCompletedEventSchema,
+  ScoreComputedEventSchema,
   RetryStartedEventSchema,
   RunCompletedEventSchema,
   RunAbortedEventSchema,

@@ -6,6 +6,7 @@ import type { AgentRuntime } from "./agent-runtime.js";
 import {
   BriefValidationOutputSchema,
   CoachHintOutputSchema,
+  FinalReviewOutputSchema,
 } from "./contracts.js";
 import type {
   BriefValidationInput,
@@ -13,7 +14,7 @@ import type {
   CoachHintOutput,
   FinalReviewInput,
 } from "./contracts.js";
-import type { BriefValidationResult, LocalizedText, ProblemBrief } from "../core/domain.js";
+import type { BriefValidationResult, FinalReviewResult, LocalizedText, ProblemBrief } from "../core/domain.js";
 import { buildRoleInput, type RunAggregate } from "../security/context-firewall.js";
 import { sanitizeAgentResult } from "../security/sanitizer.js";
 import type { EvaluatorCapsule } from "../scenarios/schema.js";
@@ -175,6 +176,37 @@ export async function validateProblemBrief(context: CoachContext): Promise<Brief
   });
 
   const safe = sanitizeAgentResult("coach_evaluator", result, BriefValidationOutputSchema, {
+    canaries: context.canaries ?? [context.capsule.canary],
+  });
+  if (!safe.ok) {
+    throw new CoachError(safe.failure.code, safe.failure.message);
+  }
+  return safe.output;
+}
+
+/**
+ * Build `FinalReviewInput` via the firewall (`coachTask="final-review"`) and
+ * invoke the Coach. Returns the sanitized, schema-validated `FinalReviewResult`.
+ * The Coach sees ONLY the public brief + proposal + pitch + challenge responses
+ * + graph + transcript + hint ledger (never the capsule's ground truth).
+ */
+export async function runFinalReview(context: CoachContext): Promise<FinalReviewResult> {
+  const built = buildRoleInput("coach_evaluator", context.state, context.capsule);
+  if (built.kind !== "final-review") {
+    throw new CoachError(COACH_OUTPUT_REJECTED, "coach firewall built the wrong role");
+  }
+  const input = built.input;
+
+  const result = await context.runtime.invoke("coach_evaluator", input, {
+    runId: context.state.runId,
+    invocationId: context.invocationId,
+    freshContext: true,
+    tools: "disabled",
+    outputSchema: FinalReviewOutputSchema,
+    timeoutMs: context.timeoutMs,
+  });
+
+  const safe = sanitizeAgentResult("coach_evaluator", result, FinalReviewOutputSchema, {
     canaries: context.canaries ?? [context.capsule.canary],
   });
   if (!safe.ok) {
