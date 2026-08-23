@@ -428,6 +428,11 @@ evaluator:
         "zh-CN": "管理层希望实现广泛的自动化决策，而一线工程师强烈怀疑AI系统能否理解复杂的设备行为"
         "en-US": "Management wants broad automated decision-making, while frontline engineers strongly doubt whether AI systems can understand complex equipment behavior"
       expectedEvidenceIds: ["ev-trust", "ev-workflow"]
+    - id: cc-002
+      statement:
+        "zh-CN": "管理层希望将工程师处理的告警量降低50%，而工程师担心AI无法解释其优先级决策，导致误报被盲目接受"
+        "en-US": "Management wants to cut the alerts engineers handle by 50%, while engineers worry AI cannot explain its prioritization decisions, causing false positives to be accepted blindly"
+      expectedEvidenceIds: ["ev-success-measures", "ev-trust"]
   hintLadders:
     - id: hl-workflow
       topic: workflow
