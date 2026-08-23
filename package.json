@@ -1,0 +1,29 @@
+{
+  "name": "fde-gym",
+  "version": "0.1.0",
+  "description": "FDE Gym: a bilingual (zh-CN default, en-US selectable) FDE capability-training product driven through the ChatGPT Codex CLI.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "fde-gym": "dist/cli/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "doctor": "npm run build && node dist/cli/main.js doctor --json"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
