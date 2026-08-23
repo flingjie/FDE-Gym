@@ -5,3 +5,4 @@ dist/
 .tmp/
 coverage/
 scenarios/compiled/
+.claude/
