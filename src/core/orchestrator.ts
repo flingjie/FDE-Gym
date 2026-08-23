@@ -6,11 +6,19 @@ import {
 import {
   extractEvidence,
 } from "../agents/evidence-tracker.js";
+import { validateProblemBrief } from "../agents/coach.js";
 import type { QuestionAssessment } from "../agents/contracts.js";
-import type { CustomerCapsule } from "../scenarios/schema.js";
+import type { CustomerCapsule, EvaluatorCapsule } from "../scenarios/schema.js";
 import type { RunAggregate } from "../security/context-firewall.js";
 import { applyEvidencePatch } from "../evidence/graph.js";
-import type { RunEvent, TranscriptTurn } from "./domain.js";
+import {
+  BRIEF_DANGLING_EVIDENCE_REFERENCE,
+  SUPPORT_RATIO_THRESHOLD,
+  calculateSupportRatio,
+  validateBriefStructure,
+} from "../evidence/brief-validator.js";
+import { ProblemBriefSchema } from "./domain.js";
+import type { BriefValidationResult, ProblemBrief, RunEvent, TranscriptTurn } from "./domain.js";
 import { decide } from "./state-machine.js";
 import { appendEvents, type StoreOptions } from "./event-store.js";
 import type { RunState } from "./reducer.js";
@@ -285,5 +293,197 @@ export async function repairPendingEvidence(
     pendingEvidence: null,
     metrics: computeDiscoveryMetrics(evidence.questionAssessment),
     updatedState,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Framing gate (Task 8): submit-brief + clarify
+// ---------------------------------------------------------------------------
+
+export const CLARIFICATION_BUDGET_EXCEEDED = "CLARIFICATION_BUDGET_EXCEEDED" as const;
+
+/** Default cap on `clarify` returns to DISCOVERY per framing attempt. */
+export const DEFAULT_CLARIFICATION_BUDGET = 3;
+
+export interface FramingGateInput {
+  runtime: AgentRuntime;
+  capsule: EvaluatorCapsule;
+  /** Aggregate before submit; `phase` must be PROBLEM_FRAMING. */
+  state: RunAggregate;
+  brief: ProblemBrief;
+  commandId: string;
+  timeoutMs?: number;
+  canaries?: readonly string[];
+  store?: StoreOptions;
+}
+
+export interface FramingGateResult {
+  runId: string;
+  passed: boolean;
+  supportRatio: number;
+  result: BriefValidationResult;
+  acceptedEvents: RunEvent[];
+  updatedState: RunAggregate;
+}
+
+/**
+ * Run the PROBLEM_FRAMING gate for a submitted Problem Brief, IN ORDER:
+ *   (a) Zod validation of the brief (defense-in-depth);
+ *   (b) deterministic `validateBriefStructure(brief, graph)`;
+ *   (c) Coach entailment classification (`validateProblemBrief`, public-only);
+ *   (d) final deterministic gate `supportRatio >= 0.75 && structure.passed`.
+ *
+ * On failure it emits `brief.submitted` + `brief.validated` (passed=false) and
+ * STAYS in PROBLEM_FRAMING (no `phase.changed`). On success it additionally
+ * emits `phase.changed` to SOLUTION_DESIGN. The gate never reveals hidden
+ * evidence text: it holds only the public brief + graph + entailments.
+ */
+export async function runFramingGate(input: FramingGateInput): Promise<FramingGateResult> {
+  const { runtime, capsule, state, brief, commandId } = input;
+  const runId = state.runId;
+  const timeoutMs = input.timeoutMs ?? 60_000;
+  const canaries = input.canaries ?? [capsule.canary];
+  const store = input.store;
+
+  // Phase guard: `decide` enforces PROBLEM_FRAMING and throws otherwise. Its
+  // phase-changed collapse is superseded by the multi-step gate below.
+  const runState: RunState = { runId, phase: state.phase, seq: 0 };
+  decide(runState, { type: "submit-brief", commandId, brief });
+
+  // (a) Zod validation.
+  ProblemBriefSchema.parse(brief);
+
+  // (b) Deterministic structural gate.
+  const structure = validateBriefStructure(brief, state.graph);
+
+  // (c) Coach entailment classification (public brief + graph + transcript).
+  // A dangling evidence reference would make the Coach's strict input schema
+  // reject the brief, so classification is skipped in that already-failing case.
+  let coachResult: BriefValidationResult | null = null;
+  let entailments = structure.entailments;
+  if (!structure.missingCategories.includes(BRIEF_DANGLING_EVIDENCE_REFERENCE)) {
+    coachResult = await validateProblemBrief({
+      runtime,
+      state: { ...state, coachTask: "brief-validation", brief },
+      capsule,
+      invocationId: `${commandId}:coach`,
+      timeoutMs,
+      canaries,
+    });
+    entailments = coachResult.entailments;
+  }
+
+  // (d) Final deterministic gate: supportRatio >= threshold AND structure passed.
+  const supportRatio = calculateSupportRatio(brief.claims, entailments);
+  const passed = structure.passed && supportRatio >= SUPPORT_RATIO_THRESHOLD;
+
+  const result = composeBriefValidationResult(structure, coachResult, passed);
+
+  const events: RunEvent[] = [
+    { type: "brief.submitted", runId, commandId, brief },
+    { type: "brief.validated", runId, commandId, briefId: brief.id, result },
+  ];
+  let phase = state.phase;
+  if (passed) {
+    events.push({
+      type: "phase.changed",
+      runId,
+      commandId,
+      from: "PROBLEM_FRAMING",
+      to: "SOLUTION_DESIGN",
+    });
+    phase = "SOLUTION_DESIGN";
+  }
+
+  await appendEvents(runId, events, store);
+
+  return {
+    runId,
+    passed,
+    supportRatio,
+    result,
+    acceptedEvents: events,
+    updatedState: { ...state, brief, phase },
+  };
+}
+
+/**
+ * Compose the deterministic structure result with the Coach's semantic result.
+ * `passed` is the recomputed gate; `entailments` are the Coach's (semantic);
+ * `missingCategories`/`unsupportedClaimIds` are the deduplicated union of both;
+ * `feedback` is deterministic + ids-only when the structure gate failed, and the
+ * Coach's (sanitized, public-only) feedback only when structure passed.
+ */
+function composeBriefValidationResult(
+  structure: BriefValidationResult,
+  coach: BriefValidationResult | null,
+  passed: boolean,
+): BriefValidationResult {
+  const missingCategories = dedupe([
+    ...structure.missingCategories,
+    ...(coach?.missingCategories ?? []),
+  ]);
+  const unsupportedClaimIds = dedupe([
+    ...structure.unsupportedClaimIds,
+    ...(coach?.unsupportedClaimIds ?? []),
+  ]);
+  const feedback = structure.passed ? (coach?.feedback ?? structure.feedback) : structure.feedback;
+  return {
+    passed,
+    entailments: coach?.entailments ?? structure.entailments,
+    missingCategories,
+    unsupportedClaimIds,
+    feedback,
+  };
+}
+
+export interface ClarificationInput {
+  /** Aggregate; `phase` must be PROBLEM_FRAMING. */
+  state: RunAggregate;
+  commandId: string;
+  /** Clarifications already consumed this framing attempt. */
+  clarificationBudgetUsed: number;
+  /** Defaults to `DEFAULT_CLARIFICATION_BUDGET`. */
+  clarificationBudgetLimit?: number;
+  store?: StoreOptions;
+}
+
+export interface ClarificationResult {
+  runId: string;
+  acceptedEvents: RunEvent[];
+  updatedState: RunAggregate;
+  clarificationBudgetUsed: number;
+}
+
+/**
+ * Return PROBLEM_FRAMING -> DISCOVERY for a clarification, tracked against a
+ * separate small clarification budget (default `DEFAULT_CLARIFICATION_BUDGET`).
+ * Throws `CLARIFICATION_BUDGET_EXCEEDED` when the budget is exhausted. The
+ * budget is caller-managed (in-memory), mirroring `pendingEvidence`.
+ */
+export async function requestClarification(
+  input: ClarificationInput,
+): Promise<ClarificationResult> {
+  const { state, commandId } = input;
+  const limit = input.clarificationBudgetLimit ?? DEFAULT_CLARIFICATION_BUDGET;
+  if (input.clarificationBudgetUsed >= limit) {
+    throw new OrchestratorError(
+      CLARIFICATION_BUDGET_EXCEEDED,
+      `clarification budget exhausted (limit ${limit})`,
+    );
+  }
+
+  const runId = state.runId;
+  const runState: RunState = { runId, phase: state.phase, seq: 0 };
+  // Phase guard + the `phase.changed` event (PROBLEM_FRAMING -> DISCOVERY).
+  const events = decide(runState, { type: "clarify", commandId });
+
+  await appendEvents(runId, events, input.store);
+
+  return {
+    runId,
+    acceptedEvents: events,
+    updatedState: { ...state, phase: "DISCOVERY" },
+    clarificationBudgetUsed: input.clarificationBudgetUsed + 1,
   };
 }

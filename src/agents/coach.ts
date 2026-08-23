@@ -1,0 +1,184 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import type { AgentRuntime } from "./agent-runtime.js";
+import {
+  BriefValidationOutputSchema,
+  CoachHintOutputSchema,
+} from "./contracts.js";
+import type {
+  BriefValidationInput,
+  CoachHintInput,
+  CoachHintOutput,
+  FinalReviewInput,
+} from "./contracts.js";
+import type { BriefValidationResult, LocalizedText, ProblemBrief } from "../core/domain.js";
+import { buildRoleInput, type RunAggregate } from "../security/context-firewall.js";
+import { sanitizeAgentResult } from "../security/sanitizer.js";
+import type { EvaluatorCapsule } from "../scenarios/schema.js";
+import { wrapUntrustedLearnerInput } from "./customer.js";
+
+/**
+ * FDE Gym — Coach/Evaluator wrapper.
+ *
+ * Two entry points, both built EXCLUSIVELY through the context firewall and
+ * sanitized against the evaluator canary before returning a schema-validated
+ * result:
+ *
+ *   - `requestHint(context)`        -> `CoachHintOutput` (`{ level, hint }`)
+ *   - `validateProblemBrief(context)` -> `BriefValidationResult`
+ *     (the semantic entailment classification; `entailments` +
+ *     `missingCategories` + `unsupportedClaimIds` + `feedback`)
+ *
+ * The Coach NEVER receives the customer capsule — `buildRoleInput("coach_evaluator", …)`
+ * rejects a customer capsule (`FIREWALL_CAPSULE_FORBIDDEN`) and builds only from
+ * the evaluator capsule plus the public aggregate. For brief validation the
+ * coach sees ONLY `{ locale, brief, graph, transcript }`; for hints it sees
+ * `{ locale, topic, requestedLevel, grantedLevels, hintLadders }`.
+ */
+
+const PROMPT_PATH = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "resources",
+  "prompts",
+  "coach-evaluator.md",
+);
+
+let cachedPrompt: string | null = null;
+
+function loadPromptTemplate(): string {
+  if (cachedPrompt === null) cachedPrompt = readFileSync(PROMPT_PATH, "utf8");
+  return cachedPrompt;
+}
+
+/** The three coach input shapes the prompt template must render. */
+export type CoachPromptInput = CoachHintInput | BriefValidationInput | FinalReviewInput;
+
+function wrapLocalized(text: LocalizedText): LocalizedText {
+  return {
+    "zh-CN": wrapUntrustedLearnerInput(text["zh-CN"]),
+    "en-US": wrapUntrustedLearnerInput(text["en-US"]),
+  };
+}
+
+/**
+ * Wrap every learner-authored prose field of a Problem Brief in the
+ * UNTRUSTED_LEARNER_INPUT boundary. Structural references (`id`, `weight`,
+ * `evidenceIds`, `disposition`) are left untouched.
+ */
+function wrapBriefProse(brief: ProblemBrief): ProblemBrief {
+  return {
+    ...brief,
+    problemStatement: wrapLocalized(brief.problemStatement),
+    goal: wrapLocalized(brief.goal),
+    constraints: brief.constraints.map(wrapLocalized),
+    claims: brief.claims.map((claim) => ({ ...claim, statement: wrapLocalized(claim.statement) })),
+    successMeasures: brief.successMeasures.map(wrapLocalized),
+    unknowns: brief.unknowns.map(wrapLocalized),
+    contradictions: brief.contradictions.map((contradiction) => ({
+      ...contradiction,
+      statement: wrapLocalized(contradiction.statement),
+    })),
+  };
+}
+
+/** Wrap the learner-authored prose in a coach input (brief + transcript questions). */
+function wrapLearnerProse(input: CoachPromptInput): unknown {
+  if (!("brief" in input)) return input;
+  const result: Record<string, unknown> = { ...input };
+  result.brief = wrapBriefProse(input.brief);
+  if ("transcript" in input) {
+    result.transcript = input.transcript.map((turn) => ({
+      ...turn,
+      question: wrapUntrustedLearnerInput(turn.question),
+    }));
+  }
+  return result;
+}
+
+/** Render the coach prompt: `{{LOCALE}}` parameterized, learner text wrapped. */
+export function renderCoachPrompt(input: CoachPromptInput): string {
+  const template = loadPromptTemplate();
+  const renderSafe = wrapLearnerProse(input);
+  return template
+    .replaceAll("{{LOCALE}}", input.locale)
+    .replace("{{INPUT}}", JSON.stringify(renderSafe, null, 2));
+}
+
+export interface CoachContext {
+  runtime: AgentRuntime;
+  /** Must carry `coachTask` (+ `hintRequest` or `brief`) for the chosen task. */
+  state: RunAggregate;
+  capsule: EvaluatorCapsule;
+  invocationId: string;
+  timeoutMs: number;
+  /** Hidden values to scan the output for; defaults to the capsule canary. */
+  canaries?: readonly string[];
+}
+
+/** Stable code for a coach output rejected by the sanitizer. */
+export const COACH_OUTPUT_REJECTED = "COACH_OUTPUT_REJECTED" as const;
+
+export class CoachError extends Error {
+  readonly code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "CoachError";
+    this.code = code;
+  }
+}
+
+/** Build `CoachHintInput` via the firewall (`coachTask="hint"`) and invoke the Coach. */
+export async function requestHint(context: CoachContext): Promise<CoachHintOutput> {
+  const built = buildRoleInput("coach_evaluator", context.state, context.capsule);
+  if (built.kind !== "hint") {
+    throw new CoachError(COACH_OUTPUT_REJECTED, "coach firewall built the wrong role");
+  }
+  const input = built.input;
+
+  const result = await context.runtime.invoke("coach_evaluator", input, {
+    runId: context.state.runId,
+    invocationId: context.invocationId,
+    freshContext: true,
+    tools: "disabled",
+    outputSchema: CoachHintOutputSchema,
+    timeoutMs: context.timeoutMs,
+  });
+
+  const safe = sanitizeAgentResult("coach_evaluator", result, CoachHintOutputSchema, {
+    canaries: context.canaries ?? [context.capsule.canary],
+  });
+  if (!safe.ok) {
+    throw new CoachError(safe.failure.code, safe.failure.message);
+  }
+  return safe.output;
+}
+
+/** Build `BriefValidationInput` via the firewall (`coachTask="brief-validation"`) and invoke the Coach. */
+export async function validateProblemBrief(context: CoachContext): Promise<BriefValidationResult> {
+  const built = buildRoleInput("coach_evaluator", context.state, context.capsule);
+  if (built.kind !== "brief-validation") {
+    throw new CoachError(COACH_OUTPUT_REJECTED, "coach firewall built the wrong role");
+  }
+  const input = built.input;
+
+  const result = await context.runtime.invoke("coach_evaluator", input, {
+    runId: context.state.runId,
+    invocationId: context.invocationId,
+    freshContext: true,
+    tools: "disabled",
+    outputSchema: BriefValidationOutputSchema,
+    timeoutMs: context.timeoutMs,
+  });
+
+  const safe = sanitizeAgentResult("coach_evaluator", result, BriefValidationOutputSchema, {
+    canaries: context.canaries ?? [context.capsule.canary],
+  });
+  if (!safe.ok) {
+    throw new CoachError(safe.failure.code, safe.failure.message);
+  }
+  return safe.output;
+}
