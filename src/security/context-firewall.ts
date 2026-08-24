@@ -35,6 +35,7 @@ import {
   type HintLedgerEntry,
 } from "../agents/contracts.js";
 import type { CustomerCapsule, EvaluatorCapsule } from "../scenarios/schema.js";
+import { RUBRIC } from "../scoring/rubric.js";
 
 /**
  * FDE Gym — role-scoped context firewall.
@@ -337,6 +338,16 @@ export function buildRoleInput(
             graph: agg.graph,
             transcript: agg.transcript,
             hintLedger: agg.grantedHints,
+            // The FIXED capability rubric (learner-safe), never the scenario's
+            // hidden `evaluator.rubric`. Copied to plain arrays (RUBRIC is
+            // `readonly`).
+            rubric: {
+              framing: [...RUBRIC.framing],
+              solution: [...RUBRIC.solution],
+              challenge: [...RUBRIC.challenge],
+              pitch: [...RUBRIC.pitch],
+              process: [...RUBRIC.process],
+            },
           };
           return { kind: "final-review", input: FinalReviewInputSchema.parse(input) };
         }

@@ -191,6 +191,13 @@ describe("role input/output contracts", () => {
       graph: validGraph(),
       transcript: [],
       hintLedger: [],
+      rubric: {
+        framing: [{ id: "evidence-support", label: "Evidence Support", weight: 40 }],
+        solution: [{ id: "traceability", label: "Traceability", weight: 30 }],
+        challenge: [{ id: "adaptation", label: "Adaptation", weight: 40 }],
+        pitch: [{ id: "audience-fit", label: "Audience Fit", weight: 25 }],
+        process: [{ id: "evidence-hygiene", label: "Evidence Hygiene", weight: 40 }],
+      },
     };
     expect(FinalReviewInputSchema.safeParse(input).success).toBe(true);
 
@@ -203,6 +210,31 @@ describe("role input/output contracts", () => {
       nextFocus: [text],
     };
     expect(FinalReviewOutputSchema.safeParse(output).success).toBe(true);
+  });
+
+  it("accepts optional per-criterion scores in FinalReviewOutput and bounds them 0..100", () => {
+    const withScores = {
+      verdict: "fail",
+      strengths: [text],
+      weaknesses: [text],
+      missedOpportunities: [text],
+      decisionDivergencePoints: [],
+      nextFocus: [text],
+      criterionScores: {
+        framing: { "evidence-support": 90, "goal-clarity": 80 },
+        solution: { traceability: 70 },
+        challenge: { adaptation: 60 },
+        pitch: { "audience-fit": 50 },
+        process: { "evidence-hygiene": 95 },
+      },
+    };
+    expect(FinalReviewOutputSchema.safeParse(withScores).success).toBe(true);
+
+    const outOfRange = {
+      ...withScores,
+      criterionScores: { framing: { "evidence-support": 101 } },
+    };
+    expect(FinalReviewOutputSchema.safeParse(outOfRange).success).toBe(false);
   });
 });
 

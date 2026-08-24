@@ -119,12 +119,22 @@ weights):
 new competency = clamp(0, 100, 0.7 × previous + 0.3 × current)
 ```
 
-## Known limitation — deterministic stage-score fallback
+## Stage scores and per-question form — real inputs, deterministic fallback
 
-The Coach's `FinalReviewResult` carries **no per-criterion scores**, and the
-Evidence Tracker's per-question form metrics are **not persisted** to the event
-stream. `src/scoring/score-input.ts` therefore derives both with documented
-deterministic fallbacks (no model call, byte-stable):
+Two scoring inputs have a **real model source** but remain deterministic and
+byte-stable when that source is absent:
+
+- The Coach's `FinalReviewResult` now carries an **optional** `criterionScores`
+  field — per-stage, per-criterion numeric scores (0..100) against the fixed
+  capability rubric. `src/scoring/score-input.ts` derives each stage score with
+  `computeStageScore` (the weighted criterion mean) when that stage has at least
+  one criterion score.
+- The Evidence Tracker's per-question `questionAssessment` is now persisted as a
+  `question.assessed` event; `score-input.ts` reads its
+  `atomicity/neutrality/relevance/redundancy` for the per-question FORM metric.
+
+When a source is absent (an older committed run, or a Coach/tracker output
+without the field), the documented deterministic fallback applies:
 
 ```
 framing   = clamp100(briefSupport × 100)
@@ -136,7 +146,6 @@ process   = clamp100(100 − hintPenalty)
 
 Per-question form fallback: a question that revealed new evidence scores
 `atomicity=neutrality=relevance=1, redundancy=0`; one that revealed nothing
-scores `relevance=0, redundancy=1`. These are placeholder-quality and should be
-replaced when per-criterion Coach scores and persisted tracker assessments
-exist — until then they are deterministic so replay and score remain
-byte-stable.
+scores `relevance=0, redundancy=1`. A stage whose `criterionScores` map is empty
+falls back per-stage (never collapses to 0). Both fallbacks are deterministic
+(no model call) so replay and score remain byte-stable.

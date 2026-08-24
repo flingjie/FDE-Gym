@@ -10,6 +10,7 @@ import {
   LocaleSchema,
   PitchArtifactSchema,
   ProblemBriefSchema,
+  QuestionAssessmentSchema,
   SolutionProposalSchema,
   TranscriptTurnSchema,
   type BriefValidationResult,
@@ -74,16 +75,9 @@ export const EvidenceTrackerInputSchema = z
   .strict();
 export type EvidenceTrackerInput = z.infer<typeof EvidenceTrackerInputSchema>;
 
-export const QuestionAssessmentSchema = z
-  .object({
-    intentCount: z.number().int().positive(),
-    atomicity: z.number().min(0).max(1),
-    neutrality: z.number().min(0).max(1),
-    relevance: z.number().min(0).max(1),
-    redundancy: z.number().min(0).max(1),
-  })
-  .strict();
-export type QuestionAssessment = z.infer<typeof QuestionAssessmentSchema>;
+// Moved to core/domain.ts — persisted as the `question.assessed` event payload.
+export { QuestionAssessmentSchema } from "../core/domain.js";
+export type { QuestionAssessment } from "../core/domain.js";
 
 export const EvidenceTrackerOutputSchema = z
   .object({
@@ -166,6 +160,32 @@ export const BriefValidationOutputSchema = BriefValidationResultSchema;
 // Coach — final review
 // ---------------------------------------------------------------------------
 
+/**
+ * One criterion of the FIXED capability rubric (`src/scoring/rubric.ts`), fed to
+ * the Coach in `final-review` so it can assign per-criterion 0–100 scores. This
+ * is the public, learner-safe capability rubric — NOT the scenario's hidden
+ * `evaluator.rubric` (ground truth), which is never passed to any role.
+ */
+export const RubricCriterionInputSchema = z
+  .object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    weight: z.number().int().min(0).max(100),
+  })
+  .strict();
+export type RubricCriterionInput = z.infer<typeof RubricCriterionInputSchema>;
+
+export const RubricInputSchema = z
+  .object({
+    framing: z.array(RubricCriterionInputSchema),
+    solution: z.array(RubricCriterionInputSchema),
+    challenge: z.array(RubricCriterionInputSchema),
+    pitch: z.array(RubricCriterionInputSchema),
+    process: z.array(RubricCriterionInputSchema),
+  })
+  .strict();
+export type RubricInput = z.infer<typeof RubricInputSchema>;
+
 export const FinalReviewInputSchema = z
   .object({
     locale: LocaleSchema,
@@ -176,6 +196,7 @@ export const FinalReviewInputSchema = z
     graph: EvidenceGraphSchema,
     transcript: z.array(TranscriptTurnSchema),
     hintLedger: z.array(HintLedgerEntrySchema),
+    rubric: RubricInputSchema,
   })
   .strict();
 export type FinalReviewInput = z.infer<typeof FinalReviewInputSchema>;

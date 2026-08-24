@@ -86,6 +86,11 @@ export function projectPublic(event: RunEvent): PublicEvent | null {
       // The patch carries only public graph ids (evidence node/edge ids and
       // public transcript source ids) — never hidden disclosure/evidence ids.
       return { type: "evidence.patched", runId: event.runId, patch: event.patch };
+    case "question.assessed":
+      // Internal-only: per-question form metrics are consumed by scoring and are
+      // never surfaced as a public event (the learner sees only aggregate
+      // numbers via the score breakdown).
+      return null;
     case "hint.granted":
       return {
         type: "hint.granted",
@@ -123,8 +128,9 @@ export function projectPublic(event: RunEvent): PublicEvent | null {
       // opportunities and decision-divergence points are sanitized Coach
       // feedback over PUBLIC input only (the Coach never sees ground truth) and
       // are therefore learner-safe — Task 11 exposes them so the replay can
-      // show the full review. Per-criterion scores are not part of
-      // `FinalReviewResult` and never projected.
+      // show the full review. The optional per-criterion `criterionScores` are
+      // NOT projected here (they are numeric but surface only as the aggregate
+      // stage scores in `score.computed`).
       return {
         type: "review.completed",
         runId: event.runId,

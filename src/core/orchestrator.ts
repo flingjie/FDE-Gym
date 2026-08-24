@@ -238,6 +238,7 @@ export async function runDiscoveryTurn(
 
   // Steps 4–5: invoke Evidence Tracker on the public turn, validate/apply patch.
   let evidenceEvent: RunEvent;
+  let assessmentEvent: RunEvent;
   let aggPatched: RunAggregate;
   let metrics: DiscoveryTurnMetrics;
   try {
@@ -254,6 +255,13 @@ export async function runDiscoveryTurn(
       runId,
       commandId: `${commandId}:evidence`,
       patch: evidence.patch,
+    };
+    assessmentEvent = {
+      type: "question.assessed",
+      runId,
+      commandId: `${commandId}:evidence`,
+      questionId: commandId,
+      assessment: evidence.questionAssessment,
     };
     aggPatched = { ...aggReply, graph: nextGraph };
     // Step 6: deterministic per-question metrics.
@@ -277,10 +285,10 @@ export async function runDiscoveryTurn(
   }
 
   // Step 7: persist all accepted events.
-  await appendEvents(runId, [questionEvent, replyEvent, evidenceEvent], store);
+  await appendEvents(runId, [questionEvent, replyEvent, evidenceEvent, assessmentEvent], store);
   return {
     runId,
-    acceptedEvents: [questionEvent, replyEvent, evidenceEvent],
+    acceptedEvents: [questionEvent, replyEvent, evidenceEvent, assessmentEvent],
     pendingEvidence: null,
     metrics,
     updatedState: aggPatched,
@@ -315,12 +323,19 @@ export async function repairPendingEvidence(
     commandId: `${commandId}:evidence`,
     patch: evidence.patch,
   };
+  const assessmentEvent: RunEvent = {
+    type: "question.assessed",
+    runId,
+    commandId: `${commandId}:evidence`,
+    questionId: commandId,
+    assessment: evidence.questionAssessment,
+  };
   const updatedState: RunAggregate = { ...state, graph: nextGraph };
 
-  await appendEvents(runId, [evidenceEvent], store);
+  await appendEvents(runId, [evidenceEvent, assessmentEvent], store);
   return {
     runId,
-    acceptedEvents: [evidenceEvent],
+    acceptedEvents: [evidenceEvent, assessmentEvent],
     pendingEvidence: null,
     metrics: computeDiscoveryMetrics(evidence.questionAssessment),
     updatedState,
@@ -1037,6 +1052,7 @@ export async function submitReview(input: SubmitReviewInput): Promise<SubmitRevi
     customerCapsule,
     evaluatorCapsule: capsule,
     publicScenario,
+    criterionScores: review.criterionScores,
   });
   const score = calculateScore(scoreInput);
   // Defense-in-depth: the persisted score must satisfy the domain schema.

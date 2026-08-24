@@ -1,4 +1,4 @@
-import type { RunEvent } from "../core/domain.js";
+import type { CriterionScores, QuestionAssessment, RunEvent } from "../core/domain.js";
 import type { RunAggregate } from "../security/context-firewall.js";
 import type {
   CustomerCapsule,
@@ -8,6 +8,7 @@ import type {
 import { calculateSupportRatio } from "../evidence/brief-validator.js";
 import type { AttemptReview, CompetencyScores } from "../profile/learner-profile.js";
 import type { ScoreBreakdown } from "../core/domain.js";
+import { computeStageScore, type RubricStageId } from "./rubric.js";
 import type {
   HintCounts,
   QuestionScoreInput,
@@ -96,11 +97,42 @@ export function fallbackStageScores(input: {
 }
 
 /**
- * DETERMINISTIC FALLBACK (Task 13 item): per-question scores. The real form
- * metrics (`atomicity/neutrality/relevance/redundancy`) come from the Evidence
- * Tracker and are not persisted, so a question that revealed new evidence is
- * scored as a clean, relevant, non-redundant question, and one that revealed
- * nothing is scored as redundant.
+ * Derive the five stage scores. When the Coach's final review carries
+ * per-criterion scores, weight them with `computeStageScore` against the fixed
+ * capability rubric; otherwise fall back to `fallbackStageScores`. A stage is
+ * derived from criterion scores only when at least one is present — a missing
+ * stage falls back rather than collapsing to 0.
+ */
+function deriveStageScores(
+  criterionScores: CriterionScores | undefined,
+  fallback: StageScores,
+): StageScores {
+  const stageScore = (stage: RubricStageId): number => {
+    const map = criterionScores?.[stage];
+    if (map !== undefined && Object.keys(map).length > 0) {
+      return computeStageScore(stage, map);
+    }
+    return fallback[stage];
+  };
+  return {
+    framing: stageScore("framing"),
+    solution: stageScore("solution"),
+    challenge: stageScore("challenge"),
+    pitch: stageScore("pitch"),
+    process: stageScore("process"),
+  };
+}
+
+/**
+ * Build per-question score inputs. `newlyRevealedWeight` always comes from the
+ * disclosure ledger (question-driven only). The FORM metrics
+ * (atomicity/neutrality/relevance/redundancy) come from the persisted Evidence
+ * Tracker assessment (`question.assessed`), keyed by the turn's questionId.
+ *
+ * For runs predating `question.assessed` (or a turn whose assessment is
+ * missing), the deterministic revelation heuristic is the fallback: a question
+ * that revealed new evidence scores as a clean, relevant, non-redundant
+ * question, and one that revealed nothing scores as redundant.
  */
 function buildQuestionScores(
   events: readonly RunEvent[],
@@ -113,13 +145,22 @@ function buildQuestionScores(
   const evidenceWeight = new Map(
     evaluatorCapsule.expectedEvidence.map((evidence) => [evidence.id, evidence.weight] as const),
   );
+
+  // Persisted assessments, keyed by questionId.
+  const assessments = new Map<string, QuestionAssessment>();
+  for (const event of events) {
+    if (event.type === "question.assessed") assessments.set(event.questionId, event.assessment);
+  }
+
   const revealed = new Set<string>();
   const out: QuestionScoreInput[] = [];
 
   let pending = false;
+  let currentQuestionId: string | null = null;
   for (const event of events) {
     if (event.type === "question.asked") {
       pending = true;
+      currentQuestionId = event.questionId;
     } else if (event.type === "customer.replied" && pending) {
       pending = false;
       let newlyRevealedWeight = 0;
@@ -130,13 +171,15 @@ function buildQuestionScores(
         newlyRevealedWeight += evidenceWeight.get(evidenceId) ?? 0;
       }
       const hasNew = newlyRevealedWeight > 0;
+      const assessment = currentQuestionId === null ? undefined : assessments.get(currentQuestionId);
       out.push({
         newlyRevealedWeight,
-        atomicity: 1,
-        neutrality: 1,
-        relevance: hasNew ? 1 : 0,
-        redundancy: hasNew ? 0 : 1,
+        atomicity: assessment?.atomicity ?? 1,
+        neutrality: assessment?.neutrality ?? 1,
+        relevance: assessment?.relevance ?? (hasNew ? 1 : 0),
+        redundancy: assessment?.redundancy ?? (hasNew ? 0 : 1),
       });
+      currentQuestionId = null;
     }
   }
   return out;
@@ -152,6 +195,8 @@ export interface BuildScoreInputOptions {
   customerCapsule: CustomerCapsule;
   evaluatorCapsule: EvaluatorCapsule;
   publicScenario: PublicScenario;
+  /** The Coach's per-criterion scores from final-review (optional). */
+  criterionScores?: CriterionScores;
 }
 
 /** Assemble the full `ScoreInput` for `calculateScore` from public run state. */
@@ -226,10 +271,10 @@ export function buildScoreInput(options: BuildScoreInputOptions): ScoreInput {
   // --- pitch + leak guard -------------------------------------------------------
   const pitchExplicitAsk = aggregate.pitch !== null && aggregate.pitch.ask["zh-CN"].trim().length > 0;
 
-  // --- stage scores (fallback) --------------------------------------------------
+  // --- stage scores (per-criterion Coach scores with deterministic fallback) ----
   const mandatory = injectedChallengeIds(events);
   const answered = new Set(aggregate.challengeResponses.map((response) => response.challengeId));
-  const stageScores = fallbackStageScores({
+  const fallback = fallbackStageScores({
     briefSupport,
     proposalPresent: aggregate.proposal !== null,
     mandatoryChallenges: mandatory.length,
@@ -237,6 +282,7 @@ export function buildScoreInput(options: BuildScoreInputOptions): ScoreInput {
     pitchExplicitAsk,
     hintPenalty,
   });
+  const stageScores = deriveStageScores(options.criterionScores, fallback);
 
   return {
     coverage: clamp01(coverage),

@@ -153,6 +153,7 @@ describe("discovery turn pipeline", () => {
       "question.asked",
       "customer.replied",
       "evidence.patched",
+      "question.assessed",
     ]);
     expect(result.metrics).not.toBeNull();
     expect(result.metrics!.questionAssessment.intentCount).toBe(1);
@@ -165,7 +166,7 @@ describe("discovery turn pipeline", () => {
     expect(result.updatedState.pendingQuestion).toBeNull();
 
     const loaded = await loadRun("run-1", { baseDir });
-    expect(loaded.seq).toBe(3);
+    expect(loaded.seq).toBe(4);
   });
 
   it("retains the customer reply and marks EVIDENCE_PENDING when the tracker fails", async () => {
@@ -230,7 +231,7 @@ describe("discovery turn pipeline", () => {
     expect(() => assertFrameAllowed(repaired.pendingEvidence)).not.toThrow();
 
     const loaded = await loadRun("run-1", { baseDir });
-    expect(loaded.seq).toBe(3);
+    expect(loaded.seq).toBe(4);
   });
 });
 

@@ -357,6 +357,25 @@ export type HintLevel = (typeof HINT_LEVELS)[number];
 export const HintLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 
 // ---------------------------------------------------------------------------
+// Per-question assessment (Evidence Tracker output)
+//
+// The tracker produces this for each discovery turn; the orchestrator persists
+// it as a `question.assessed` event so scoring can consume the real FORM
+// metrics instead of the deterministic revelation heuristic.
+// ---------------------------------------------------------------------------
+
+export const QuestionAssessmentSchema = z
+  .object({
+    intentCount: z.number().int().positive(),
+    atomicity: z.number().min(0).max(1),
+    neutrality: z.number().min(0).max(1),
+    relevance: z.number().min(0).max(1),
+    redundancy: z.number().min(0).max(1),
+  })
+  .strict();
+export type QuestionAssessment = z.infer<typeof QuestionAssessmentSchema>;
+
+// ---------------------------------------------------------------------------
 // Brief validation result (shared by Coach output and the `brief.validated` event)
 // ---------------------------------------------------------------------------
 
@@ -395,6 +414,25 @@ export const DecisionDivergencePointSchema = z
   .strict();
 export type DecisionDivergencePoint = z.infer<typeof DecisionDivergencePointSchema>;
 
+/**
+ * Per-stage, per-criterion numeric scores (0..100) assigned by the Coach in
+ * `final-review`. Keys are the fixed capability-rubric criterion ids
+ * (`src/scoring/rubric.ts`); unknown ids are ignored by `computeStageScore`.
+ * OPTIONAL: absent from pre-criterion-score runs (and older committed events),
+ * in which case scoring falls back to the deterministic stage-score heuristics
+ * (`fallbackStageScores`). Numeric and learner-safe — no hidden content.
+ */
+export const CriterionScoresSchema = z
+  .object({
+    framing: z.record(z.string(), z.number().min(0).max(100)).optional(),
+    solution: z.record(z.string(), z.number().min(0).max(100)).optional(),
+    challenge: z.record(z.string(), z.number().min(0).max(100)).optional(),
+    pitch: z.record(z.string(), z.number().min(0).max(100)).optional(),
+    process: z.record(z.string(), z.number().min(0).max(100)).optional(),
+  })
+  .strict();
+export type CriterionScores = z.infer<typeof CriterionScoresSchema>;
+
 export const FinalReviewResultSchema = z
   .object({
     verdict: z.enum(["pass", "fail"]),
@@ -403,6 +441,7 @@ export const FinalReviewResultSchema = z
     missedOpportunities: z.array(LocalizedTextSchema),
     decisionDivergencePoints: z.array(DecisionDivergencePointSchema),
     nextFocus: z.array(LocalizedTextSchema),
+    criterionScores: CriterionScoresSchema.optional(),
   })
   .strict();
 export type FinalReviewResult = z.infer<typeof FinalReviewResultSchema>;
@@ -616,6 +655,15 @@ export const EvidencePatchedEventSchema = z
   })
   .strict();
 
+export const QuestionAssessedEventSchema = z
+  .object({
+    type: z.literal("question.assessed"),
+    ...EVENT_BASE,
+    questionId: z.string().min(1),
+    assessment: QuestionAssessmentSchema,
+  })
+  .strict();
+
 export const HintGrantedEventSchema = z
   .object({
     type: z.literal("hint.granted"),
@@ -776,6 +824,7 @@ export const RunEventSchema = z.discriminatedUnion("type", [
   QuestionAskedEventSchema,
   CustomerRepliedEventSchema,
   EvidencePatchedEventSchema,
+  QuestionAssessedEventSchema,
   HintGrantedEventSchema,
   BriefSubmittedEventSchema,
   BriefValidatedEventSchema,
