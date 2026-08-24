@@ -6,3 +6,4 @@ dist/
 coverage/
 scenarios/compiled/
 .claude/
+.codex/

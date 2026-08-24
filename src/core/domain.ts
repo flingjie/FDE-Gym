@@ -13,6 +13,14 @@ import { z } from "zod";
 // Bilingual text
 // ---------------------------------------------------------------------------
 
+/**
+ * Frozen MVP schema version (finalized in Task 14). Every load-time-gated
+ * resource — scenario packs (`SCENARIO_SCHEMA_VERSION`), run manifests, and
+ * learner profiles — carries this exact literal value. Loaders reject any other
+ * value with `UNSUPPORTED_SCHEMA_VERSION` (see `core/errors.ts`).
+ */
+export const FDE_SCHEMA_VERSION = 1 as const;
+
 export const LOCALES = ["zh-CN", "en-US"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const LocaleSchema = z.enum(LOCALES);

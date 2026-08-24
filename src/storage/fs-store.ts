@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { resolveBaseDir } from "../core/event-store.js";
+import { FDE_SCHEMA_VERSION } from "../core/domain.js";
+import { UnsupportedSchemaVersionError } from "../core/errors.js";
 import {
   LearnerProfileSchema,
   type LearnerProfile,
@@ -53,6 +55,18 @@ export async function loadLearnerProfile(
     parsed = JSON.parse(raw);
   } catch {
     throw new Error("invalid learner profile: not valid JSON");
+  }
+
+  // Load-time schema-version gate (Task 14 freeze): reject a profile whose
+  // schemaVersion is not the current version BEFORE structural validation, so an
+  // unsupported (or unversioned) profile fails with UNSUPPORTED_SCHEMA_VERSION
+  // and a migration instruction instead of a generic parse error.
+  const version =
+    parsed !== null && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>).schemaVersion
+      : undefined;
+  if (version !== FDE_SCHEMA_VERSION) {
+    throw new UnsupportedSchemaVersionError("learner profile", version);
   }
 
   const result = LearnerProfileSchema.safeParse(parsed);

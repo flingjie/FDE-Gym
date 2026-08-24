@@ -14,6 +14,8 @@ import type {
   ScenarioEventCandidate,
 } from "./schema.js";
 import type { AgentRole } from "../core/domain.js";
+import { FDE_SCHEMA_VERSION } from "../core/domain.js";
+import { UnsupportedSchemaVersionError } from "../core/errors.js";
 
 /**
  * FDE Gym — scenario loader.
@@ -31,6 +33,17 @@ import type { AgentRole } from "../core/domain.js";
  */
 
 const COMPILED_BASE_DIR = join(process.cwd(), "scenarios", "compiled");
+
+/** Fail closed on a schemaVersion other than the frozen v1 (Task 14). */
+function assertSupportedVersion(parsed: unknown, resource: string): void {
+  const version =
+    parsed !== null && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>).schemaVersion
+      : undefined;
+  if (version !== FDE_SCHEMA_VERSION) {
+    throw new UnsupportedSchemaVersionError(resource, version);
+  }
+}
 
 function scenarioNotFoundError(id: string): Error {
   return new Error(`Scenario not found: ${id}`);
@@ -86,6 +99,7 @@ export function loadScenarioForRole(
   }
 
   const parsed: unknown = JSON.parse(raw);
+  assertSupportedVersion(parsed, `${role} capsule for scenario ${id}`);
   if (role === "customer") {
     return CustomerCapsuleSchema.parse(parsed);
   }
@@ -110,7 +124,9 @@ export function loadPublicScenario(id: string): PublicScenario {
     }
     throw err;
   }
-  return PublicScenarioSchema.parse(JSON.parse(raw));
+  const parsed: unknown = JSON.parse(raw);
+  assertSupportedVersion(parsed, `public scenario ${id}`);
+  return PublicScenarioSchema.parse(parsed);
 }
 
 /** Convenience: loads the customer capsule for an id. */
@@ -140,6 +156,8 @@ export function loadScenarioEventCandidates(id: string): ScenarioEventCandidate[
     }
     throw err;
   }
-  const authoring = ScenarioAuthoringSchema.parse(parse(raw));
+  const parsed: unknown = parse(raw);
+  assertSupportedVersion(parsed, `scenario source ${id}`);
+  const authoring = ScenarioAuthoringSchema.parse(parsed);
   return authoring.events;
 }

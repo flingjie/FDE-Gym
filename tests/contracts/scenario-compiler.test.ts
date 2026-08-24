@@ -1,10 +1,11 @@
-import { describe, expect, it, beforeAll } from "vitest";
-import { readFileSync } from "fs";
+import { afterEach, describe, expect, it, beforeAll } from "vitest";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { parse } from "yaml";
 import { compileScenario } from "../../src/scenarios/compiler";
 import { loadScenarioForRole, loadPublicScenario } from "../../src/scenarios/loader";
 import { ScenarioAuthoringSchema } from "../../src/scenarios/schema";
+import { UNSUPPORTED_SCHEMA_VERSION } from "../../src/core/errors";
 import type { AgentRole } from "../../src/core/domain";
 
 const COMPILED_DIR = join(process.cwd(), "scenarios", "compiled");
@@ -229,6 +230,46 @@ describe("Scenario Compiler and Loader", () => {
       expect(pub.id).toBe(scenarioId);
       expect(JSON.stringify(pub)).not.toContain("canary");
       expect(JSON.stringify(pub)).not.toContain("12,000");
+    });
+  });
+
+  describe("loader schema-version gate (Task 14)", () => {
+    const probeId = "__unsupported-version-probe__";
+    const probeDir = join(COMPILED_DIR, probeId);
+
+    afterEach(() => {
+      try {
+        rmSync(probeDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    });
+
+    it("rejects a compiled partition whose schemaVersion is not 1", () => {
+      mkdirSync(probeDir, { recursive: true });
+      writeFileSync(
+        join(probeDir, "public.json"),
+        JSON.stringify({
+          id: probeId,
+          schemaVersion: 2,
+          locale: "zh-CN",
+          openingRequest: { "zh-CN": "x", "en-US": "x" },
+          visibleContext: { "zh-CN": "x", "en-US": "x" },
+          visibleConstraints: [],
+          deliverables: [],
+          learnerRules: [],
+          questionBudget: 1,
+        }),
+        "utf8",
+      );
+
+      let code: unknown;
+      try {
+        loadPublicScenario(probeId);
+      } catch (error) {
+        code = (error as { code?: unknown }).code;
+      }
+      expect(code).toBe(UNSUPPORTED_SCHEMA_VERSION);
     });
   });
 

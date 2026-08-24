@@ -6,7 +6,6 @@ import {
   readFileSync,
   readdirSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
@@ -15,14 +14,14 @@ import { localize, type CliResult } from "../../cli/render.js";
 import type { Locale } from "../../core/domain.js";
 
 /**
- * FDE Gym — Codex Skill installer (Task 12).
+ * FDE Gym — Codex Skill installer (Task 12; repo-local install finalized in Task 14).
  *
  * Installs the learner-facing Skill (`skills/fde-gym/`) and the built CLI
- * package (`dist/`) into the probed user-skill path (`$CODEX_HOME/skills/
- * fde-gym/`, default `~/.codex/skills/fde-gym/`) established by the Task 1
- * spike. Source paths are resolved from this package's own location
- * (`import.meta.url`), never from `process.cwd()`, so the installer works no
- * matter where `fde-gym install-skill` is invoked.
+ * package (`dist/`) into the PROJECT-LOCAL skill directory
+ * (`<packageRoot>/.codex/skills/fde-gym/`). The destination is resolved from
+ * this package's own location (`resolvePackageRoot()` → `import.meta.url`),
+ * never from `process.cwd()` or `~/.codex`, so the Skill ships with the
+ * repository rather than into the user-global Codex home.
  *
  * It copies ONLY the Skill files and the built CLI package — never scenario
  * source or compiled capsules. It refuses to overwrite an existing Skill whose
@@ -35,8 +34,6 @@ const SKILL_SOURCE_REL = join("skills", SKILL_DIR_NAME);
 const CLI_PACKAGE_REL = "dist";
 
 export interface InstallSkillOptions {
-  /** CODEX_HOME override. Default: `$CODEX_HOME` ?? `~/.codex`. */
-  codexHome?: string;
   /** Package root override (test control). Default: derived from `import.meta.url`. */
   packageRoot?: string;
   /** Return the exact file list without writing anything. */
@@ -89,10 +86,10 @@ export function parseSkillFrontmatter(content: string): Record<string, unknown> 
   }
 }
 
-/** The Codex user-skill directory for this Skill: `$CODEX_HOME/skills/fde-gym/`. */
-export function probeSkillDestination(codexHome?: string): string {
-  const home = codexHome ?? process.env.CODEX_HOME ?? join(homedir(), ".codex");
-  return join(home, "skills", SKILL_DIR_NAME);
+/** The project-local Codex skill directory for this Skill: `<packageRoot>/.codex/skills/fde-gym/`. */
+export function probeSkillDestination(packageRoot?: string): string {
+  const root = packageRoot ?? resolvePackageRoot();
+  return join(root, ".codex", "skills", SKILL_DIR_NAME);
 }
 
 /**
@@ -135,7 +132,7 @@ function enumerateFiles(dir: string): string[] {
 /** Build the install plan (exact file list) without writing anything. */
 export function planInstall(options: InstallSkillOptions = {}): InstallSkillPlan {
   const packageRoot = options.packageRoot ?? resolvePackageRoot();
-  const destinationRoot = probeSkillDestination(options.codexHome);
+  const destinationRoot = probeSkillDestination(packageRoot);
   const skillSrc = join(packageRoot, SKILL_SOURCE_REL);
   const cliSrc = join(packageRoot, CLI_PACKAGE_REL);
 
@@ -200,7 +197,6 @@ export function installSkill(options: InstallSkillOptions = {}): InstallSkillDat
 
 export interface InstallSkillArgs {
   locale: Locale;
-  codexHome?: string;
   dryRun?: boolean;
 }
 
@@ -210,7 +206,7 @@ export function installSkillCommand(
   args: InstallSkillArgs,
 ): CliResult<InstallSkillData> {
   try {
-    const data = installSkill({ codexHome: args.codexHome, dryRun: args.dryRun });
+    const data = installSkill({ dryRun: args.dryRun });
     return { ok: true, runId: "", phase: "SCENARIO", locale: args.locale, data };
   } catch (error) {
     const code = error instanceof InstallSkillError ? error.code : "INSTALL_SKILL_FAILED";

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { LocalizedTextSchema, type LocalizedText } from "../core/domain.js";
+import { FDE_SCHEMA_VERSION, LocalizedTextSchema, type LocalizedText } from "../core/domain.js";
 
 /**
  * FDE Gym — learner profile with the six-competency EMA.
@@ -70,6 +70,8 @@ export interface AttemptReview {
 // ---------------------------------------------------------------------------
 
 export interface LearnerProfile {
+  /** Frozen schema version (Task 14). Load-time gated by `fs-store`. */
+  schemaVersion: typeof FDE_SCHEMA_VERSION;
   competencies: CompetencyScores;
   attempts: number;
   hintReliance: number;
@@ -84,6 +86,7 @@ export interface LearnerProfile {
 
 export const LearnerProfileSchema = z
   .object({
+    schemaVersion: z.literal(FDE_SCHEMA_VERSION),
     competencies: CompetencyScoresSchema,
     attempts: z.number().int().nonnegative(),
     hintReliance: z.number(),
@@ -114,6 +117,7 @@ export function createEmptyProfile(): LearnerProfile {
   const competencies = {} as CompetencyScores;
   for (const key of COMPETENCY_KEYS) competencies[key] = INITIAL_COMPETENCY;
   return {
+    schemaVersion: FDE_SCHEMA_VERSION,
     competencies,
     attempts: 0,
     hintReliance: 0,
@@ -159,6 +163,7 @@ export function updateLearnerProfile(
   const retryFocuses = [...review.retryFocuses, ...profile.retryFocuses].slice(0, 3);
 
   return {
+    schemaVersion: FDE_SCHEMA_VERSION,
     competencies,
     attempts: profile.attempts + 1,
     hintReliance: clamp100(review.hintReliance),

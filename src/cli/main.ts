@@ -115,7 +115,7 @@ function usage(): string {
     "  replay            project the learner-safe replay (--run-id [--locale])",
     "  retry             start a clean retry (--run-id --new-run-id --command-id; JSON stdin)",
     "  profile           show the learner profile",
-    "  install-skill     install the Codex Skill to $CODEX_HOME/skills (--dry-run)",
+    "  install-skill     install the Codex Skill to the repo-local .codex/skills/ (--dry-run)",
     "",
     "Global flags: --base-dir <dir> --json",
     "",
@@ -152,7 +152,6 @@ async function main(): Promise<void> {
       "new-run-id": { type: "string" },
       "base-dir": { type: "string" },
       "codex-bin": { type: "string" },
-      "codex-home": { type: "string" },
       "dry-run": { type: "boolean" },
       "json": { type: "boolean" },
       "human": { type: "boolean" },
@@ -352,7 +351,6 @@ async function main(): Promise<void> {
     case "install-skill": {
       result = installSkillCommand(ctx, {
         locale,
-        codexHome: typeof flags["codex-home"] === "string" ? flags["codex-home"] : undefined,
         dryRun: flags["dry-run"] === true,
       });
       break;

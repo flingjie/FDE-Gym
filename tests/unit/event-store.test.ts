@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { RunCommand, RunEvent } from "../../src/core/domain";
-import { EVENT_CHAIN_INVALID, RUN_NOT_FOUND } from "../../src/core/errors";
+import { EVENT_CHAIN_INVALID, RUN_NOT_FOUND, UNSUPPORTED_SCHEMA_VERSION } from "../../src/core/errors";
 import { createInitialRunState, reduce } from "../../src/core/reducer";
 import { appendEvents, loadRun } from "../../src/core/event-store";
 import { decide } from "../../src/core/state-machine";
@@ -130,5 +130,23 @@ describe("event store", () => {
 
   it("throws RUN_NOT_FOUND for a missing run", async () => {
     await expectCode(loadRun("missing-run", { baseDir }), RUN_NOT_FOUND);
+  });
+
+  it("writes a run manifest carrying schemaVersion 1", async () => {
+    await appendEvents(RUN_ID, journeyEvents(RUN_ID), { baseDir });
+    const manifest = JSON.parse(
+      readFileSync(join(baseDir, "runs", RUN_ID, "manifest.json"), "utf8"),
+    ) as { schemaVersion?: number };
+    expect(manifest.schemaVersion).toBe(1);
+  });
+
+  it("rejects a run whose manifest schemaVersion is unsupported with UNSUPPORTED_SCHEMA_VERSION", async () => {
+    await appendEvents(RUN_ID, journeyEvents(RUN_ID), { baseDir });
+    writeFileSync(
+      join(baseDir, "runs", RUN_ID, "manifest.json"),
+      JSON.stringify({ schemaVersion: 2 }) + "\n",
+      "utf8",
+    );
+    await expectCode(loadRun(RUN_ID, { baseDir }), UNSUPPORTED_SCHEMA_VERSION);
   });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  FDE_SCHEMA_VERSION,
   LocalizedTextSchema,
   LocaleSchema,
   RunPhaseSchema,
@@ -17,7 +18,7 @@ import {
  */
 
 /** Frozen MVP schema version (finalized in Task 14; defined here so every partition carries it). */
-export const SCENARIO_SCHEMA_VERSION = 1 as const;
+export const SCENARIO_SCHEMA_VERSION = FDE_SCHEMA_VERSION;
 
 // ---------------------------------------------------------------------------
 // Shared content blocks

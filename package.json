@@ -1,6 +1,6 @@
 {
   "name": "fde-gym",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "FDE Gym: a bilingual (zh-CN default, en-US selectable) FDE capability-training product driven through the ChatGPT Codex CLI.",
   "license": "UNLICENSED",
   "type": "module",

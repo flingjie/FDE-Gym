@@ -133,6 +133,17 @@ const ERROR_TABLE: LocalizedError[] = [
     },
   },
   {
+    code: "UNSUPPORTED_SCHEMA_VERSION",
+    "zh-CN": {
+      message: "该资源携带了不受支持的 schemaVersion（仅支持 v1），无法迁移。",
+      nextActions: ["使用当前 v1 构建重新编译场景。", "删除旧的 profile 或 run 并重建。"],
+    },
+    "en-US": {
+      message: "This resource carries an unsupported schemaVersion (only v1 is supported) and cannot be migrated.",
+      nextActions: ["Recompile the scenario with a current v1 build.", "Delete the old profile or run and recreate it."],
+    },
+  },
+  {
     code: "INVALID_PHASE_COMMAND",
     "zh-CN": {
       message: "该命令在当前阶段不可用。",
@@ -323,11 +334,11 @@ const ERROR_TABLE: LocalizedError[] = [
     code: "SKILL_EXISTS_UNRELATED",
     "zh-CN": {
       message: "目标位置已存在一个非 FDE Gym 的 Skill，已拒绝覆盖。",
-      nextActions: ["移除或改名该 Skill 后重试。", "确认目标 CODEX_HOME 是否正确。"],
+      nextActions: ["移除或改名该 Skill 后重试。", "确认目标 `.codex/skills/fde-gym` 目录是否正确。"],
     },
     "en-US": {
       message: "A non-FDE-Gym Skill already exists at the target; refusing to overwrite.",
-      nextActions: ["Remove or rename the existing Skill and retry.", "Confirm the target CODEX_HOME is correct."],
+      nextActions: ["Remove or rename the existing Skill and retry.", "Confirm the target `.codex/skills/fde-gym` directory is correct."],
     },
   },
   {

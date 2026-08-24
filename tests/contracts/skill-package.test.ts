@@ -21,13 +21,13 @@ import {
 } from "../../src/integrations/codex/install-skill.js";
 
 /**
- * Task 12 — package validation.
+ * Task 12 — package validation (repo-local install finalized in Task 14).
  *
  * Validates the learner-facing Codex Skill metadata against the contract proven
- * by the Task 1 spike: user-level discovery from `$CODEX_HOME/skills/fde-gym/`,
- * a `SKILL.md` whose frontmatter carries `name` + `description`, references to
- * ONLY the three learner docs, and no hidden-content references. Also validates
- * the installer: exact `--dry-run` file list, probed destination, cwd-independence
+ * by the Task 1 spike: a `SKILL.md` whose frontmatter carries `name` +
+ * `description`, references to ONLY the three learner docs, and no
+ * hidden-content references. Also validates the installer: exact `--dry-run`
+ * file list, project-local `.codex/skills/fde-gym/` destination, cwd-independence
  * of source resolution, refusal to overwrite an unrelated Skill, and that it never
  * ships scenario source or compiled capsules.
  */
@@ -135,8 +135,7 @@ describe("install-skill", () => {
 
   it("--dry-run lists the exact Skill + built CLI files without writing anything", () => {
     const root = fixturePackage();
-    const home = tmp();
-    const result = installSkill({ packageRoot: root, codexHome: home, dryRun: true });
+    const result = installSkill({ packageRoot: root, dryRun: true });
 
     expect(result.dryRun).toBe(true);
     expect(result.files).toEqual([
@@ -147,46 +146,34 @@ describe("install-skill", () => {
       "references/learner-flow.md",
       "references/security-boundaries.md",
     ]);
-    // Nothing written to disk.
-    expect(existsSync(join(home, "skills", "fde-gym"))).toBe(false);
+    // Nothing written to disk (project-local destination is the package root).
+    expect(existsSync(join(root, ".codex", "skills", "fde-gym"))).toBe(false);
   });
 
-  it("installs the Skill + built CLI to the probed $CODEX_HOME/skills/fde-gym path", () => {
+  it("installs the Skill + built CLI to the project-local .codex/skills/fde-gym path", () => {
     const root = fixturePackage();
-    const home = tmp();
-    const result = installSkill({ packageRoot: root, codexHome: home });
+    const result = installSkill({ packageRoot: root });
 
     expect(result.dryRun).toBe(false);
-    expect(result.destination).toBe(join(home, "skills", "fde-gym"));
-    expect(readFileSync(join(home, "skills", "fde-gym", "SKILL.md"), "utf8")).toContain("name: fde-gym");
-    expect(existsSync(join(home, "skills", "fde-gym", "references", "commands.md"))).toBe(true);
-    expect(existsSync(join(home, "skills", "fde-gym", "dist", "cli", "main.js"))).toBe(true);
+    expect(result.destination).toBe(join(root, ".codex", "skills", "fde-gym"));
+    expect(readFileSync(join(root, ".codex", "skills", "fde-gym", "SKILL.md"), "utf8")).toContain("name: fde-gym");
+    expect(existsSync(join(root, ".codex", "skills", "fde-gym", "references", "commands.md"))).toBe(true);
+    expect(existsSync(join(root, ".codex", "skills", "fde-gym", "dist", "cli", "main.js"))).toBe(true);
   });
 
-  it("probes the destination from $CODEX_HOME (falling back to ~/.codex)", () => {
-    const home = tmp();
-    const previous = process.env.CODEX_HOME;
-    process.env.CODEX_HOME = home;
-    try {
-      expect(probeSkillDestination()).toBe(join(home, "skills", "fde-gym"));
-      expect(probeSkillDestination(join(home, "override"))).toBe(
-        join(home, "override", "skills", "fde-gym"),
-      );
-    } finally {
-      if (previous === undefined) delete process.env.CODEX_HOME;
-      else process.env.CODEX_HOME = previous;
-    }
+  it("probes the destination as the project-local .codex/skills/fde-gym path", () => {
+    const root = tmp();
+    expect(probeSkillDestination(root)).toBe(join(root, ".codex", "skills", "fde-gym"));
   });
 
   it("refuses to overwrite an unrelated SKILL.md (install and dry-run)", () => {
     const root = fixturePackage();
-    const home = tmp();
-    const dest = join(home, "skills", "fde-gym");
+    const dest = join(root, ".codex", "skills", "fde-gym");
     mkdirSync(dest, { recursive: true });
     writeFileSync(join(dest, "SKILL.md"), "---\nname: someone-else\ndescription: x\n---\n");
 
-    expect(() => installSkill({ packageRoot: root, codexHome: home })).toThrow(InstallSkillError);
-    expect(() => installSkill({ packageRoot: root, codexHome: home, dryRun: true })).toThrow(
+    expect(() => installSkill({ packageRoot: root })).toThrow(InstallSkillError);
+    expect(() => installSkill({ packageRoot: root, dryRun: true })).toThrow(
       InstallSkillError,
     );
     // The unrelated Skill is untouched.
@@ -195,21 +182,19 @@ describe("install-skill", () => {
 
   it("allows an idempotent reinstall over FDE Gym's own SKILL.md", () => {
     const root = fixturePackage();
-    const home = tmp();
-    installSkill({ packageRoot: root, codexHome: home });
-    const again = installSkill({ packageRoot: root, codexHome: home });
+    installSkill({ packageRoot: root });
+    const again = installSkill({ packageRoot: root });
     expect(again.files).toContain("SKILL.md");
     expect(again.files).toContain("references/commands.md");
   });
 
   it("resolves the source path from the package, not the current working directory", () => {
     const root = fixturePackage();
-    const home = tmp();
     const elsewhere = tmp();
     const cwd = process.cwd();
     process.chdir(elsewhere);
     try {
-      const plan = planInstall({ packageRoot: root, codexHome: home });
+      const plan = planInstall({ packageRoot: root });
       expect(plan.entries.length).toBeGreaterThan(0);
       for (const entry of plan.entries) {
         expect(entry.source.startsWith(root)).toBe(true);
@@ -236,8 +221,7 @@ describe("install-skill", () => {
 
   it("never copies scenario source or compiled capsules", () => {
     const root = fixturePackage();
-    const home = tmp();
-    const plan = planInstall({ packageRoot: root, codexHome: home });
+    const plan = planInstall({ packageRoot: root });
     for (const entry of plan.entries) {
       expect(entry.rel).not.toMatch(/scenarios\/(source|compiled)/);
       expect(entry.rel).not.toMatch(/\.yaml$/);

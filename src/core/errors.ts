@@ -1,4 +1,4 @@
-import type { RunPhase } from "./domain.js";
+import { FDE_SCHEMA_VERSION, type RunPhase } from "./domain.js";
 
 /**
  * Stable error codes for the deterministic control plane. Errors expose only a
@@ -67,5 +67,20 @@ export class RunAlreadyExistsError extends FdeError {
     super(RUN_ALREADY_EXISTS, `run already started: ${runId}`);
     this.name = "RunAlreadyExistsError";
     this.runId = runId;
+  }
+}
+
+/** A persisted resource carries a schema version this build does not support. */
+export class UnsupportedSchemaVersionError extends FdeError {
+  readonly resource: string;
+  readonly schemaVersion: unknown;
+  constructor(resource: string, schemaVersion: unknown) {
+    super(
+      UNSUPPORTED_SCHEMA_VERSION,
+      `${resource} carries schemaVersion ${String(schemaVersion)}; only schemaVersion ${FDE_SCHEMA_VERSION} is supported and no automatic migration is available — recompile the scenario source with a v${FDE_SCHEMA_VERSION} build, or regenerate the profile/run with a current build.`,
+    );
+    this.name = "UnsupportedSchemaVersionError";
+    this.resource = resource;
+    this.schemaVersion = schemaVersion;
   }
 }

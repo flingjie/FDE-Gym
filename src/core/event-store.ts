@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
-import { access, appendFile, mkdir, readFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
-import { RunEventSchema, type RecordedEvent, type RunEvent } from "./domain.js";
-import { EventChainInvalidError, RunNotFoundError } from "./errors.js";
+import { FDE_SCHEMA_VERSION, RunEventSchema, type RecordedEvent, type RunEvent } from "./domain.js";
+import { EventChainInvalidError, RunNotFoundError, UnsupportedSchemaVersionError } from "./errors.js";
 import { createInitialRunState, reduce, type RunState } from "./reducer.js";
 
 /**
@@ -70,6 +70,41 @@ function eventsFile(baseDir: string, runId: string): string {
   return join(baseDir, "runs", runId, "events.jsonl");
 }
 
+function manifestFile(baseDir: string, runId: string): string {
+  return join(baseDir, "runs", runId, "manifest.json");
+}
+
+/**
+ * Validate the run manifest's schemaVersion (Task 14 freeze). A missing or
+ * unparseable manifest, or a version other than `FDE_SCHEMA_VERSION`, fails
+ * closed with `UNSUPPORTED_SCHEMA_VERSION` and a migration instruction rather
+ * than partially parsing the run.
+ */
+async function readRunManifest(baseDir: string, runId: string): Promise<void> {
+  let raw: string;
+  try {
+    raw = await readFile(manifestFile(baseDir, runId), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new UnsupportedSchemaVersionError(`run ${runId}`, "unversioned (no manifest)");
+    }
+    throw error;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new UnsupportedSchemaVersionError(`run ${runId}`, "unparseable manifest");
+  }
+  const version =
+    parsed !== null && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>).schemaVersion
+      : undefined;
+  if (version !== FDE_SCHEMA_VERSION) {
+    throw new UnsupportedSchemaVersionError(`run ${runId}`, version);
+  }
+}
+
 /**
  * Append domain events to a run, assigning the envelope and chaining hashes.
  * Idempotent by `commandId`: an event whose `commandId` is already recorded is
@@ -118,6 +153,11 @@ export async function appendEvents(
   }
 
   await mkdir(join(baseDir, "runs", runId), { recursive: true });
+  await writeFile(
+    manifestFile(baseDir, runId),
+    JSON.stringify({ schemaVersion: FDE_SCHEMA_VERSION }) + "\n",
+    "utf8",
+  );
   await appendFile(eventsFile(baseDir, runId), lines.join(""), "utf8");
 }
 
@@ -138,6 +178,7 @@ export async function loadRun(runId: string, options: StoreOptions = {}): Promis
   }
   if (!exists) throw new RunNotFoundError(runId);
 
+  await readRunManifest(baseDir, runId);
   const events = await readRecordedEvents(baseDir, runId);
   let state = createInitialRunState(runId);
   for (const event of events) state = reduce(state, event);
@@ -161,6 +202,7 @@ export async function loadEvents(runId: string, options: StoreOptions = {}): Pro
   }
   if (!exists) throw new RunNotFoundError(runId);
 
+  await readRunManifest(baseDir, runId);
   return readRecordedEvents(baseDir, runId);
 }
 

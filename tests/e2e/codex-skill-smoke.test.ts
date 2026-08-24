@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,11 +19,12 @@ import type { CustomerCapsule, EvaluatorCapsule, PublicScenario } from "../../sr
 /**
  * Task 12 — Codex Skill smoke (no real network).
  *
- * Installs the real Skill into a temp CODEX_HOME and asserts it loads (SKILL.md
- * frontmatter + resolvable references). Then proves the CLI produces
- * locale-correct envelopes — zh-CN default, `--locale en-US` switch — both at
- * the command layer (via `FixtureAgentRuntime` for the model-backed `ask` turn)
- * and, when `dist/` is built, through the actual `fde-gym` binary.
+ * Installs the real Skill into a temp package root's project-local
+ * `.codex/skills/fde-gym/` and asserts it loads (SKILL.md frontmatter +
+ * resolvable references). Then proves the CLI produces locale-correct envelopes
+ * — zh-CN default, `--locale en-US` switch — both at the command layer (via
+ * `FixtureAgentRuntime` for the model-backed `ask` turn) and, when `dist/` is
+ * built, through the actual `fde-gym` binary.
  */
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -156,9 +157,19 @@ async function driveAsk(locale: Locale, baseDir: string) {
 }
 
 describe("Codex Skill smoke", () => {
-  it("installs the real Skill into a temp CODEX_HOME and the Skill loads", () => {
-    const home = tmp();
-    const result = installSkill({ codexHome: home, packageRoot: REPO_ROOT });
+  it("installs the real Skill to a project-local .codex/skills/fde-gym and the Skill loads", () => {
+    // The destination is derived from the package root, so point at a temp root
+    // holding a copy of the real Skill to keep the test hermetic.
+    const root = tmp();
+    const skillSrc = join(REPO_ROOT, "skills", "fde-gym");
+    const skillDst = join(root, "skills", "fde-gym");
+    mkdirSync(join(skillDst, "references"), { recursive: true });
+    copyFileSync(join(skillSrc, "SKILL.md"), join(skillDst, "SKILL.md"));
+    for (const doc of ["commands.md", "learner-flow.md", "security-boundaries.md"]) {
+      copyFileSync(join(skillSrc, "references", doc), join(skillDst, "references", doc));
+    }
+
+    const result = installSkill({ packageRoot: root });
 
     for (const file of [
       "SKILL.md",
@@ -169,7 +180,7 @@ describe("Codex Skill smoke", () => {
       expect(result.files).toContain(file);
     }
 
-    const installedSkill = readFileSync(join(home, "skills", "fde-gym", "SKILL.md"), "utf8");
+    const installedSkill = readFileSync(join(root, ".codex", "skills", "fde-gym", "SKILL.md"), "utf8");
     const fm = parseSkillFrontmatter(installedSkill);
     expect(fm?.name).toBe("fde-gym");
     expect(typeof fm?.description).toBe("string");
@@ -180,7 +191,7 @@ describe("Codex Skill smoke", () => {
       "references/learner-flow.md",
       "references/security-boundaries.md",
     ]) {
-      expect(existsSync(join(home, "skills", "fde-gym", doc))).toBe(true);
+      expect(existsSync(join(root, ".codex", "skills", "fde-gym", doc))).toBe(true);
     }
   });
 
