@@ -97,17 +97,21 @@ export async function extractEvidence(
   }
   const input = built.input;
 
+  const canaries = context.canaries ?? [];
+
   const result = await context.runtime.invoke("evidence_tracker", input, {
     runId: context.state.runId,
     invocationId: context.invocationId,
     freshContext: true,
     tools: "disabled",
+    prompt: renderEvidenceTrackerPrompt(input),
+    canaries,
     outputSchema: EvidenceTrackerOutputSchema,
     timeoutMs: context.timeoutMs,
   });
 
   const safe = sanitizeAgentResult("evidence_tracker", result, EvidenceTrackerOutputSchema, {
-    canaries: context.canaries ?? [],
+    canaries,
   });
   if (!safe.ok) {
     throw new EvidenceTrackerError(safe.failure.code, safe.failure.message);

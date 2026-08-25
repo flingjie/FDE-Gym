@@ -100,11 +100,15 @@ export async function answerDiscoveryQuestion(
   }
   const input = built.input;
 
+  const canaries = context.canaries ?? [context.capsule.canary];
+
   const result = await context.runtime.invoke("customer", input, {
     runId: context.state.runId,
     invocationId: context.invocationId,
     freshContext: true,
     tools: "disabled",
+    prompt: renderCustomerPrompt(input),
+    canaries,
     outputSchema: CustomerOutputSchema,
     timeoutMs: context.timeoutMs,
   });
@@ -112,7 +116,7 @@ export async function answerDiscoveryQuestion(
   // Defense-in-depth sanitize: strip prohibited keys, leak-guard scan, strict
   // schema validation. Required even when the runtime already sanitized.
   const safe = sanitizeAgentResult("customer", result, CustomerOutputSchema, {
-    canaries: context.canaries ?? [context.capsule.canary],
+    canaries,
   });
   if (!safe.ok) {
     throw new CustomerAgentError(safe.failure.code, safe.failure.message);

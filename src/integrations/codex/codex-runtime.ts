@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { z } from "zod";
+import { z } from "zod";
 import type { AgentRole } from "../../core/domain.js";
-import type { AgentInvocationResult, AgentRuntime } from "../../agents/agent-runtime.js";
+import type { AgentInvocationResult, AgentInvokeOptions, AgentRuntime } from "../../agents/agent-runtime.js";
 import { roleInputSchema } from "../../security/context-firewall.js";
 import {
   AGENT_INPUT_INVALID,
@@ -64,15 +64,6 @@ export class AgentRuntimeError extends Error {
   }
 }
 
-interface InvokeOptions<TOutput> {
-  runId: string;
-  invocationId: string;
-  freshContext: true;
-  tools: "disabled";
-  outputSchema: z.ZodType<TOutput>;
-  timeoutMs: number;
-}
-
 type AttemptResult<TOutput> =
   | { outcome: "ok"; result: AgentInvocationResult<TOutput> }
   | { outcome: "malformed" }
@@ -104,7 +95,7 @@ export class CodexAgentRuntime implements AgentRuntime {
   async invoke<TInput, TOutput>(
     role: AgentRole,
     input: TInput,
-    options: InvokeOptions<TOutput>,
+    options: AgentInvokeOptions<TOutput>,
   ): Promise<AgentInvocationResult<TOutput>> {
     // Fail closed on the INPUT side: a role must never receive an input that
     // is not one of its strict role inputs (e.g. an evaluator capsule handed to
@@ -114,25 +105,11 @@ export class CodexAgentRuntime implements AgentRuntime {
       throw new AgentRuntimeError(AGENT_INPUT_INVALID, `invalid ${role} input`);
     }
 
-    const first = await this.runOnce(
-      role,
-      input,
-      options.invocationId,
-      options.outputSchema,
-      options.timeoutMs,
-      false,
-    );
+    const first = await this.runOnce(role, options, false);
     if (first.outcome === "ok") return first.result;
     if (first.outcome === "terminal") throw first.error;
 
-    const second = await this.runOnce(
-      role,
-      input,
-      options.invocationId,
-      options.outputSchema,
-      options.timeoutMs,
-      first.outcome === "malformed",
-    );
+    const second = await this.runOnce(role, options, first.outcome === "malformed");
     if (second.outcome === "ok") return second.result;
     if (second.outcome === "terminal") throw second.error;
     if (second.outcome === "leak") {
@@ -149,10 +126,7 @@ export class CodexAgentRuntime implements AgentRuntime {
 
   private async runOnce<TOutput>(
     role: AgentRole,
-    input: unknown,
-    invocationId: string,
-    outputSchema: z.ZodType<TOutput>,
-    timeoutMs: number,
+    options: AgentInvokeOptions<TOutput>,
     repair: boolean,
   ): Promise<AttemptResult<TOutput>> {
     const workdir = join(this.workRoot, `${role}-${randomUUID()}`);
@@ -161,9 +135,10 @@ export class CodexAgentRuntime implements AgentRuntime {
     const outFile = join(workdir, "output.json");
 
     try {
-      // The client-side `--output-schema` forces object-shaped JSON output; the
-      // authoritative strict gate is the role's Zod OUTPUT schema applied below.
-      writeFileSync(schemaFile, JSON.stringify({ type: "object" }), "utf8");
+      // `--output-schema` receives the complete Zod→JSON schema for the role so
+      // Codex is constrained to the exact output shape, not a generic object.
+      const jsonSchema = z.toJSONSchema(options.outputSchema);
+      writeFileSync(schemaFile, JSON.stringify(jsonSchema), "utf8");
 
       const args = [
         "exec",
@@ -185,12 +160,18 @@ export class CodexAgentRuntime implements AgentRuntime {
         "-",
       ];
 
+      // The rendered role prompt is the prompt; a structural repair suffix is
+      // added only on the second attempt.
+      const prompt = repair
+        ? `${options.prompt}\n\nReturn only JSON matching the supplied output schema. The previous response was invalid.`
+        : options.prompt;
+
       const run = await runCodex(this.executable, {
         args,
-        stdin: buildPrompt(input, repair),
+        stdin: prompt,
         cwd: workdir,
         env: sanitizeChildEnv(process.env, this.envExtraAllow),
-        timeoutMs,
+        timeoutMs: options.timeoutMs,
       });
 
       if (run.timedOut) {
@@ -206,9 +187,13 @@ export class CodexAgentRuntime implements AgentRuntime {
         };
       }
 
-      // Raw leak scan across stdout + stderr (catches canaries that never made
-      // it into the structured output, e.g. reasoning emitted to stdout).
-      if (containsCanary(run.stdout + run.stderr, this.canaries)) {
+      // Per-call canaries (from the role capsule) merged with any global
+      // canaries the runtime was configured with.
+      const canaries = [...this.canaries, ...(options.canaries ?? [])];
+
+      // Raw leak scan across stdout + stderr. JSONL reasoning events arrive on
+      // stdout, so this also catches canaries that never reach structured output.
+      if (containsCanary(run.stdout, canaries) || containsCanary(run.stderr, canaries)) {
         return { outcome: "leak" };
       }
 
@@ -220,6 +205,12 @@ export class CodexAgentRuntime implements AgentRuntime {
         rawOutput = "";
       }
       if (rawOutput.trim() === "") rawOutput = run.agentMessage ?? "";
+
+      // Scan the raw output-file text BEFORE parsing so a canary outside the
+      // JSON object (e.g. trailing prose) is caught rather than dropped.
+      if (containsCanary(rawOutput, canaries)) {
+        return { outcome: "leak" };
+      }
 
       let parsed: unknown = null;
       const trimmed = rawOutput.trim();
@@ -234,15 +225,15 @@ export class CodexAgentRuntime implements AgentRuntime {
 
       const sanitized = sanitizeAgentResult(
         role,
-        { invocationId, output: parsed },
-        outputSchema,
-        { canaries: this.canaries },
+        { invocationId: options.invocationId, output: parsed },
+        options.outputSchema,
+        { canaries },
       );
       if (!sanitized.ok) {
         if (sanitized.failure.code === LEAK_GUARD_TRIGGERED) return { outcome: "leak" };
         return { outcome: "malformed" };
       }
-      return { outcome: "ok", result: { invocationId, output: sanitized.output } };
+      return { outcome: "ok", result: { invocationId: options.invocationId, output: sanitized.output } };
     } finally {
       if (this.cleanup) {
         try {
@@ -253,18 +244,6 @@ export class CodexAgentRuntime implements AgentRuntime {
       }
     }
   }
-}
-
-/** The prompt is written to stdin only — it is never logged anywhere. */
-function buildPrompt(input: unknown, repair: boolean): string {
-  const instruction =
-    "You are a role-playing agent inside an FDE training product. Respond with ONLY a JSON object " +
-    "matching the provided output schema. Do not include commentary, analysis, chain-of-thought, " +
-    "or any text outside the JSON object.";
-  const repairNote = repair
-    ? "\nYour previous response was not valid JSON matching the schema. Correct it and return ONLY valid JSON."
-    : "";
-  return `${instruction}${repairNote}\n\nInput:\n${JSON.stringify(input)}`;
 }
 
 /** Extract a JSON object from a possibly fenced/verbose model reply. */

@@ -107,29 +107,43 @@ const FAKE_KEYS = [
   "FAKE_RUNTIME_CANARY",
   "FAKE_RUNTIME_COUNT_FILE",
   "FAKE_RUNTIME_SLEEP_MS",
+  "FAKE_RUNTIME_PROMPT_FILE",
+  "FAKE_RUNTIME_SCHEMA_FILE",
 ];
 
 let tempRoots: string[] = [];
 
-function makeRuntime(mode = "valid", extra: { sleepMs?: number; timeoutMs?: number } = {}) {
+function makeRuntime(
+  mode = "valid",
+  extra: {
+    sleepMs?: number;
+    timeoutMs?: number;
+    canaries?: readonly string[];
+    fakeCanary?: string;
+  } = {},
+) {
   const workRoot = mkdtempSync(join(tmpdir(), "fde-codex-rt-"));
   const countFile = join(workRoot, "count.txt");
-  const canary = "CUSTOMER_CANARY_7f3a9c1e2b4d";
+  const promptFile = join(workRoot, "captured-prompt.txt");
+  const schemaFile = join(workRoot, "captured-schema.json");
+  const fakeCanary = extra.fakeCanary ?? "CUSTOMER_CANARY_7f3a9c1e2b4d";
   tempRoots.push(workRoot);
 
   process.env.FAKE_RUNTIME_MODE = mode;
-  process.env.FAKE_RUNTIME_CANARY = canary;
+  process.env.FAKE_RUNTIME_CANARY = fakeCanary;
   process.env.FAKE_RUNTIME_COUNT_FILE = countFile;
   process.env.FAKE_RUNTIME_SLEEP_MS = String(extra.sleepMs ?? 0);
+  process.env.FAKE_RUNTIME_PROMPT_FILE = promptFile;
+  process.env.FAKE_RUNTIME_SCHEMA_FILE = schemaFile;
 
   const rt = new CodexAgentRuntime({
     executable: fakeCodexRuntime,
     workRoot,
     timeoutMs: extra.timeoutMs ?? 10_000,
-    canaries: [canary],
+    canaries: extra.canaries ?? [fakeCanary],
     envExtraAllow: FAKE_KEYS,
   });
-  return { rt, workRoot, countFile, canary };
+  return { rt, workRoot, countFile, canary: fakeCanary, promptFile, schemaFile };
 }
 
 function readCount(countFile: string): number {
@@ -157,6 +171,8 @@ const invokeOptions = (invocationId = "inv-1") => ({
   invocationId,
   freshContext: true as const,
   tools: "disabled" as const,
+  prompt: "CUSTOMER ROLE\n<UNTRUSTED_LEARNER_INPUT>question</UNTRUSTED_LEARNER_INPUT>",
+  canaries: ["PER_CALL_CANARY"],
   outputSchema: CustomerOutputSchema,
   timeoutMs: 10_000,
 });
@@ -167,6 +183,43 @@ describe("CodexAgentRuntime — contract (fake executable)", () => {
     const res = await rt.invoke("customer", customerInput(), invokeOptions());
     expect(res.invocationId).toBe("inv-1");
     expect(res.output.reply["zh-CN"]).toBe("好的");
+  });
+
+  it("passes the rendered role prompt to the child process", async () => {
+    const { rt, promptFile } = makeRuntime("valid");
+    await rt.invoke("customer", customerInput(), invokeOptions());
+
+    const captured = readFileSync(promptFile, "utf8");
+    expect(captured).toContain("CUSTOMER ROLE");
+    expect(captured).toContain("<UNTRUSTED_LEARNER_INPUT>question</UNTRUSTED_LEARNER_INPUT>");
+  });
+
+  it("writes a complete JSON schema (not a generic one-property object)", async () => {
+    const { rt, schemaFile } = makeRuntime("valid");
+    await rt.invoke("customer", customerInput(), invokeOptions());
+
+    const schema = JSON.parse(readFileSync(schemaFile, "utf8")) as {
+      type?: string;
+      properties?: Record<string, unknown>;
+      required?: string[];
+      additionalProperties?: boolean;
+    };
+    expect(schema.type).toBe("object");
+    expect(schema.properties?.reply).toBeTruthy();
+    expect(schema.required).toContain("reply");
+    expect(schema.additionalProperties).toBe(false);
+    expect(Object.keys(schema.properties ?? {}).length).toBeGreaterThan(1);
+  });
+
+  it("triggers the leak guard on a per-call canary in raw stdout with no global canaries", async () => {
+    const { rt, countFile } = makeRuntime("raw-stdout-leak", {
+      fakeCanary: "PER_CALL_CANARY",
+      canaries: [],
+    });
+    const error = await rt.invoke("customer", customerInput(), invokeOptions()).catch((e) => e);
+    expect(error.code).toBe(LEAK_GUARD_TRIGGERED);
+    expect(String(error.message)).not.toContain("PER_CALL_CANARY");
+    expect(readCount(countFile)).toBe(2);
   });
 
   it("repairs malformed output once, then returns a stable error on the second failure", async () => {

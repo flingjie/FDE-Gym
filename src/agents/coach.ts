@@ -140,17 +140,21 @@ export async function requestHint(context: CoachContext): Promise<CoachHintOutpu
   }
   const input = built.input;
 
+  const canaries = context.canaries ?? [context.capsule.canary];
+
   const result = await context.runtime.invoke("coach_evaluator", input, {
     runId: context.state.runId,
     invocationId: context.invocationId,
     freshContext: true,
     tools: "disabled",
+    prompt: renderCoachPrompt(input),
+    canaries,
     outputSchema: CoachHintOutputSchema,
     timeoutMs: context.timeoutMs,
   });
 
   const safe = sanitizeAgentResult("coach_evaluator", result, CoachHintOutputSchema, {
-    canaries: context.canaries ?? [context.capsule.canary],
+    canaries,
   });
   if (!safe.ok) {
     throw new CoachError(safe.failure.code, safe.failure.message);
@@ -166,17 +170,21 @@ export async function validateProblemBrief(context: CoachContext): Promise<Brief
   }
   const input = built.input;
 
+  const canaries = context.canaries ?? [context.capsule.canary];
+
   const result = await context.runtime.invoke("coach_evaluator", input, {
     runId: context.state.runId,
     invocationId: context.invocationId,
     freshContext: true,
     tools: "disabled",
+    prompt: renderCoachPrompt(input),
+    canaries,
     outputSchema: BriefValidationOutputSchema,
     timeoutMs: context.timeoutMs,
   });
 
   const safe = sanitizeAgentResult("coach_evaluator", result, BriefValidationOutputSchema, {
-    canaries: context.canaries ?? [context.capsule.canary],
+    canaries,
   });
   if (!safe.ok) {
     throw new CoachError(safe.failure.code, safe.failure.message);
@@ -197,17 +205,21 @@ export async function runFinalReview(context: CoachContext): Promise<FinalReview
   }
   const input = built.input;
 
+  const canaries = context.canaries ?? [context.capsule.canary];
+
   const result = await context.runtime.invoke("coach_evaluator", input, {
     runId: context.state.runId,
     invocationId: context.invocationId,
     freshContext: true,
     tools: "disabled",
+    prompt: renderCoachPrompt(input),
+    canaries,
     outputSchema: FinalReviewOutputSchema,
     timeoutMs: context.timeoutMs,
   });
 
   const safe = sanitizeAgentResult("coach_evaluator", result, FinalReviewOutputSchema, {
-    canaries: context.canaries ?? [context.capsule.canary],
+    canaries,
   });
   if (!safe.ok) {
     throw new CoachError(safe.failure.code, safe.failure.message);

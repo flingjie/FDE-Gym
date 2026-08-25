@@ -10,6 +10,18 @@ function flagValue(name) {
   return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null;
 }
 
+/** Write a capture to a file named by an env var (the test's observation surface). */
+function capture(envKey, content) {
+  const file = process.env[envKey];
+  if (!file) return;
+  try {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, content, "utf8");
+  } catch {
+    /* ignore */
+  }
+}
+
 let stdin = "";
 let count = 1;
 process.stdin.setEncoding("utf8");
@@ -29,6 +41,18 @@ function main() {
     try {
       mkdirSync(dirname(countFile), { recursive: true });
       writeFileSync(countFile, String(count), "utf8");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Capture the rendered prompt and the complete output schema the runtime
+  // handed to this child, so contract tests can assert on both.
+  capture("FAKE_RUNTIME_PROMPT_FILE", stdin);
+  const schemaFile = flagValue("--output-schema");
+  if (schemaFile) {
+    try {
+      capture("FAKE_RUNTIME_SCHEMA_FILE", readFileSync(schemaFile, "utf8"));
     } catch {
       /* ignore */
     }
@@ -56,6 +80,7 @@ function respond() {
 
   let text = valid;
   let stdoutCanary = null;
+  let rawStdout = null;
   switch (mode) {
     case "malformed":
       text = "not valid json {{{";
@@ -76,6 +101,10 @@ function respond() {
     case "stdout-leak-once":
       text = valid;
       stdoutCanary = count === 1 ? canary : null;
+      break;
+    case "raw-stdout-leak":
+      text = valid;
+      rawStdout = canary;
       break;
     case "valid":
     default:
@@ -109,5 +138,7 @@ function respond() {
   } else {
     process.stdout.write(text + "\n");
   }
+
+  if (rawStdout) process.stdout.write(rawStdout + "\n");
   process.exit(0);
 }

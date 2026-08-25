@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { z } from "zod";
 import type { AgentRole } from "../core/domain.js";
-import type { AgentInvocationResult, AgentRuntime } from "./agent-runtime.js";
+import type { AgentInvocationResult, AgentInvokeOptions, AgentRuntime } from "./agent-runtime.js";
 
 /**
  * FDE Gym — deterministic fixture runtime.
@@ -33,15 +32,10 @@ export class FixtureAgentRuntime implements AgentRuntime {
   async invoke<TInput, TOutput>(
     role: AgentRole,
     _input: TInput,
-    options: {
-      runId: string;
-      invocationId: string;
-      freshContext: true;
-      tools: "disabled";
-      outputSchema: z.ZodType<TOutput>;
-      timeoutMs: number;
-    },
+    options: AgentInvokeOptions<TOutput>,
   ): Promise<AgentInvocationResult<TOutput>> {
+    // The fixture runtime is deterministic: it ignores `prompt` and `canaries`
+    // but must still accept them so the three-role contract stays uniform.
     const raw = this.resolve(role, options.invocationId);
     const output = options.outputSchema.parse(raw);
     return { invocationId: options.invocationId, output };
