@@ -26,8 +26,7 @@ import { selectScenarioEvents, type EventTriggerContext } from "../simulation/ev
 import type { Rng } from "../simulation/rng.js";
 import { calculateScore } from "../scoring/formulas.js";
 import { buildScoreInput, deriveAttemptReview } from "../scoring/score-input.js";
-import { createEmptyProfile, updateLearnerProfile, type AttemptReview, type LearnerProfile } from "../profile/learner-profile.js";
-import { loadLearnerProfile, saveLearnerProfile } from "../storage/fs-store.js";
+import { type AttemptReview, type LearnerProfile } from "../profile/learner-profile.js";
 import {
   ChallengeResponseSchema,
   PitchArtifactSchema,
@@ -1102,15 +1101,6 @@ export interface SubmitReviewInput {
   profile?: LearnerProfile;
 }
 
-export interface SubmitReviewResult {
-  runId: string;
-  review: FinalReviewResult;
-  score: ScoreBreakdown;
-  acceptedEvents: RunEvent[];
-  updatedState: RunAggregate;
-  profile: LearnerProfile;
-}
-
 /**
  * Run the REVIEW phase: invoke the Coach's `final-review` task, compute the
  * deterministic `ScoreBreakdown` via `calculateScore`, persist
@@ -1192,28 +1182,4 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   };
 
   return { events: [reviewEvent, scoreEvent], review, score, effect };
-}
-
-/** Persist the result of a review preparation (imperative entry point). */
-export async function submitReview(input: SubmitReviewInput): Promise<SubmitReviewResult> {
-  const prepared = await prepareReview(input);
-  await appendEvents(input.state.runId, prepared.events, input.store);
-
-  // Fold the attempt into the durable learner profile.
-  const effect = prepared.effect;
-  if (effect.type !== "profile.apply-attempt") {
-    throw new Error("review preparation produced an unexpected effect");
-  }
-  const base = input.profile ?? (await loadLearnerProfile(input.profileStore)) ?? createEmptyProfile();
-  const updatedProfile = updateLearnerProfile(base, effect.review);
-  await saveLearnerProfile(updatedProfile, input.profileStore);
-
-  return {
-    runId: input.state.runId,
-    review: prepared.review,
-    score: prepared.score,
-    acceptedEvents: prepared.events,
-    updatedState: { ...input.state },
-    profile: updatedProfile,
-  };
 }

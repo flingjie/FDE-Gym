@@ -67,6 +67,9 @@ export function resolveRunFormatVersion(raw: unknown): number {
     throw new UnsupportedSchemaVersionError("run manifest", undefined);
   }
   if (raw.runFormatVersion === RUN_FORMAT_VERSION) return RUN_FORMAT_VERSION;
+  if (raw.runFormatVersion !== undefined) {
+    throw new UnsupportedSchemaVersionError("run manifest", raw.runFormatVersion);
+  }
   if (raw.schemaVersion === 1) return 1;
   throw new UnsupportedSchemaVersionError(
     "run manifest",

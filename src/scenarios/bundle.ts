@@ -36,7 +36,7 @@ import {
  * YAML — `scenarios/source/*.yaml` is build-time input only.
  */
 
-export const SCENARIO_MANIFEST_VERSION = 2 as const;
+export { SCENARIO_MANIFEST_VERSION } from "./schema.js";
 
 /** The four artifacts a compiled bundle must contain, in canonical write order. */
 const ARTIFACT_PATHS = ["public.json", "customer.json", "evaluator.json", "events.json"] as const;

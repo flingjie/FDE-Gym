@@ -64,8 +64,9 @@ Four claims are precise and are what the verification suite asserts:
 2. **Same scenario bundle digest + seed + trigger context → same scheduled
    event order.** The only randomness is a seeded PRNG consumed solely to order
    the scenario-event wave.
-3. **Same event log → byte-stable recorded replay.** `replay` projects the
-   committed events; identical events yield identical bytes in every locale
+3. **Same event log → byte-stable recorded replay (per locale).** `replay`
+   projects the committed events; identical committed events yield identical
+   bytes within a given locale, not across locales (zh-CN ≠ en-US bytes)
    (see `docs/replay.md`).
 4. **A fresh model invocation does NOT guarantee identical prose or judgment.**
    Only the control-plane state and ordering are deterministic; role prose is
