@@ -937,6 +937,8 @@ export interface CreateRetryOptions {
   seed?: number;
   /** Exactly 2 or 3 learner-visible focus summaries from the previous attempt. */
   focusSummaries: LocalizedText[];
+  /** Verified scenario-bundle digest stamped onto the child run's `run.started` (Task 7). */
+  scenarioBundleDigest?: string;
   store?: StoreOptions;
 }
 
@@ -1005,6 +1007,9 @@ export async function prepareRetry(
     scenarioId,
     locale,
     parentRunId: parentRun.runId,
+    ...(options.scenarioBundleDigest !== undefined
+      ? { scenarioBundleDigest: options.scenarioBundleDigest }
+      : {}),
   });
   const acceptEvents = decide(
     { runId: newRunId, phase: "SCENARIO", seq: startEvents.length },

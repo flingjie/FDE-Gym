@@ -42,11 +42,9 @@ import { foldRunAggregate, projectReplay, type LearnerReplay } from "../replay/p
 import { loadLearnerProfile } from "../storage/fs-store.js";
 import { createEmptyProfile } from "../profile/learner-profile.js";
 import {
-  loadCustomerCapsule,
-  loadEvaluatorCapsule,
-  loadPublicScenario,
-  loadScenarioEventCandidates,
-} from "../scenarios/loader.js";
+  defaultCompiledRoot,
+  loadScenarioBundle,
+} from "../scenarios/bundle.js";
 import type {
   CustomerCapsule,
   EvaluatorCapsule,
@@ -54,7 +52,7 @@ import type {
   ScenarioEventCandidate,
 } from "../scenarios/schema.js";
 import type { ScoreBreakdown, FinalReviewResult } from "../core/domain.js";
-import { InvalidPhaseCommandError } from "../core/errors.js";
+import { InvalidPhaseCommandError, ScenarioBundleMismatchError } from "../core/errors.js";
 import type { CliEnvelope, CliFailure, CliResult } from "./render.js";
 import { localize } from "./render.js";
 
@@ -75,6 +73,8 @@ export interface CommandContext {
   runtime: AgentRuntime;
   /** Store/profile root override (tests point this at a temp dir). */
   baseDir?: string;
+  /** Compiled-scenario root override (defaults to `<cwd>/scenarios/compiled`). */
+  compiledRoot?: string;
   /** Preloaded scenario partitions (tests inject these to bypass the loader). */
   scenario?: {
     public: PublicScenario;
@@ -227,6 +227,8 @@ interface LoadedRun {
   locale: Locale;
   phase: RunPhase | null;
   aggregate: ReturnType<typeof foldRunAggregate>;
+  /** The verified bundle digest recorded at `run.started`; undefined on provenance-legacy runs. */
+  scenarioBundleDigest: string | undefined;
 }
 
 async function loadRunState(ctx: CommandContext, runId: string): Promise<LoadedRun> {
@@ -235,17 +237,53 @@ async function loadRunState(ctx: CommandContext, runId: string): Promise<LoadedR
   const started = events.find((event) => event.type === "run.started");
   const scenarioId = started && started.type === "run.started" ? started.scenarioId : "";
   const locale = started && started.type === "run.started" ? started.locale : "zh-CN";
+  const scenarioBundleDigest =
+    started && started.type === "run.started" ? started.scenarioBundleDigest : undefined;
   const aggregate = foldRunAggregate(events, scenarioId, locale);
-  return { events, scenarioId, locale, phase: aggregate.phase, aggregate };
+  return { events, scenarioId, locale, phase: aggregate.phase, aggregate, scenarioBundleDigest };
 }
 
-function resolveScenario(ctx: CommandContext, scenarioId: string) {
-  if (ctx.scenario) return ctx.scenario;
+interface ResolvedScenario {
+  public: PublicScenario;
+  customer: CustomerCapsule;
+  evaluator: EvaluatorCapsule;
+  events: ScenarioEventCandidate[];
+  bundleDigest: string | undefined;
+}
+
+/**
+ * Resolve one verified scenario bundle into the partitions the commands consume.
+ *
+ * When the run carries a `scenarioBundleDigest` (provenance-verified runs), the
+ * current bundle is validated against it before any partition is returned;
+ * provenance-legacy runs (no stored digest) load without that cross-check.
+ */
+function resolveScenario(
+  ctx: CommandContext,
+  scenarioId: string,
+  expectedBundleDigest?: string,
+): ResolvedScenario {
+  if (ctx.scenario) {
+    return {
+      public: ctx.scenario.public,
+      customer: ctx.scenario.customer,
+      evaluator: ctx.scenario.evaluator,
+      events: ctx.scenario.events,
+      bundleDigest: undefined,
+    };
+  }
+  const bundle = loadScenarioBundle(scenarioId, {
+    compiledRoot: ctx.compiledRoot ?? defaultCompiledRoot(),
+  });
+  if (expectedBundleDigest !== undefined && bundle.bundleDigest !== expectedBundleDigest) {
+    throw new ScenarioBundleMismatchError(scenarioId);
+  }
   return {
-    public: loadPublicScenario(scenarioId),
-    customer: loadCustomerCapsule(scenarioId),
-    evaluator: loadEvaluatorCapsule(scenarioId),
-    events: loadScenarioEventCandidates(scenarioId),
+    public: bundle.publicScenario,
+    customer: bundle.customerCapsule,
+    evaluator: bundle.evaluatorCapsule,
+    events: [...bundle.eventCandidates],
+    bundleDigest: bundle.bundleDigest,
   };
 }
 
@@ -282,11 +320,16 @@ export async function startCommand(
   args: StartArgs,
 ): Promise<CliResult<StartData>> {
   return guard(args.locale, async () => {
-    const { public: publicScenario } = resolveScenario(ctx, args.scenarioId);
+    const resolved = resolveScenario(ctx, args.scenarioId);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
-      request: { type: "start", scenarioId: args.scenarioId, locale: args.locale },
+      request: {
+        type: "start",
+        scenarioId: args.scenarioId,
+        locale: args.locale,
+        ...(resolved.bundleDigest !== undefined ? { scenarioBundleDigest: resolved.bundleDigest } : {}),
+      },
       store: { baseDir: ctx.baseDir },
       prepare: async () => {
         const initial = createInitialRunState(args.runId);
@@ -295,6 +338,7 @@ export async function startCommand(
           commandId: args.commandId,
           scenarioId: args.scenarioId,
           locale: args.locale,
+          ...(resolved.bundleDigest !== undefined ? { scenarioBundleDigest: resolved.bundleDigest } : {}),
         });
         const acceptEvents = decide(
           { runId: args.runId, phase: "SCENARIO", seq: startEvents.length },
@@ -302,7 +346,7 @@ export async function startCommand(
         );
         return {
           events: [...startEvents, ...acceptEvents],
-          result: { scenario: publicScenario, phase: "DISCOVERY" as const },
+          result: { scenario: resolved.public, phase: "DISCOVERY" as const },
         };
       },
     });
@@ -346,7 +390,7 @@ export interface AskArgs {
 export async function askCommand(ctx: CommandContext, args: AskArgs): Promise<CliResult<AskData>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(ctx, loaded.scenarioId);
+    const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
@@ -398,7 +442,7 @@ export async function repairEvidenceCommand(
     const turnId = pending.turnId;
     const askCommandId = turnId.endsWith(":turn") ? turnId.slice(0, -":turn".length) : turnId;
 
-    const scenario = resolveScenario(ctx, loaded.scenarioId);
+    const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
@@ -444,7 +488,7 @@ export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<
     if (loaded.phase !== "DISCOVERY" && loaded.phase !== "PROBLEM_FRAMING") {
       throw new InvalidPhaseCommandError("hint", loaded.phase);
     }
-    const scenario = resolveScenario(ctx, loaded.scenarioId);
+    const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
@@ -519,7 +563,7 @@ export async function submitBriefCommand(
 ): Promise<CliResult<BriefData>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(ctx, loaded.scenarioId);
+    const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
@@ -562,7 +606,7 @@ export async function submitDesignCommand(
 ): Promise<CliResult<DesignData>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(ctx, loaded.scenarioId);
+    const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
@@ -674,7 +718,7 @@ export interface ReviewArgs {
 export async function reviewCommand(ctx: CommandContext, args: ReviewArgs): Promise<CliResult<ReviewData>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(ctx, loaded.scenarioId);
+    const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
@@ -735,6 +779,7 @@ export async function retryCommand(ctx: CommandContext, args: RetryArgs): Promis
     if (!focusSummaries) {
       throw { code: "INVALID_RETRY_FOCUS" };
     }
+    const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
@@ -746,6 +791,7 @@ export async function retryCommand(ctx: CommandContext, args: RetryArgs): Promis
           commandId: args.commandId,
           seed: args.seed,
           focusSummaries,
+          ...(scenario.bundleDigest !== undefined ? { scenarioBundleDigest: scenario.bundleDigest } : {}),
         });
         return {
           events: result.parentEvents,

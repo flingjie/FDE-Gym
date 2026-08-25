@@ -33,16 +33,24 @@ export function decide(state: RunState, command: RunCommand): RunEvent[] {
   switch (command.type) {
     case "start": {
       if (phase !== null) throw new RunAlreadyExistsError(runId);
-      return [
-        {
-          type: "run.started",
-          runId,
-          commandId: command.commandId,
-          scenarioId: command.scenarioId,
-          locale: command.locale,
-        },
-        phaseChanged(runId, command.commandId, "SCENARIO", "SCENARIO"),
-      ];
+      const started: RunEvent =
+        command.scenarioBundleDigest !== undefined
+          ? {
+              type: "run.started",
+              runId,
+              commandId: command.commandId,
+              scenarioId: command.scenarioId,
+              locale: command.locale,
+              scenarioBundleDigest: command.scenarioBundleDigest,
+            }
+          : {
+              type: "run.started",
+              runId,
+              commandId: command.commandId,
+              scenarioId: command.scenarioId,
+              locale: command.locale,
+            };
+      return [started, phaseChanged(runId, command.commandId, "SCENARIO", "SCENARIO")];
     }
     case "accept": {
       requirePhase(phase, "SCENARIO", command.type);

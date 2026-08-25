@@ -1,0 +1,68 @@
+{
+  "id": "data-migration",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们规划从遗留数据库向新数据平台的迁移方案，并控制迁移风险",
+    "en-US": "Please help us plan the migration from our legacy database to a new data platform while controlling migration risk"
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家快速增长的零售企业。核心订单数据仍然运行在一个使用多年的遗留数据库上，公司决定将其迁移到新的数据平台，以支持未来的分析和AI应用。迁移必须在紧迫的时间表内完成，同时保证业务不中断、数据不出错。",
+    "en-US": "We are a fast-growing retail company. Our core order data still runs on a legacy database that has been in use for many years. The company has decided to migrate it to a new data platform to support future analytics and AI applications. The migration must be completed on a tight timeline while keeping the business running and the data accurate."
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "上线窗口只有8周，且迁移必须在周末夜间进行",
+      "en-US": "The go-live window is only 8 weeks, and migration must run on weekend nights"
+    },
+    {
+      "zh-CN": "预算有限，只能采购一套迁移工具并聘用两名合同工程师",
+      "en-US": "Limited budget: only one migration tool and two contract engineers"
+    },
+    {
+      "zh-CN": "迁移期间业务不能中断，旧系统必须保持可读",
+      "en-US": "Business must not be interrupted during migration; the old system must stay readable"
+    },
+    {
+      "zh-CN": "迁移结果必须满足监管对数据可审计性的要求",
+      "en-US": "The migration result must satisfy regulatory requirements for data auditability"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "完整的迁移方案设计文档",
+      "en-US": "Complete migration design document"
+    },
+    {
+      "zh-CN": "数据质量评估与治理计划",
+      "en-US": "Data quality assessment and governance plan"
+    },
+    {
+      "zh-CN": "回滚与业务连续性方案",
+      "en-US": "Rollback and business continuity plan"
+    },
+    {
+      "zh-CN": "迁移时间表与里程碑",
+      "en-US": "Migration timeline and milestones"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解迁移现状",
+      "en-US": "You have a budget of 12 questions to understand the migration's current state"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}

@@ -20,6 +20,46 @@ import {
 /** Frozen MVP schema version (finalized in Task 14; defined here so every partition carries it). */
 export const SCENARIO_SCHEMA_VERSION = FDE_SCHEMA_VERSION;
 
+/**
+ * Frozen scenario-manifest FORMAT version (Task 7). Independent of the content
+ * schema version above: `SCENARIO_SCHEMA_VERSION` versions the role partitions,
+ * `SCENARIO_MANIFEST_VERSION` versions the integrity manifest that seals them.
+ */
+export const SCENARIO_MANIFEST_VERSION = 2 as const;
+
+// ---------------------------------------------------------------------------
+// Scenario bundle integrity manifest (Task 7)
+// ---------------------------------------------------------------------------
+
+/** A single sealed artifact (partition or events file) described by the manifest. */
+export const ScenarioArtifactDescriptorSchema = z
+  .object({
+    /** Bundle-relative filename, e.g. `public.json`. Must never be an absolute or traversing path. */
+    path: z.string().min(1),
+    /** SHA-256 of the artifact's exact on-disk bytes, lowercase hex. */
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    /** Exact byte length of the artifact. */
+    bytes: z.number().int().nonnegative(),
+    /** Content schema version the artifact was compiled against. */
+    schemaVersion: z.literal(SCENARIO_SCHEMA_VERSION),
+  })
+  .strict();
+export type ScenarioArtifactDescriptor = z.infer<typeof ScenarioArtifactDescriptorSchema>;
+
+/** The sealed manifest written last in a compiled bundle. Never contains canaries or the seed. */
+export const ScenarioManifestSchema = z
+  .object({
+    manifestVersion: z.literal(SCENARIO_MANIFEST_VERSION),
+    id: z.string().min(1),
+    schemaVersion: z.literal(SCENARIO_SCHEMA_VERSION),
+    locale: LocaleSchema,
+    /** Root digest of the canonical artifact descriptors — the bundle's stable identity. */
+    digest: z.string().regex(/^[0-9a-f]{64}$/),
+    artifacts: z.array(ScenarioArtifactDescriptorSchema),
+  })
+  .strict();
+export type VerifiedScenarioManifest = z.infer<typeof ScenarioManifestSchema>;
+
 // ---------------------------------------------------------------------------
 // Shared content blocks
 // ---------------------------------------------------------------------------
@@ -182,6 +222,9 @@ export const ScenarioEventCandidateSchema = z
   })
   .strict();
 export type ScenarioEventCandidate = z.infer<typeof ScenarioEventCandidateSchema>;
+
+/** The `events.json` artifact: the scenario's authored event candidates, verbatim from the source. */
+export const ScenarioEventsFileSchema = z.array(ScenarioEventCandidateSchema);
 
 // ---------------------------------------------------------------------------
 // Compiled role partitions

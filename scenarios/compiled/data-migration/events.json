@@ -1,0 +1,46 @@
+[
+  {
+    "id": "event-timeline-pressure",
+    "trigger": {
+      "kind": "on_stage_enter",
+      "phase": "DISCOVERY"
+    },
+    "prompt": {
+      "zh-CN": "【时间压力】CEO通知：由于年度预算规划，迁移上线日期被提前两周，现在只剩6周时间。",
+      "en-US": "【Timeline Pressure】The CEO announces that, due to annual budget planning, the migration go-live has been pulled in by two weeks — only 6 weeks remain."
+    }
+  },
+  {
+    "id": "event-budget-freeze",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-pain"
+    },
+    "prompt": {
+      "zh-CN": "【预算冻结】财务总监通知：超出已批预算的额外资源申请一律暂停，需要重新证明必要性。",
+      "en-US": "【Budget Freeze】The Finance Director announces that all additional resource requests beyond the approved budget are suspended until necessity is re-proven."
+    }
+  },
+  {
+    "id": "event-ownership-gap",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-workflow"
+    },
+    "prompt": {
+      "zh-CN": "【组织缺口】运营副总裁通知：数据负责人临时休假，端到端的数据责任暂时悬空。",
+      "en-US": "【Ownership Gap】The VP of Operations announces that the data owner is on leave, leaving end-to-end data responsibility temporarily vacant."
+    }
+  },
+  {
+    "id": "event-rollback-demand",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-failure-modes"
+    },
+    "prompt": {
+      "zh-CN": "【回滚要求】CTO要求：在批准切换前，必须提交一次完整的回滚演练记录。",
+      "en-US": "【Rollback Requirement】The CTO requires a full rollback-drill record before approving cutover."
+    }
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 2,
+  "id": "support-automation",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "digest": "874359fc6b4a008711413501740b04e6449774461e2d18cbac66c40e1d9e7bcf",
+  "artifacts": [
+    {
+      "path": "public.json",
+      "sha256": "763af6330140dc230cf57fcbbc5fda28570274e139e7f36eca186f2a5346b3a6",
+      "bytes": 3019,
+      "schemaVersion": 1
+    },
+    {
+      "path": "customer.json",
+      "sha256": "689adb7d8d2fd082a40d08ea29d7cd1ba6dab85d0f78dfb79f13a3e07344f781",
+      "bytes": 12205,
+      "schemaVersion": 1
+    },
+    {
+      "path": "evaluator.json",
+      "sha256": "7f68b6ea2e9f59fcb883be2e978cd4d984191f57c09d576ae2440cf93e5a9246",
+      "bytes": 17408,
+      "schemaVersion": 1
+    },
+    {
+      "path": "events.json",
+      "sha256": "1a744f8c6745dd4b152a57a0f840e0297ad2a6df7eb9c6e9297dfd665b65826c",
+      "bytes": 1939,
+      "schemaVersion": 1
+    }
+  ]
+}

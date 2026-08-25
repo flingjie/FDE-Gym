@@ -473,6 +473,8 @@ export const StartCommandSchema = z
     scenarioId: z.string().min(1),
     locale: LocaleSchema,
     parentRunId: z.string().min(1).optional(),
+    /** Verified scenario-bundle digest recorded at run start (Task 7 provenance). */
+    scenarioBundleDigest: z.string().length(64).optional(),
   })
   .strict();
 
@@ -622,6 +624,8 @@ export const RunStartedEventSchema = z
     ...EVENT_BASE,
     scenarioId: z.string().min(1),
     locale: LocaleSchema,
+    /** Verified scenario-bundle digest at run start; absent on provenance-legacy (pre-Task 7) runs. */
+    scenarioBundleDigest: z.string().length(64).optional(),
   })
   .strict();
 

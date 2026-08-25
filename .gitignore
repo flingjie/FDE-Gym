@@ -4,6 +4,5 @@ dist/
 .DS_Store
 .tmp/
 coverage/
-scenarios/compiled/
 .claude/
 .codex/

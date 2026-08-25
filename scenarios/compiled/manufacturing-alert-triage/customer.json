@@ -1,0 +1,314 @@
+{
+  "id": "manufacturing-alert-triage",
+  "schemaVersion": 1,
+  "stakeholders": [
+    {
+      "id": "vp-operations",
+      "role": {
+        "zh-CN": "运营副总裁",
+        "en-US": "VP of Operations"
+      },
+      "persona": {
+        "zh-CN": "45岁男性，广泛负责工厂运营。关注总体运营效率、生产KPI和投资回报率。倾向于使用数据驱动的决策方式，但对新技术持怀疑态度。",
+        "en-US": "45-year-old male, overall responsible for factory operations. Focuses on overall operational efficiency, production KPIs, and ROI. Prefers data-driven decision-making but skeptical of new technologies."
+      },
+      "concerns": [
+        {
+          "zh-CN": "新系统是否能够真正降低生产停机时间？",
+          "en-US": "Will the new system actually reduce production downtime?"
+        },
+        {
+          "zh-CN": "AI系统的误判成本有多高？",
+          "en-US": "What is the cost of AI system misjudgments?"
+        },
+        {
+          "zh-CN": "需要多大规模的变革才能成功？",
+          "en-US": "How much organizational change is needed for success?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解工程师对AI的技术信任问题",
+          "en-US": "Does not understand engineers' trust issues with AI technology"
+        },
+        {
+          "zh-CN": "低估了与现有系统的集成复杂度",
+          "en-US": "Underestimates integration complexity with existing systems"
+        },
+        {
+          "zh-CN": "不知道当前人工处理流程的瓶颈",
+          "en-US": "Does not know the bottlenecks in current manual handling process"
+        }
+      ]
+    },
+    {
+      "id": "project-manager",
+      "role": {
+        "zh-CN": "项目经理",
+        "en-US": "Project Manager"
+      },
+      "persona": {
+        "zh-CN": "35岁女性，负责多个工厂改进项目。精通项目管理，关注时间表、预算和资源分配。",
+        "en-US": "35-year-old female, responsible for multiple factory improvement projects. Proficient in project management, focuses on timelines, budgets, and resource allocation."
+      },
+      "concerns": [
+        {
+          "zh-CN": "项目能否在六周内完成并证明价值？",
+          "en-US": "Can the project be completed and demonstrate value within six weeks?"
+        },
+        {
+          "zh-CN": "是否需要额外的开发资源？",
+          "en-US": "Are additional development resources required?"
+        },
+        {
+          "zh-CN": "如果试点失败，如何向高层解释？",
+          "en-US": "How to explain to senior management if the pilot fails?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解技术实施的具体挑战",
+          "en-US": "Does not understand technical implementation challenges"
+        },
+        {
+          "zh-CN": "不知道告警数据的质量问题",
+          "en-US": "Does not know about alert data quality issues"
+        },
+        {
+          "zh-CN": "错误假设AI是唯一解决方案",
+          "en-US": "Incorrectly assumes AI is the only solution"
+        }
+      ]
+    },
+    {
+      "id": "technical-lead",
+      "role": {
+        "zh-CN": "技术负责人",
+        "en-US": "Technical Lead"
+      },
+      "persona": {
+        "zh-CN": "40岁男性，负责工厂IT系统维护。有多年工业自动化经验，对现有系统了如指掌。",
+        "en-US": "40-year-old male, responsible for factory IT system maintenance. Many years of industrial automation experience, deeply familiar with existing systems."
+      },
+      "concerns": [
+        {
+          "zh-CN": "新系统如何与现有SCADA系统集成？",
+          "en-US": "How will the new system integrate with existing SCADA systems?"
+        },
+        {
+          "zh-CN": "数据采集频率和延迟要求是什么？",
+          "en-US": "What are the data collection frequency and latency requirements?"
+        },
+        {
+          "zh-CN": "是否有现有的自动化规则可以复用？",
+          "en-US": "Can existing automation rules be reused?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "过于关注技术细节而忽视业务价值",
+          "en-US": "Over-focuses on technical details while ignoring business value"
+        },
+        {
+          "zh-CN": "不清楚不同部门对AI的接受程度",
+          "en-US": "Does not understand different departments' acceptance of AI"
+        },
+        {
+          "zh-CN": "低估了用户培训和变更管理需求",
+          "en-US": "Underestimates user training and change management needs"
+        }
+      ]
+    }
+  ],
+  "disclosureUnits": [
+    {
+      "id": "du-001",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "工厂每天产生约12,000条设备告警，其中大约80%是低价值的误报或已知问题",
+        "en-US": "The factory generates approximately 12,000 equipment alerts daily, with about 80% being low-value false positives or known issues"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-002",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "工程师平均每天需要手动处理约2,400条需要关注的告警（剩余20%）",
+        "en-US": "Engineers manually handle approximately 2,400 alerts requiring attention daily (the remaining 20%)"
+      },
+      "prerequisites": [
+        "du-001"
+      ],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-003",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "当前告警处理流程缺乏优先级排序，所有告警被视为同等重要",
+        "en-US": "The current alert handling process lacks prioritization; all alerts are treated as equally important"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-004",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "工程师花费约40%的工作时间在低价值告警上，导致真正问题响应延迟",
+        "en-US": "Engineers spend approximately 40% of their working time on low-value alerts, causing delays in responding to genuine issues"
+      },
+      "prerequisites": [
+        "du-001"
+      ],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-005",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "2023年因告警响应延迟导致的生产停机损失约为200万美元",
+        "en-US": "Production downtime losses due to alert response delays amounted to approximately $2 million in 2023"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-006",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "工程师平均响应一个告警需要5-10分钟，期间无法处理其他任务",
+        "en-US": "Engineers take an average of 5-10 minutes to respond to one alert, during which they cannot handle other tasks"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-007",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "当前使用的规则系统是5年前开发的，无法适应新型设备和工艺变化",
+        "en-US": "The current rule-based system was developed 5 years ago and cannot adapt to new equipment and process changes"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-008",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "75%的误报是由于规则系统无法识别工艺参数的正常波动范围",
+        "en-US": "75% of false positives are due to the rule system's inability to recognize normal process parameter fluctuations"
+      },
+      "prerequisites": [
+        "du-007"
+      ],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-009",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "当前的告警处理方式每年导致约15%的设备预防性维护被推迟或取消",
+        "en-US": "The current alert handling approach causes approximately 15% of equipment preventive maintenance to be postponed or canceled annually"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-010",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "由于告警疲劳，工程师在夜间班次中漏报率高达30%",
+        "en-US": "Due to alert fatigue, engineers have a 30% missed alert rate during night shifts"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-011",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "工厂网络是隔离的VPC环境，不允许外部云服务直接访问",
+        "en-US": "The factory network is an isolated VPC environment that does not allow direct external cloud service access"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-012",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "预算限制导致我们无法聘请外部AI专家进行定制化开发",
+        "en-US": "Budget constraints prevent us from hiring external AI experts for custom development"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-013",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "管理层希望将工程师管理的告警数量降低50%，即每天只需处理约1,200条",
+        "en-US": "Management hopes to reduce the number of alerts engineers manage by 50%, meaning handling approximately 1,200 alerts per day"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-014",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "关键目标是将生产停机时间减少30%，预计每年可节省300万美元",
+        "en-US": "The key goal is to reduce production downtime by 30%, estimated to save $3 million annually"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-015",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "一线工程师对AI系统持怀疑态度，认为AI无法理解复杂设备行为",
+        "en-US": "Frontline engineers are skeptical of AI systems, believing AI cannot understand complex equipment behavior"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-016",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "工程师担心AI系统会产生'黑箱'决策，无法解释为什么某些告警被标记为高优先级",
+        "en-US": "Engineers fear AI systems will produce 'black box' decisions without explaining why certain alerts are marked high priority"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-017",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "如果AI系统误报率过高，工程师可能会忽略所有告警，导致安全风险",
+        "en-US": "If the AI system's false positive rate is too high, engineers may ignore all alerts, creating safety risks"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    },
+    {
+      "id": "du-018",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "系统如果在夜间自动抑制告警，可能导致紧急问题无法及时处理",
+        "en-US": "If the system automatically suppresses alerts at night, critical issues may not be addressed promptly"
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    }
+  ],
+  "responsePolicies": [],
+  "privateConflicts": [],
+  "canary": "b250dfb15d556a626620541492cf3761"
+}

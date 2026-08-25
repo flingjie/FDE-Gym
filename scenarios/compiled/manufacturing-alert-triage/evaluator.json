@@ -1,0 +1,504 @@
+{
+  "id": "manufacturing-alert-triage",
+  "schemaVersion": 1,
+  "expectedEvidence": [
+    {
+      "id": "ev-workflow",
+      "category": "workflow",
+      "description": {
+        "zh-CN": "告警处理流程的信息：当前流程、处理量、瓶颈",
+        "en-US": "Information about alert handling workflow: current process, volume, bottlenecks"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-001",
+        "du-002",
+        "du-003"
+      ]
+    },
+    {
+      "id": "ev-pain",
+      "category": "pain",
+      "description": {
+        "zh-CN": "告警问题带来的业务痛点：时间浪费、停机损失、响应延迟",
+        "en-US": "Business pain points from alerts: time waste, downtime losses, response delays"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-004",
+        "du-005",
+        "du-006"
+      ]
+    },
+    {
+      "id": "ev-root-cause",
+      "category": "root-cause",
+      "description": {
+        "zh-CN": "当前系统失败的根本原因：规则系统过时、无法适应变化",
+        "en-US": "Root causes of current system failure: outdated rule system, unable to adapt to changes"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-007",
+        "du-008"
+      ]
+    },
+    {
+      "id": "ev-business-impact",
+      "category": "business-impact",
+      "description": {
+        "zh-CN": "业务影响：维护推迟、漏报率、财务损失",
+        "en-US": "Business impact: maintenance delays, missed alert rates, financial losses"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-009",
+        "du-010"
+      ]
+    },
+    {
+      "id": "ev-constraints",
+      "category": "constraints",
+      "description": {
+        "zh-CN": "实施限制：网络隔离、预算限制、集成要求",
+        "en-US": "Implementation constraints: network isolation, budget limits, integration requirements"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-011",
+        "du-012"
+      ]
+    },
+    {
+      "id": "ev-success-measures",
+      "category": "success-measures",
+      "description": {
+        "zh-CN": "成功指标：降低处理量、减少停机、节省成本",
+        "en-US": "Success metrics: reduce handling volume, reduce downtime, save costs"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-013",
+        "du-014"
+      ]
+    },
+    {
+      "id": "ev-trust",
+      "category": "trust",
+      "description": {
+        "zh-CN": "信任问题：工程师对AI的怀疑、需要可解释性",
+        "en-US": "Trust issues: engineer skepticism toward AI, need for explainability"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-015",
+        "du-016"
+      ]
+    },
+    {
+      "id": "ev-failure-modes",
+      "category": "failure-modes",
+      "description": {
+        "zh-CN": "失败模式：误报导致忽略告警、安全风险",
+        "en-US": "Failure modes: false positives leading to alert ignoring, safety risks"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-017",
+        "du-018"
+      ]
+    }
+  ],
+  "rubric": {
+    "stages": [
+      {
+        "id": "framing",
+        "label": {
+          "zh-CN": "问题定义",
+          "en-US": "Problem Framing"
+        },
+        "criteria": [
+          {
+            "id": "f-c1",
+            "label": {
+              "zh-CN": "问题陈述清晰度",
+              "en-US": "Problem Statement Clarity"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "能否准确描述当前告警系统的问题和业务影响",
+              "en-US": "Can accurately describe the current alert system problem and business impact"
+            }
+          },
+          {
+            "id": "f-c2",
+            "label": {
+              "zh-CN": "关键利益相关者识别",
+              "en-US": "Key Stakeholder Identification"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "是否识别了所有关键干系人及其核心关切",
+              "en-US": "Has all key stakeholders and their core concerns been identified"
+            }
+          },
+          {
+            "id": "f-c3",
+            "label": {
+              "zh-CN": "成功标准明确性",
+              "en-US": "Success Criteria Clarity"
+            },
+            "weight": 45,
+            "description": {
+              "zh-CN": "是否明确定义了可衡量的成功指标",
+              "en-US": "Are measurable success criteria clearly defined"
+            }
+          }
+        ]
+      },
+      {
+        "id": "solution",
+        "label": {
+          "zh-CN": "方案设计",
+          "en-US": "Solution Design"
+        },
+        "criteria": [
+          {
+            "id": "s-c1",
+            "label": {
+              "zh-CN": "方案完整性",
+              "en-US": "Solution Completeness"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "方案是否覆盖了数据收集、处理、决策、反馈的完整流程",
+              "en-US": "Does the solution cover the complete process of data collection, processing, decision-making, and feedback"
+            }
+          },
+          {
+            "id": "s-c2",
+            "label": {
+              "zh-CN": "与约束的兼容性",
+              "en-US": "Constraint Compatibility"
+            },
+            "weight": 35,
+            "description": {
+              "zh-CN": "方案是否在 budget、VPC、时间限制内可行",
+              "en-US": "Is the solution feasible within budget, VPC, and time constraints"
+            }
+          },
+          {
+            "id": "s-c3",
+            "label": {
+              "zh-CN": "可实施性",
+              "en-US": "Implementability"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "方案是否考虑了与现有系统的集成和工程师的接受度",
+              "en-US": "Does the solution consider integration with existing systems and engineer acceptance"
+            }
+          }
+        ]
+      },
+      {
+        "id": "challenge",
+        "label": {
+          "zh-CN": "挑战应对",
+          "en-US": "Challenge Response"
+        },
+        "criteria": [
+          {
+            "id": "ch-c1",
+            "label": {
+              "zh-CN": "信任挑战应对",
+              "en-US": "Trust Challenge Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "能否有效应对工程师对AI的怀疑和恐惧",
+              "en-US": "Can effectively address engineer skepticism and fears about AI"
+            }
+          },
+          {
+            "id": "ch-c2",
+            "label": {
+              "zh-CN": "技术风险缓解",
+              "en-US": "Technical Risk Mitigation"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "是否提出了降低误报率和确保系统可靠性的措施",
+              "en-US": "Are measures proposed to reduce false positive rates and ensure system reliability"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pitch",
+        "label": {
+          "zh-CN": "方案表达",
+          "en-US": "Solution Presentation"
+        },
+        "criteria": [
+          {
+            "id": "p-c1",
+            "label": {
+              "zh-CN": "高层信息适配",
+              "en-US": "Senior Leadership Adaptation"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "是否面向管理层关注的业务价值和投资回报进行阐述",
+              "en-US": "Does the presentation focus on business value and ROI for senior leadership"
+            }
+          },
+          {
+            "id": "p-c2",
+            "label": {
+              "zh-CN": "清晰度和说服力",
+              "en-US": "Clarity and Persuasiveness"
+            },
+            "weight": 60,
+            "description": {
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向",
+              "en-US": "Is the solution presentation clear, persuasive, and action-oriented"
+            }
+          }
+        ]
+      },
+      {
+        "id": "process",
+        "label": {
+          "zh-CN": "实施流程",
+          "en-US": "Implementation Process"
+        },
+        "criteria": [
+          {
+            "id": "pr-c1",
+            "label": {
+              "zh-CN": "时间规划合理性",
+              "en-US": "Timeline Reasonableness"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "六周Pilot计划是否合理、可实现",
+              "en-US": "Is the six-week pilot plan reasonable and achievable"
+            }
+          },
+          {
+            "id": "pr-c2",
+            "label": {
+              "zh-CN": "可交付成果明确性",
+              "en-US": "Deliverable Clarity"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "每个阶段的可交付成果是否明确、可验收",
+              "en-US": "Are deliverables for each phase clearly defined and acceptability criteria"
+            }
+          },
+          {
+            "id": "pr-c3",
+            "label": {
+              "zh-CN": "风险管理",
+              "en-US": "Risk Management"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "是否识别了关键风险并制定了缓解计划",
+              "en-US": "Are key risks identified and mitigation plans established"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "criticalContradictions": [
+    {
+      "id": "cc-001",
+      "statement": {
+        "zh-CN": "管理层希望实现广泛的自动化决策，而一线工程师强烈怀疑AI系统能否理解复杂的设备行为",
+        "en-US": "Management wants broad automated decision-making, while frontline engineers strongly doubt whether AI systems can understand complex equipment behavior"
+      },
+      "expectedEvidenceIds": [
+        "ev-trust",
+        "ev-workflow"
+      ]
+    },
+    {
+      "id": "cc-002",
+      "statement": {
+        "zh-CN": "管理层希望将工程师处理的告警量降低50%，而工程师担心AI无法解释其优先级决策，导致误报被盲目接受",
+        "en-US": "Management wants to cut the alerts engineers handle by 50%, while engineers worry AI cannot explain its prioritization decisions, causing false positives to be accepted blindly"
+      },
+      "expectedEvidenceIds": [
+        "ev-success-measures",
+        "ev-trust"
+      ]
+    }
+  ],
+  "hintLadders": [
+    {
+      "id": "hl-workflow",
+      "topic": "workflow",
+      "hints": {
+        "1": {
+          "zh-CN": "思考当前告警处理的起点：谁收到告警？他们如何处理？",
+          "en-US": "Think about the starting point of current alert handling: who receives alerts? How do they handle them?"
+        },
+        "2": {
+          "zh-CN": "关注数据量：每天有多少告警？其中多少是真正需要关注的？",
+          "en-US": "Focus on data volume: how many alerts per day? How many truly require attention?"
+        },
+        "3": {
+          "zh-CN": "关键发现：80%的告警是低价值的，工程师花了太多时间在误报上",
+          "en-US": "Key discovery: 80% of alerts are low-value; engineers spend too much time on false positives"
+        }
+      }
+    },
+    {
+      "id": "hl-pain",
+      "topic": "pain",
+      "hints": {
+        "1": {
+          "zh-CN": "考虑工程师的时间分配：他们花多少时间在告警上？",
+          "en-US": "Consider engineer time allocation: how much time do they spend on alerts?"
+        },
+        "2": {
+          "zh-CN": "思考时间浪费的后果：响应延迟如何影响生产？",
+          "en-US": "Consider the consequences of time waste: how does delayed response affect production?"
+        },
+        "3": {
+          "zh-CN": "关键发现：每天浪费40%时间，导致200万美元的年度停机损失",
+          "en-US": "Key discovery: 40% of time wasted daily, leading to $2 million annual downtime losses"
+        }
+      }
+    },
+    {
+      "id": "hl-root-cause",
+      "topic": "root-cause",
+      "hints": {
+        "1": {
+          "zh-CN": "现有解决方案是什么？它是如何工作的？",
+          "en-US": "What is the current solution? How does it work?"
+        },
+        "2": {
+          "zh-CN": "规则系统几年没更新了？它无法适应哪些变化？",
+          "en-US": "How many years since the rule system was last updated? What changes can't it adapt to?"
+        },
+        "3": {
+          "zh-CN": "关键发现：5年前开发的规则系统无法识别工艺参数波动",
+          "en-US": "Key discovery: 5-year-old rule system cannot recognize process parameter fluctuations"
+        }
+      }
+    },
+    {
+      "id": "hl-trust",
+      "topic": "trust",
+      "hints": {
+        "1": {
+          "zh-CN": "一线工程师对AI的态度是支持还是反对？为什么？",
+          "en-US": "Are frontline engineers supportive or opposed to AI? Why?"
+        },
+        "2": {
+          "zh-CN": "工程师担心AI系统的哪些具体问题？",
+          "en-US": "What specific concerns do engineers have about AI systems?"
+        },
+        "3": {
+          "zh-CN": "关键发现：85%工程师担心'黑箱'决策，需要可解释性机制",
+          "en-US": "Key discovery: 85% of engineers worry about 'black box' decisions and need explainability mechanisms"
+        }
+      }
+    },
+    {
+      "id": "hl-constraints",
+      "topic": "constraints",
+      "hints": {
+        "1": {
+          "zh-CN": "工厂的网络环境有什么特殊要求？",
+          "en-US": "What special requirements does the factory's network environment have?"
+        },
+        "2": {
+          "zh-CN": "预算限制对方案选择有什么影响？",
+          "en-US": "How does the budget limit affect solution choices?"
+        },
+        "3": {
+          "zh-CN": "关键发现：必须是本地部署方案，无法使用外部AI专家",
+          "en-US": "Key discovery: must be on-premises solution, cannot use external AI experts"
+        }
+      }
+    },
+    {
+      "id": "hl-success",
+      "topic": "success-measures",
+      "hints": {
+        "1": {
+          "zh-CN": "管理层希望达到什么具体指标？",
+          "en-US": "What specific metrics does management hope to achieve?"
+        },
+        "2": {
+          "zh-CN": "降低告警处理量50%意味着每天处理多少条？",
+          "en-US": "What does reducing alert handling by 50% mean for daily volume?"
+        },
+        "3": {
+          "zh-CN": "关键发现：2000 -> 1000条/天，三年可节省300万美元",
+          "en-US": "Key discovery: 2000 -> 1000 alerts/day, saving $3 million over three years"
+        }
+      }
+    },
+    {
+      "id": "hl-business-impact",
+      "topic": "business-impact",
+      "hints": {
+        "1": {
+          "zh-CN": "告警处理效率低下对业务造成了哪些具体影响？",
+          "en-US": "What specific business impacts result from the inefficient alert handling?"
+        },
+        "2": {
+          "zh-CN": "这些影响如何体现在维护安排和排班中？",
+          "en-US": "How do these impacts show up in maintenance scheduling and shift planning?"
+        },
+        "3": {
+          "zh-CN": "关键发现：约15%的预防性维护被推迟，夜间漏报率高达30%",
+          "en-US": "Key discovery: about 15% of preventive maintenance is postponed, and the night-shift missed-alert rate reaches 30%"
+        }
+      }
+    },
+    {
+      "id": "hl-failure-modes",
+      "topic": "failure-modes",
+      "hints": {
+        "1": {
+          "zh-CN": "如果AI方案出了问题，最坏情况是什么？",
+          "en-US": "If the AI solution goes wrong, what is the worst case?"
+        },
+        "2": {
+          "zh-CN": "误报或自动抑制告警可能带来哪些安全风险？",
+          "en-US": "What safety risks could false positives or automatic alert suppression introduce?"
+        },
+        "3": {
+          "zh-CN": "关键发现：高误报率会让工程师忽略所有告警，夜间自动抑制可能掩盖紧急问题",
+          "en-US": "Key discovery: a high false-positive rate could make engineers ignore all alerts, and automatic night suppression could mask urgent issues"
+        }
+      }
+    }
+  ],
+  "passGates": [
+    {
+      "id": "pg-001",
+      "description": {
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个完整的、与约束兼容的方案",
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete, constraint-compatible solution"
+      }
+    },
+    {
+      "id": "pg-002",
+      "description": {
+        "zh-CN": "在PITCH阶段，学员必须成功应对信任挑战并展示方案价值",
+        "en-US": "In the PITCH phase, the learner must successfully address trust challenges and demonstrate solution value"
+      }
+    }
+  ],
+  "canary": "f96df8068ed8686d6fbf8c14095e3451"
+}

@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 2,
+  "id": "data-migration",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "digest": "219f943feeed5156425a7e27e29ae03e8438bf1f9263be356035e57369e4c0bb",
+  "artifacts": [
+    {
+      "path": "public.json",
+      "sha256": "ec9577b0a1ec5d6596a2c71a8e96b225564756c3696cf21453c999b72f247b6f",
+      "bytes": 3080,
+      "schemaVersion": 1
+    },
+    {
+      "path": "customer.json",
+      "sha256": "9ce0cb94960c0608f3f25bc3355dc5e423636809b1b6a4d70298330b068e3a8e",
+      "bytes": 12530,
+      "schemaVersion": 1
+    },
+    {
+      "path": "evaluator.json",
+      "sha256": "b52a80c27c5006fdf5f13a78b4ea8b7394d9bff8ad48df55e5bebab7f7cdcf77",
+      "bytes": 17477,
+      "schemaVersion": 1
+    },
+    {
+      "path": "events.json",
+      "sha256": "969e503c9eef3693a7d31caa0c01594ac46875de6d785728bf61eb48268e017b",
+      "bytes": 1796,
+      "schemaVersion": 1
+    }
+  ]
+}

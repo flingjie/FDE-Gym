@@ -1,0 +1,502 @@
+{
+  "id": "data-migration",
+  "schemaVersion": 1,
+  "expectedEvidence": [
+    {
+      "id": "ev-workflow",
+      "category": "workflow",
+      "description": {
+        "zh-CN": "迁移工作流与所有权信息：数据规模、表结构、责任归属",
+        "en-US": "Migration workflow and ownership: data volume, table structure, responsibility"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-001",
+        "du-002"
+      ]
+    },
+    {
+      "id": "ev-pain",
+      "category": "pain",
+      "description": {
+        "zh-CN": "迁移痛点：数据质量差、人工核对耗时",
+        "en-US": "Migration pain points: poor data quality, time-consuming manual reconciliation"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-003",
+        "du-004"
+      ]
+    },
+    {
+      "id": "ev-root-cause",
+      "category": "root-cause",
+      "description": {
+        "zh-CN": "数据质量不确定的根因：遗留系统陈旧、缺少数据字典",
+        "en-US": "Root causes of data-quality uncertainty: aging legacy system, missing data dictionary"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-005",
+        "du-006"
+      ]
+    },
+    {
+      "id": "ev-business-impact",
+      "category": "business-impact",
+      "description": {
+        "zh-CN": "业务影响：停机营收损失、合规处罚风险",
+        "en-US": "Business impact: downtime revenue loss, compliance penalty risk"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-007",
+        "du-008"
+      ]
+    },
+    {
+      "id": "ev-constraints",
+      "category": "constraints",
+      "description": {
+        "zh-CN": "实施限制：8周期限、预算有限、停机窗口",
+        "en-US": "Implementation constraints: 8-week deadline, limited budget, downtime window"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-009",
+        "du-010"
+      ]
+    },
+    {
+      "id": "ev-success-measures",
+      "category": "success-measures",
+      "description": {
+        "zh-CN": "成功指标：完整性校验通过率、回滚时间、查询延迟",
+        "en-US": "Success metrics: integrity pass rate, rollback time, query latency"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-011",
+        "du-012"
+      ]
+    },
+    {
+      "id": "ev-trust",
+      "category": "trust",
+      "description": {
+        "zh-CN": "信任与分歧：项目经理与技术负责人的争执、数据负责人的回避",
+        "en-US": "Trust and disagreement: PM vs technical-lead conflict, data owner's evasiveness"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-013",
+        "du-014"
+      ]
+    },
+    {
+      "id": "ev-failure-modes",
+      "category": "failure-modes",
+      "description": {
+        "zh-CN": "失败模式：回滚失效导致数据分叉、静默截断",
+        "en-US": "Failure modes: failed rollback causing divergence, silent truncation"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-015",
+        "du-016"
+      ]
+    }
+  ],
+  "rubric": {
+    "stages": [
+      {
+        "id": "framing",
+        "label": {
+          "zh-CN": "问题定义",
+          "en-US": "Problem Framing"
+        },
+        "criteria": [
+          {
+            "id": "f-c1",
+            "label": {
+              "zh-CN": "迁移风险陈述清晰度",
+              "en-US": "Migration Risk Clarity"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "能否准确描述迁移项目的数据质量风险与时间压力",
+              "en-US": "Can accurately describe the migration's data-quality risk and time pressure"
+            }
+          },
+          {
+            "id": "f-c2",
+            "label": {
+              "zh-CN": "关键利益相关者识别",
+              "en-US": "Key Stakeholder Identification"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "是否识别了项目经理、技术负责人、数据负责人和财务总监及其核心关切",
+              "en-US": "Has identified the PM, technical lead, data owner, finance director and their core concerns"
+            }
+          },
+          {
+            "id": "f-c3",
+            "label": {
+              "zh-CN": "成功标准明确性",
+              "en-US": "Success Criteria Clarity"
+            },
+            "weight": 45,
+            "description": {
+              "zh-CN": "是否明确定义了可衡量的成功指标（完整性、回滚时间、延迟）",
+              "en-US": "Are measurable success criteria (integrity, rollback time, latency) clearly defined"
+            }
+          }
+        ]
+      },
+      {
+        "id": "solution",
+        "label": {
+          "zh-CN": "方案设计",
+          "en-US": "Solution Design"
+        },
+        "criteria": [
+          {
+            "id": "s-c1",
+            "label": {
+              "zh-CN": "迁移方案完整性",
+              "en-US": "Migration Completeness"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "方案是否覆盖数据清理、映射、迁移、校验、切换的完整流程",
+              "en-US": "Does the solution cover cleaning, mapping, migration, validation, and cutover"
+            }
+          },
+          {
+            "id": "s-c2",
+            "label": {
+              "zh-CN": "与约束的兼容性",
+              "en-US": "Constraint Compatibility"
+            },
+            "weight": 35,
+            "description": {
+              "zh-CN": "方案是否在8周、预算和夜间窗口内可行",
+              "en-US": "Is the solution feasible within 8 weeks, budget, and night windows"
+            }
+          },
+          {
+            "id": "s-c3",
+            "label": {
+              "zh-CN": "回滚与业务连续性",
+              "en-US": "Rollback and Continuity"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "方案是否包含可执行的回滚与业务连续性措施",
+              "en-US": "Does the solution include an executable rollback and business-continuity plan"
+            }
+          }
+        ]
+      },
+      {
+        "id": "challenge",
+        "label": {
+          "zh-CN": "挑战应对",
+          "en-US": "Challenge Response"
+        },
+        "criteria": [
+          {
+            "id": "ch-c1",
+            "label": {
+              "zh-CN": "分歧化解",
+              "en-US": "Conflict Resolution"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "能否有效调和项目经理与技术负责人关于上线时间的分歧",
+              "en-US": "Can effectively reconcile the PM and technical lead over the go-live date"
+            }
+          },
+          {
+            "id": "ch-c2",
+            "label": {
+              "zh-CN": "技术风险缓解",
+              "en-US": "Technical Risk Mitigation"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "是否提出了降低数据丢失与分叉风险的措施",
+              "en-US": "Are measures proposed to reduce data-loss and divergence risk"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pitch",
+        "label": {
+          "zh-CN": "方案表达",
+          "en-US": "Solution Presentation"
+        },
+        "criteria": [
+          {
+            "id": "p-c1",
+            "label": {
+              "zh-CN": "高层信息适配",
+              "en-US": "Senior Leadership Adaptation"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "是否面向管理层关注的风险、合规和投资回报进行阐述",
+              "en-US": "Does the presentation address leadership's risk, compliance, and ROI concerns"
+            }
+          },
+          {
+            "id": "p-c2",
+            "label": {
+              "zh-CN": "清晰度和说服力",
+              "en-US": "Clarity and Persuasiveness"
+            },
+            "weight": 60,
+            "description": {
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向",
+              "en-US": "Is the presentation clear, persuasive, and action-oriented"
+            }
+          }
+        ]
+      },
+      {
+        "id": "process",
+        "label": {
+          "zh-CN": "实施流程",
+          "en-US": "Implementation Process"
+        },
+        "criteria": [
+          {
+            "id": "pr-c1",
+            "label": {
+              "zh-CN": "时间规划合理性",
+              "en-US": "Timeline Reasonableness"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "8周迁移计划是否合理、可实现",
+              "en-US": "Is the 8-week migration plan reasonable and achievable"
+            }
+          },
+          {
+            "id": "pr-c2",
+            "label": {
+              "zh-CN": "可交付成果明确性",
+              "en-US": "Deliverable Clarity"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "每个阶段的可交付成果是否明确、可验收",
+              "en-US": "Are deliverables for each phase clearly defined and verifiable"
+            }
+          },
+          {
+            "id": "pr-c3",
+            "label": {
+              "zh-CN": "风险管理",
+              "en-US": "Risk Management"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "是否识别了关键风险并制定了缓解计划",
+              "en-US": "Are key risks identified and mitigation plans established"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "criticalContradictions": [
+    {
+      "id": "cc-001",
+      "statement": {
+        "zh-CN": "项目经理要求按原定8周期限上线，而技术负责人坚持数据质量不足以在期限内安全切换",
+        "en-US": "The project manager demands the original 8-week go-live, while the technical lead insists data quality is insufficient for a safe cutover within that timeline"
+      },
+      "expectedEvidenceIds": [
+        "ev-trust",
+        "ev-success-measures"
+      ]
+    },
+    {
+      "id": "cc-002",
+      "statement": {
+        "zh-CN": "数据所有权分散在三个部门且无人愿意承担整体责任，但迁移需要端到端的数据负责人",
+        "en-US": "Data ownership is split across three departments with no one willing to take overall responsibility, yet the migration needs an end-to-end data owner"
+      },
+      "expectedEvidenceIds": [
+        "ev-workflow",
+        "ev-root-cause"
+      ]
+    }
+  ],
+  "hintLadders": [
+    {
+      "id": "hl-workflow",
+      "topic": "workflow",
+      "hints": {
+        "1": {
+          "zh-CN": "思考迁移的起点：迁移涉及哪些数据？由谁负责？",
+          "en-US": "Think about the migration's starting point: which data is involved, and who owns it?"
+        },
+        "2": {
+          "zh-CN": "关注数据规模与表结构，以及是否存在单一的负责人。",
+          "en-US": "Focus on data volume and table structure, and whether there is a single owner."
+        },
+        "3": {
+          "zh-CN": "关键发现：约3,200万条记录、15张表，且数据所有权分散在三个部门。",
+          "en-US": "Key discovery: about 32 million records across 15 tables, with ownership split across three departments."
+        }
+      }
+    },
+    {
+      "id": "hl-pain",
+      "topic": "pain",
+      "hints": {
+        "1": {
+          "zh-CN": "考虑迁移准备中暴露了哪些数据质量问题？",
+          "en-US": "Consider which data-quality problems have surfaced during preparation?"
+        },
+        "2": {
+          "zh-CN": "团队在手工核对上花了多少时间？",
+          "en-US": "How much time does the team spend on manual reconciliation?"
+        },
+        "3": {
+          "zh-CN": "关键发现：约12%的记录存在字段问题，团队每周手工核对两天。",
+          "en-US": "Key discovery: about 12% of records have field issues, and the team reconciles manually two days a week."
+        }
+      }
+    },
+    {
+      "id": "hl-root-cause",
+      "topic": "root-cause",
+      "hints": {
+        "1": {
+          "zh-CN": "数据质量问题的根本原因是什么？",
+          "en-US": "What is the root cause of the data-quality problems?"
+        },
+        "2": {
+          "zh-CN": "遗留系统有多老？是否缺少数据字典？",
+          "en-US": "How old is the legacy system? Is there a missing data dictionary?"
+        },
+        "3": {
+          "zh-CN": "关键发现：18年历史的系统、7次未记录的修改、缺少数据字典且依赖已离职工程师的记忆。",
+          "en-US": "Key discovery: an 18-year-old system, 7 undocumented changes, no data dictionary, and reliance on departed engineers' memory."
+        }
+      }
+    },
+    {
+      "id": "hl-business-impact",
+      "topic": "business-impact",
+      "hints": {
+        "1": {
+          "zh-CN": "迁移失败会带来哪些业务影响？",
+          "en-US": "What business impact would a failed migration cause?"
+        },
+        "2": {
+          "zh-CN": "是否有监管期限带来的合规压力？",
+          "en-US": "Is there compliance pressure from a regulatory deadline?"
+        },
+        "3": {
+          "zh-CN": "关键发现：停机每天损失约40万美元，监管要求下个财季前完成可审计性改造。",
+          "en-US": "Key discovery: downtime costs about $400,000 a day, and regulators require auditability by next fiscal quarter."
+        }
+      }
+    },
+    {
+      "id": "hl-constraints",
+      "topic": "constraints",
+      "hints": {
+        "1": {
+          "zh-CN": "迁移在时间和预算上有什么限制？",
+          "en-US": "What time and budget constraints does the migration face?"
+        },
+        "2": {
+          "zh-CN": "迁移必须在什么时间窗口进行？",
+          "en-US": "In what time window must the migration run?"
+        },
+        "3": {
+          "zh-CN": "关键发现：只有8周窗口，夜间迁移，预算仅够一套工具和两名合同工程师。",
+          "en-US": "Key discovery: only an 8-week window, night migration, and budget for one tool and two contract engineers."
+        }
+      }
+    },
+    {
+      "id": "hl-success",
+      "topic": "success-measures",
+      "hints": {
+        "1": {
+          "zh-CN": "管理层希望达到什么具体指标？",
+          "en-US": "What specific metrics does management hope to achieve?"
+        },
+        "2": {
+          "zh-CN": "切换后的完整性校验通过率和回滚时间要求是多少？",
+          "en-US": "What integrity pass rate and rollback time are required after cutover?"
+        },
+        "3": {
+          "zh-CN": "关键发现：99.99%完整性校验通过率、2小时内回滚、查询延迟降低60%。",
+          "en-US": "Key discovery: 99.99% integrity pass rate, rollback under 2 hours, and 60% query-latency reduction."
+        }
+      }
+    },
+    {
+      "id": "hl-trust",
+      "topic": "trust",
+      "hints": {
+        "1": {
+          "zh-CN": "项目团队内部是否存在公开的分歧？",
+          "en-US": "Is there open disagreement within the project team?"
+        },
+        "2": {
+          "zh-CN": "项目经理和技术负责人对上线时间各持什么立场？",
+          "en-US": "What positions do the PM and technical lead take on the go-live date?"
+        },
+        "3": {
+          "zh-CN": "关键发现：项目经理坚持8周上线，技术负责人认为数据质量不足以安全切换，数据负责人回避责任。",
+          "en-US": "Key discovery: the PM insists on 8 weeks, the technical lead says data quality is unsafe for cutover, and the data owner evades responsibility."
+        }
+      }
+    },
+    {
+      "id": "hl-failure-modes",
+      "topic": "failure-modes",
+      "hints": {
+        "1": {
+          "zh-CN": "如果迁移或回滚失败，最坏情况是什么？",
+          "en-US": "If the migration or rollback fails, what is the worst case?"
+        },
+        "2": {
+          "zh-CN": "新旧系统同时写入会带来什么后果？",
+          "en-US": "What happens if old and new systems write simultaneously?"
+        },
+        "3": {
+          "zh-CN": "关键发现：回滚超时会导致数据分叉，字段超长会被静默截断且校验不报错。",
+          "en-US": "Key discovery: rollback timeout causes data divergence, and over-length fields are silently truncated without validation errors."
+        }
+      }
+    }
+  ],
+  "passGates": [
+    {
+      "id": "pg-001",
+      "description": {
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个包含回滚与业务连续性措施的完整迁移方案",
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete migration plan with rollback and business-continuity measures"
+      }
+    },
+    {
+      "id": "pg-002",
+      "description": {
+        "zh-CN": "在PITCH阶段，学员必须成功化解上线时间分歧并展示方案价值",
+        "en-US": "In the PITCH phase, the learner must successfully resolve the go-live disagreement and demonstrate value"
+      }
+    }
+  ],
+  "canary": "f96df8068ed8686d6fbf8c14095e3451"
+}

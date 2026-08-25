@@ -1,0 +1,502 @@
+{
+  "id": "support-automation",
+  "schemaVersion": 1,
+  "expectedEvidence": [
+    {
+      "id": "ev-workflow",
+      "category": "workflow",
+      "description": {
+        "zh-CN": "支持工作流信息：工单量、重复比例、首响时间",
+        "en-US": "Support workflow: ticket volume, repeat ratio, first-response time"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-001",
+        "du-002"
+      ]
+    },
+    {
+      "id": "ev-pain",
+      "category": "pain",
+      "description": {
+        "zh-CN": "支持痛点：人工成本、流失率、复杂工单解决率",
+        "en-US": "Support pain points: labor cost, attrition, complex-ticket resolution"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-003",
+        "du-004"
+      ]
+    },
+    {
+      "id": "ev-root-cause",
+      "category": "root-cause",
+      "description": {
+        "zh-CN": "现有系统失效根因：规则引擎僵化、无法理解自然语言",
+        "en-US": "Root causes of current system failure: rigid rules engine, no natural-language understanding"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-005",
+        "du-006"
+      ]
+    },
+    {
+      "id": "ev-business-impact",
+      "category": "business-impact",
+      "description": {
+        "zh-CN": "业务影响：客户流失价值、可节省成本",
+        "en-US": "Business impact: churn lifetime value, achievable cost savings"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-007",
+        "du-008"
+      ]
+    },
+    {
+      "id": "ev-constraints",
+      "category": "constraints",
+      "description": {
+        "zh-CN": "实施限制：合规人工复核、数据出境禁止",
+        "en-US": "Implementation constraints: compliance human review, data-egress prohibition"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-009",
+        "du-010"
+      ]
+    },
+    {
+      "id": "ev-success-measures",
+      "category": "success-measures",
+      "description": {
+        "zh-CN": "成功指标：首响时间、成本降低、准确率红线",
+        "en-US": "Success metrics: first-response time, cost reduction, accuracy floor"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-011",
+        "du-012"
+      ]
+    },
+    {
+      "id": "ev-trust",
+      "category": "trust",
+      "description": {
+        "zh-CN": "信任问题：一线客服抵触、高管期望过高",
+        "en-US": "Trust issues: frontline resistance, executive overconfidence"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-013",
+        "du-014"
+      ]
+    },
+    {
+      "id": "ev-failure-modes",
+      "category": "failure-modes",
+      "description": {
+        "zh-CN": "失败模式：AI编造政策、自动化失效导致服务雪崩",
+        "en-US": "Failure modes: AI policy fabrication, automation outage causing avalanche"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-015",
+        "du-016"
+      ]
+    }
+  ],
+  "rubric": {
+    "stages": [
+      {
+        "id": "framing",
+        "label": {
+          "zh-CN": "问题定义",
+          "en-US": "Problem Framing"
+        },
+        "criteria": [
+          {
+            "id": "f-c1",
+            "label": {
+              "zh-CN": "支持问题陈述清晰度",
+              "en-US": "Support Problem Clarity"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "能否准确描述支持中心的质量、延迟与成本问题",
+              "en-US": "Can accurately describe the support center's quality, latency, and cost problem"
+            }
+          },
+          {
+            "id": "f-c2",
+            "label": {
+              "zh-CN": "关键利益相关者识别",
+              "en-US": "Key Stakeholder Identification"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "是否识别了客服总监、合规官、自动化工程师和CFO及其核心关切",
+              "en-US": "Has identified the support director, compliance officer, automation engineer, and CFO with their core concerns"
+            }
+          },
+          {
+            "id": "f-c3",
+            "label": {
+              "zh-CN": "成功标准明确性",
+              "en-US": "Success Criteria Clarity"
+            },
+            "weight": 45,
+            "description": {
+              "zh-CN": "是否明确定义了可衡量的成功指标（首响、成本、准确率）",
+              "en-US": "Are measurable success criteria (first-response, cost, accuracy) clearly defined"
+            }
+          }
+        ]
+      },
+      {
+        "id": "solution",
+        "label": {
+          "zh-CN": "方案设计",
+          "en-US": "Solution Design"
+        },
+        "criteria": [
+          {
+            "id": "s-c1",
+            "label": {
+              "zh-CN": "方案完整性",
+              "en-US": "Solution Completeness"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "方案是否覆盖分类、建议、人工确认与升级的完整流程",
+              "en-US": "Does the solution cover classification, suggestion, human confirmation, and escalation"
+            }
+          },
+          {
+            "id": "s-c2",
+            "label": {
+              "zh-CN": "AI与规则的权衡",
+              "en-US": "AI vs. Rules Trade-off"
+            },
+            "weight": 35,
+            "description": {
+              "zh-CN": "方案是否清晰地权衡了AI与规则引擎的取舍",
+              "en-US": "Does the solution clearly weigh the AI vs. rules-engine trade-offs"
+            }
+          },
+          {
+            "id": "s-c3",
+            "label": {
+              "zh-CN": "合规兼容性",
+              "en-US": "Compliance Compatibility"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "方案是否在敏感工单人工复核与数据出境限制内可行",
+              "en-US": "Is the solution feasible within sensitive-ticket human review and data-egress limits"
+            }
+          }
+        ]
+      },
+      {
+        "id": "challenge",
+        "label": {
+          "zh-CN": "挑战应对",
+          "en-US": "Challenge Response"
+        },
+        "criteria": [
+          {
+            "id": "ch-c1",
+            "label": {
+              "zh-CN": "不安全自动化应对",
+              "en-US": "Unsafe Automation Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "能否有效应对AI编造政策等不安全自动化的挑战",
+              "en-US": "Can effectively address unsafe automation such as AI policy fabrication"
+            }
+          },
+          {
+            "id": "ch-c2",
+            "label": {
+              "zh-CN": "升级流程应对",
+              "en-US": "Escalation Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "是否建立了可靠的一键转人工升级通道",
+              "en-US": "Has a reliable one-click human escalation path been established"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pitch",
+        "label": {
+          "zh-CN": "方案表达",
+          "en-US": "Solution Presentation"
+        },
+        "criteria": [
+          {
+            "id": "p-c1",
+            "label": {
+              "zh-CN": "高层ROI适配",
+              "en-US": "Executive ROI Adaptation"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "是否面向CFO关注的成本与投资回报进行阐述",
+              "en-US": "Does the presentation address the CFO's cost and ROI concerns"
+            }
+          },
+          {
+            "id": "p-c2",
+            "label": {
+              "zh-CN": "清晰度和说服力",
+              "en-US": "Clarity and Persuasiveness"
+            },
+            "weight": 60,
+            "description": {
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向",
+              "en-US": "Is the presentation clear, persuasive, and action-oriented"
+            }
+          }
+        ]
+      },
+      {
+        "id": "process",
+        "label": {
+          "zh-CN": "实施流程",
+          "en-US": "Implementation Process"
+        },
+        "criteria": [
+          {
+            "id": "pr-c1",
+            "label": {
+              "zh-CN": "分阶段上线合理性",
+              "en-US": "Phased Rollout Reasonableness"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "分阶段自动化上线计划是否合理、可实现",
+              "en-US": "Is the phased automation rollout reasonable and achievable"
+            }
+          },
+          {
+            "id": "pr-c2",
+            "label": {
+              "zh-CN": "度量体系明确性",
+              "en-US": "Measurement Clarity"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "质量、延迟与成本的度量体系是否明确",
+              "en-US": "Are the quality, latency, and cost metrics clearly defined"
+            }
+          },
+          {
+            "id": "pr-c3",
+            "label": {
+              "zh-CN": "风险管理",
+              "en-US": "Risk Management"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "是否识别了关键风险并制定了缓解计划",
+              "en-US": "Are key risks identified and mitigation plans established"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "criticalContradictions": [
+    {
+      "id": "cc-001",
+      "statement": {
+        "zh-CN": "自动化工程师希望最大化AI自动处理比例，而合规官要求所有敏感工单必须人工复核",
+        "en-US": "The automation engineer wants to maximize AI auto-handling, while the compliance officer requires human review for all sensitive tickets"
+      },
+      "expectedEvidenceIds": [
+        "ev-constraints",
+        "ev-workflow"
+      ]
+    },
+    {
+      "id": "cc-002",
+      "statement": {
+        "zh-CN": "高管追求激进的成本削减和全自动化ROI，而一线客服对AI强烈不信任",
+        "en-US": "Executives pursue aggressive cost cuts and full-automation ROI, while frontline agents strongly distrust AI"
+      },
+      "expectedEvidenceIds": [
+        "ev-trust",
+        "ev-business-impact"
+      ]
+    }
+  ],
+  "hintLadders": [
+    {
+      "id": "hl-workflow",
+      "topic": "workflow",
+      "hints": {
+        "1": {
+          "zh-CN": "思考支持中心的起点：每月处理多少工单？如何分级？",
+          "en-US": "Think about the support center's starting point: how many tickets a month, and how are they triaged?"
+        },
+        "2": {
+          "zh-CN": "关注重复性工单的比例与首响时间。",
+          "en-US": "Focus on the repeat-ticket ratio and first-response time."
+        },
+        "3": {
+          "zh-CN": "关键发现：每月约18万张工单，55%重复，首响时间4到9小时。",
+          "en-US": "Key discovery: about 180,000 tickets a month, 55% repetitive, first-response 4 to 9 hours."
+        }
+      }
+    },
+    {
+      "id": "hl-pain",
+      "topic": "pain",
+      "hints": {
+        "1": {
+          "zh-CN": "支持中心的主要痛点是什么？",
+          "en-US": "What are the support center's main pain points?"
+        },
+        "2": {
+          "zh-CN": "人工成本占比和人员流失率是多少？",
+          "en-US": "What is the labor-cost share and attrition rate?"
+        },
+        "3": {
+          "zh-CN": "关键发现：人工成本占72%，流失率38%，复杂工单一次解决率仅51%。",
+          "en-US": "Key discovery: labor is 72%, attrition 38%, and complex-ticket first-contact resolution only 51%."
+        }
+      }
+    },
+    {
+      "id": "hl-root-cause",
+      "topic": "root-cause",
+      "hints": {
+        "1": {
+          "zh-CN": "现有自动化系统的根本缺陷是什么？",
+          "en-US": "What is the fundamental defect of the current automation system?"
+        },
+        "2": {
+          "zh-CN": "规则引擎有多少条规则？维护成本如何？",
+          "en-US": "How many rules does the engine have, and what is the upkeep cost?"
+        },
+        "3": {
+          "zh-CN": "关键发现：3,400条硬编码规则、每季度两周维护，仍漏掉20%新问题，且无法理解自然语言。",
+          "en-US": "Key discovery: 3,400 hard-coded rules, two weeks of upkeep per quarter, still missing 20% of new issues and unable to parse natural language."
+        }
+      }
+    },
+    {
+      "id": "hl-business-impact",
+      "topic": "business-impact",
+      "hints": {
+        "1": {
+          "zh-CN": "等待过久会导致什么业务损失？",
+          "en-US": "What business loss does long waiting cause?"
+        },
+        "2": {
+          "zh-CN": "自动化能带来多大的可量化节省？",
+          "en-US": "How much quantifiable savings can automation bring?"
+        },
+        "3": {
+          "zh-CN": "关键发现：客户流失终身价值约320美元、每月900人流失；覆盖40%工单可年省约210万美元。",
+          "en-US": "Key discovery: churn lifetime value about $320 with 900 monthly churns; covering 40% of tickets saves about $2.1M annually."
+        }
+      }
+    },
+    {
+      "id": "hl-constraints",
+      "topic": "constraints",
+      "hints": {
+        "1": {
+          "zh-CN": "自动化在合规与隐私上有哪些限制？",
+          "en-US": "What compliance and privacy limits constrain automation?"
+        },
+        "2": {
+          "zh-CN": "哪些工单必须人工复核？数据可以出境吗？",
+          "en-US": "Which tickets require human review? Can data leave the region?"
+        },
+        "3": {
+          "zh-CN": "关键发现：付款、退款和账户工单必须人工复核，且数据不得发送到境外第三方模型。",
+          "en-US": "Key discovery: payment, refund, and account tickets need human review, and data must not go to offshore third-party models."
+        }
+      }
+    },
+    {
+      "id": "hl-success",
+      "topic": "success-measures",
+      "hints": {
+        "1": {
+          "zh-CN": "管理层希望达到什么具体指标？",
+          "en-US": "What specific metrics does management hope to achieve?"
+        },
+        "2": {
+          "zh-CN": "首响时间和成本的目标是什么？准确率红线是多少？",
+          "en-US": "What are the first-response and cost targets, and the accuracy floor?"
+        },
+        "3": {
+          "zh-CN": "关键发现：首响从4小时降到1小时、成本降35%、准确率不低于92%且不得编造政策。",
+          "en-US": "Key discovery: first-response from 4 to 1 hour, cost down 35%, accuracy at least 92% with no policy fabrication."
+        }
+      }
+    },
+    {
+      "id": "hl-trust",
+      "topic": "trust",
+      "hints": {
+        "1": {
+          "zh-CN": "一线客服和高管对AI各持什么态度？",
+          "en-US": "What attitudes do frontline agents and executives hold toward AI?"
+        },
+        "2": {
+          "zh-CN": "客服为什么抵触AI？高管的期望是否现实？",
+          "en-US": "Why do agents resist AI? Are executives' expectations realistic?"
+        },
+        "3": {
+          "zh-CN": "关键发现：一线客服害怕丢工作并绕过系统，高管期望一步到位全自动而低估合规质量约束。",
+          "en-US": "Key discovery: frontline agents fear job loss and bypass the system; executives expect one-step full automation and underestimate compliance and quality constraints."
+        }
+      }
+    },
+    {
+      "id": "hl-failure-modes",
+      "topic": "failure-modes",
+      "hints": {
+        "1": {
+          "zh-CN": "如果AI出错或失效，最坏情况是什么？",
+          "en-US": "If the AI errs or fails, what is the worst case?"
+        },
+        "2": {
+          "zh-CN": "AI在不确定时会做什么？高峰失效会带来什么？",
+          "en-US": "What does the AI do when uncertain? What happens if it fails at peak?"
+        },
+        "3": {
+          "zh-CN": "关键发现：AI会自信编造退款政策；高峰失效会让上万张工单涌入人工队列导致雪崩。",
+          "en-US": "Key discovery: the AI confidently fabricates refund policy; a peak failure floods tens of thousands of tickets into the human queue, causing an avalanche."
+        }
+      }
+    }
+  ],
+  "passGates": [
+    {
+      "id": "pg-001",
+      "description": {
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个包含升级通道和合规人工复核的完整方案",
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete plan with an escalation path and compliance human review"
+      }
+    },
+    {
+      "id": "pg-002",
+      "description": {
+        "zh-CN": "在PITCH阶段，学员必须面向管理层展示可量化的ROI并化解信任与安全顾虑",
+        "en-US": "In the PITCH phase, the learner must present quantifiable ROI to leadership and address trust and safety concerns"
+      }
+    }
+  ],
+  "canary": "f96df8068ed8686d6fbf8c14095e3451"
+}

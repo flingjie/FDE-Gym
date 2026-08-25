@@ -53,7 +53,9 @@ function authoring(id: ScenarioId) {
 }
 
 function compilePack(id: ScenarioId) {
-  return compileScenario(sourcePath(id), "e2e-seed");
+  const compiledRoot = mkdtempSync(join(tmpdir(), "fde-all-scenarios-compiled-"));
+  tempDirs.push(compiledRoot);
+  return compileScenario(sourcePath(id), "e2e-seed", compiledRoot);
 }
 
 interface AskPlan {
@@ -285,7 +287,7 @@ async function driveJourney(
     public: pack.publicScenario,
     customer: pack.customerCapsule,
     evaluator: pack.evaluatorCapsule,
-    events: authoring(id).events,
+    events: [...pack.eventCandidates],
   };
   const runtime = new FixtureAgentRuntime({ fixtures: fixturesFor(id) });
   const ctx: CommandContext = { runtime, baseDir, scenario };

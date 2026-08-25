@@ -1,0 +1,35 @@
+[
+  {
+    "id": "event-security-restriction",
+    "trigger": {
+      "kind": "on_stage_enter",
+      "phase": "DISCOVERY"
+    },
+    "prompt": {
+      "zh-CN": "【重要通知】系统管理员通知：由于网络安全政策，所有外部云服务访问已被禁用。新系统必须完全部署在工厂内网。",
+      "en-US": "【Important Notice】System Administrator: Due to network security policy, all external cloud service access has been disabled. The new system must be deployed entirely within the factory's internal network."
+    }
+  },
+  {
+    "id": "event-budget-cut",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-pain"
+    },
+    "prompt": {
+      "zh-CN": "【预算更新】财务总监通知：由于公司整体预算调整，本项目预算被削减70%。我们需要用更少的资源实现目标。",
+      "en-US": "【Budget Update】CFO: Due to company-wide budget adjustments, this project's budget has been reduced by 70%. We need to achieve targets with fewer resources."
+    }
+  },
+  {
+    "id": "event-accuracy-demand",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-trust"
+    },
+    "prompt": {
+      "zh-CN": "【质量要求】质量总监要求：AI系统的判读准确率必须达到99%以上，否则无法通过验收",
+      "en-US": "【Quality Requirement】Quality Director: The AI system's classification accuracy must reach 99% or above, otherwise it will not pass acceptance"
+    }
+  }
+]

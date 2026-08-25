@@ -22,6 +22,10 @@ export const RUN_LOCKED = "RUN_LOCKED" as const;
 export const UNSUPPORTED_SCHEMA_VERSION = "UNSUPPORTED_SCHEMA_VERSION" as const;
 /** A role output passed Zod/sanitizer but references an entity absent from its input. */
 export const AGENT_OUTPUT_DOMAIN_INVALID = "AGENT_OUTPUT_DOMAIN_INVALID" as const;
+/** A compiled scenario bundle failed integrity verification (hash/byte/digest/id/descriptor). */
+export const SCENARIO_BUNDLE_INVALID = "SCENARIO_BUNDLE_INVALID" as const;
+/** The current scenario bundle's digest differs from the one a run was started against. */
+export const SCENARIO_BUNDLE_MISMATCH = "SCENARIO_BUNDLE_MISMATCH" as const;
 
 export type FdeErrorCode =
   | typeof INVALID_PHASE_COMMAND
@@ -33,7 +37,9 @@ export type FdeErrorCode =
   | typeof INVALID_RESOURCE_ID
   | typeof RUN_LOCKED
   | typeof UNSUPPORTED_SCHEMA_VERSION
-  | typeof AGENT_OUTPUT_DOMAIN_INVALID;
+  | typeof AGENT_OUTPUT_DOMAIN_INVALID
+  | typeof SCENARIO_BUNDLE_INVALID
+  | typeof SCENARIO_BUNDLE_MISMATCH;
 
 /** Base class for all FDE Gym errors. The `code` field is the stable contract. */
 export class FdeError extends Error {
@@ -139,5 +145,30 @@ export class UnsupportedSchemaVersionError extends FdeError {
     this.name = "UnsupportedSchemaVersionError";
     this.resource = resource;
     this.schemaVersion = schemaVersion;
+  }
+}
+
+/** A compiled scenario bundle failed integrity verification. The message is structural only — never artifact content. */
+export class ScenarioBundleInvalidError extends FdeError {
+  readonly scenarioId: string;
+  readonly reason: string;
+  constructor(scenarioId: string, reason: string) {
+    super(SCENARIO_BUNDLE_INVALID, `scenario bundle ${scenarioId} is invalid: ${reason}`);
+    this.name = "ScenarioBundleInvalidError";
+    this.scenarioId = scenarioId;
+    this.reason = reason;
+  }
+}
+
+/** The current scenario bundle does not match the digest a run was started against. */
+export class ScenarioBundleMismatchError extends FdeError {
+  readonly scenarioId: string;
+  constructor(scenarioId: string) {
+    super(
+      SCENARIO_BUNDLE_MISMATCH,
+      `scenario bundle for ${scenarioId} no longer matches the digest recorded at run start`,
+    );
+    this.name = "ScenarioBundleMismatchError";
+    this.scenarioId = scenarioId;
   }
 }

@@ -1,0 +1,68 @@
+{
+  "id": "manufacturing-alert-triage",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们设计一个基于AI的解决方案，以提升工厂的运营效率",
+    "en-US": "Please help us design an AI-based solution to improve our factory's operational efficiency"
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家制造企业。我们的工厂设备会持续产生各种监控信号和告警，这些信号目前没有得到高效的处理。我们希望能引入AI技术来优化这一流程，减少运营中的低效环节，让团队把精力集中在真正重要的工作上。",
+    "en-US": "We are a manufacturing company. Our factory equipment continuously produces various monitoring signals and alerts, and these signals are not currently handled efficiently. We hope to introduce AI technology to optimize this process, reduce inefficiencies in our operations, and let the team focus on the work that truly matters."
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "六周试点期限，且预算有限",
+      "en-US": "Six-week pilot timeline with a limited budget"
+    },
+    {
+      "zh-CN": "高安全要求：所有系统必须部署在工厂内网/VPC中",
+      "en-US": "High safety requirement: all systems must be deployed on-premises within the factory's VPC"
+    },
+    {
+      "zh-CN": "不能影响现有生产系统的稳定性和可用性",
+      "en-US": "Must not affect the stability and availability of existing production systems"
+    },
+    {
+      "zh-CN": "需要与现有的SCADA和MES系统集成",
+      "en-US": "Must integrate with existing SCADA and MES systems"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "完整的告警优化方案设计文档",
+      "en-US": "Complete alert optimization design document"
+    },
+    {
+      "zh-CN": "系统架构图和数据流图",
+      "en-US": "System architecture diagram and data flow diagrams"
+    },
+    {
+      "zh-CN": "风险评估和缓解措施",
+      "en-US": "Risk assessment and mitigation measures"
+    },
+    {
+      "zh-CN": "实施路线图和里程碑",
+      "en-US": "Implementation roadmap and milestones"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解工厂现状",
+      "en-US": "You have a budget of 12 questions to understand the factory's current situation"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}
