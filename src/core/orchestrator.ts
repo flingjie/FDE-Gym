@@ -271,7 +271,11 @@ export async function runDiscoveryTurn(
     const failure = normalizeFailure(error);
     const pending: PendingEvidence = {
       turnId: `${commandId}:turn`,
-      code: failure.code,
+      // The thrown error's own `code` (e.g. LEAK_GUARD_TRIGGERED,
+      // AGENT_OUTPUT_INVALID) is an internal failure-mode side-channel. The
+      // in-memory `pending` object must carry only the stable, learner-visible
+      // code — never the distinct internal one.
+      code: EVIDENCE_EXTRACTION_FAILED,
       message: failure.message,
     };
     const pendingEvent: RunEvent = {

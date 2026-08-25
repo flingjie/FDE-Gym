@@ -270,7 +270,13 @@ describe("discovery turn pipeline", () => {
       },
     });
 
-    await runDiscoveryTurn(runInput({ runtime, store: { baseDir } }));
+    const result = await runDiscoveryTurn(runInput({ runtime, store: { baseDir } }));
+
+    // The in-memory pendingEvidence must also carry the stable code, never the
+    // distinct internal code — this is the object the CLI `ask` projects from.
+    expect(result.pendingEvidence).not.toBeNull();
+    expect(result.pendingEvidence!.code).toBe("EVIDENCE_EXTRACTION_FAILED");
+    expect(result.pendingEvidence!.code).not.toBe("LEAK_GUARD_TRIGGERED");
 
     const recorded = await loadEvents("run-1", { baseDir });
     const pendingRecord = recorded.find((event) => event.type === "evidence.pending");

@@ -458,6 +458,60 @@ describe("CLI evidence repair and clarification budget", () => {
     expect(framed.phase).toBe("PROBLEM_FRAMING");
   });
 
+  it("never leaks the distinct internal failure code through the ask result", async () => {
+    const baseDir = makeStore();
+    // A schema-valid tracker output that still trips the leak guard by embedding
+    // the hidden customer canary inside a claim value. The tracker fails with
+    // LEAK_GUARD_TRIGGERED — a distinct internal code that must NOT reach the
+    // learner-visible `ask` result.
+    const fx: Record<string, unknown> = {
+      "customer:cmd-leak-ask:customer": {
+        reply: text("工程师40%的时间花在低价值告警上。", "Engineers spend 40% of time on low-value alerts."),
+        stakeholderId: "technical-lead",
+        disclosedDisclosureUnitIds: ["du-3"],
+      },
+      "evidence_tracker:cmd-leak-ask:evidence": {
+        patch: {
+          patchId: "p-leak",
+          expectedVersion: 0,
+          addNodes: [
+            {
+              id: "ev-leak",
+              kind: "fact",
+              claim: text(`泄漏 ${CUSTOMER_CANARY}`, `leak ${CUSTOMER_CANARY}`),
+              status: "active",
+              sourceTranscriptIds: ["cmd-leak-ask:turn"],
+              weight: 1,
+              version: 0,
+            },
+          ],
+          addEdges: [],
+          invalidateNodeIds: [],
+        },
+        questionAssessment: { intentCount: 1, atomicity: 1, neutrality: 1, relevance: 1, redundancy: 0 },
+      },
+    };
+    const runtime = new FixtureAgentRuntime({ fixtures: fx });
+    const ctx: CommandContext = { runtime, baseDir, scenario: scenario() };
+
+    mustOk(await startCommand(ctx, {
+      runId: "run-leak",
+      scenarioId: "scn-1",
+      locale: "zh-CN",
+      commandId: "cmd-start",
+    }));
+
+    const asked = mustOk(await askCommand(ctx, {
+      runId: "run-leak",
+      question: "工程师的时间花在哪里？",
+      stakeholderId: "technical-lead",
+      commandId: "cmd-leak-ask",
+    }));
+
+    expect(asked.pendingEvidence).toEqual({ code: "EVIDENCE_EXTRACTION_FAILED" });
+    expect(asked.pendingEvidence).not.toEqual({ code: "LEAK_GUARD_TRIGGERED" });
+  });
+
   it("persists the clarification budget across separate CLI calls", async () => {
     const baseDir = makeStore();
     const runtime = new FixtureAgentRuntime({ fixtures: fixtures() });
