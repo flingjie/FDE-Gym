@@ -385,6 +385,17 @@ const ERROR_TABLE: LocalizedError[] = [
       nextActions: ["Retry the command."],
     },
   },
+  {
+    code: "CODEX_STRICT_MODE_UNSAFE",
+    "zh-CN": {
+      message: "当前 Codex 客户端未通过严格模式安全探测。",
+      nextActions: ["运行 `fde-gym doctor` 查看完整探测报告。", "更换或修复 Codex 客户端后重试。"],
+    },
+    "en-US": {
+      message: "The Codex client did not pass the strict-mode safety probe.",
+      nextActions: ["Run `fde-gym doctor` to inspect the full probe report.", "Replace or repair the Codex client and retry."],
+    },
+  },
 ];
 
 const FALLBACK: Omit<LocalizedError, "code"> = {

@@ -158,6 +158,7 @@ async function main(): Promise<void> {
       "dry-run": { type: "boolean" },
       "json": { type: "boolean" },
       "human": { type: "boolean" },
+      "require-safe": { type: "boolean" },
     },
   });
   const flags = parsed.values as Record<string, string | boolean | undefined>;
@@ -179,6 +180,7 @@ async function main(): Promise<void> {
       result = await doctorCommand(ctx, {
         locale,
         executable: typeof flags["codex-bin"] === "string" ? flags["codex-bin"] : undefined,
+        requireSafe: flags["require-safe"] === true,
       });
       break;
     }

@@ -57,16 +57,25 @@ trigger text, and canaries.
   bilingual `description`, a strictly-positive `weight`, and
   `disclosureUnitIds[]` (which disclosure units reveal it). **Weight** drives
   information gain and scoring (see `docs/scoring.md`).
-- `rubric` — five stages (`framing`, `solution`, `challenge`, `pitch`,
-  `process`), each with weighted `criteria` (`id`, bilingual `label`, `weight`
-  0–100, bilingual `description`). This is the **scenario-specific deliverable
-  quality** rubric; the fixed capability-dimension weighting used by Raw lives
-  separately in `src/scoring/rubric.ts`.
+- `rubric` — the **`scenarioDeliverableRubric`**: five stages (`framing`,
+  `solution`, `challenge`, `pitch`, `process`), each with weighted `criteria`
+  (`id`, bilingual `label`, `weight` 0–100, bilingual `description`). This is the
+  scenario-specific **deliverable quality** rubric; the fixed
+  capability-dimension weighting used by Raw is the **`capabilityScoringRubric`**
+  in `src/scoring/rubric.ts` and never varies per scenario. The
+  `scenarioDeliverableRubric` describes expected quality for the Coach/learner;
+  only the `capabilityScoringRubric` drives numeric scoring.
 - `criticalContradictions[]` — `id`, bilingual `statement`,
   `expectedEvidenceIds[]`. These encode the tensions a learner must surface.
 - `hintLadders[]` — one ladder per discovery topic: `id`, `topic`, and `hints`
   with keys `"1"`, `"2"`, `"3"` (all three required).
 - `passGates[]` — `id` + bilingual `description` of each scenario gate.
+  **Guidance-only**: these are authored expectations, not executable predicates.
+  They carry no predicate mapping (e.g. "passes when evidence X is supported"),
+  so no run currently fails or passes on them. The executable pass/fail gates
+  are the fixed `PassGateResults` computed by `src/scoring/formulas.ts` — see
+  `docs/scoring.md`. Until each `passGates[]` entry has an executable predicate
+  mapping, treat them as authoring/coaching guidance, not release gates.
 
 ### Hint ladder discipline (L1/2/3)
 
@@ -94,8 +103,10 @@ exist (`EventTrigger`):
 | `after_challenge_response_count` | `challengeResponseCount >= count` | `count` |
 
 Selection is deterministic (`src/simulation/event-scheduler.ts`): filter fired
-candidates → sort by `id` → seeded Fisher–Yates shuffle. The **selected set** is
-fully determined by scenario + context; the **order** is seeded.
+candidates → sort by `id` → seeded Fisher–Yates shuffle. **Same scenario bundle
+digest + seed + trigger context → same scheduled event order**: the **selected
+set** is fully determined by the scenario bundle + context, and the **order** is
+seeded (see determinism claim #2 in `docs/architecture.md`).
 
 > **NOTE — `if_contradiction_unresolved` namespace caveat (known limitation).**
 > At authoring/lint time, `if_contradiction_unresolved.contradictionId` is

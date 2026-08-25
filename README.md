@@ -39,14 +39,43 @@ one safe CLI command and renders only the returned learner-safe envelope.
 ## Verify the target Codex client
 
 ```bash
-fde-gym doctor
+fde-gym doctor                    # diagnostic: print the full capability report
+fde-gym doctor --require-safe     # release gate: exit non-zero unless safeForStrictMode === true
+npm run release:gate              # npm ci → typecheck → build → test → doctor:strict, stops on first failure
 ```
 
 `doctor` probes the real Codex CLI and reports a `safeForStrictMode` boolean
 plus seven gate booleans (`localCommandExecution`, `freshContext`,
 `distinctRoleSessions`, `structuredOutput`, `toolsDisabled`,
 `parentCanaryIsolated`, `childCanaryContained`). A strict run must only start
-when `safeForStrictMode` is `true`.
+when `safeForStrictMode` is `true`; `doctor --require-safe` (and the
+`doctor:strict` npm script) turns that requirement into an executable gate that
+exits non-zero with the stable code `CODEX_STRICT_MODE_UNSAFE` when the probe
+does not pass. `npm run release:gate` runs the full chain and stops at the
+first failure — a failing live doctor is a failed release, never a warning.
+
+## Determinism and release status
+
+Four claims are precise and are what the verification suite asserts:
+
+1. **Same committed events → same state.** `decide()`/`reduce()` are pure folds
+   over the event log — no wall-clock, no `Math.random` (see
+   `docs/architecture.md`).
+2. **Same scenario bundle digest + seed + trigger context → same scheduled
+   event order.** The only randomness is a seeded PRNG consumed solely to order
+   the scenario-event wave.
+3. **Same event log → byte-stable recorded replay.** `replay` projects the
+   committed events; identical events yield identical bytes in every locale
+   (see `docs/replay.md`).
+4. **A fresh model invocation does NOT guarantee identical prose or judgment.**
+   Only the control-plane state and ordering are deterministic; role prose is
+   confined behind schema-validated boundaries and never drives the control
+   plane.
+
+"**MVP v1 frozen**" means the specification and acceptance baseline are frozen,
+**not** that the product is release-ready. Release stays blocked until a live
+`doctor --require-safe` probe returns `safeForStrictMode: true` (see
+`docs/mvp-acceptance.md`).
 
 ## Learner flow
 
@@ -107,6 +136,7 @@ Failures return `{ ok: false, code, message, nextActions }`. Common codes:
 | `AGENT_TIMEOUT` / `AGENT_SPAWN_ERROR` / `AGENT_OUTPUT_*` / `AGENT_INPUT_INVALID` | role-runtime failures. |
 | `SCENARIO_NOT_FOUND` | unknown scenario id. |
 | `SKILL_SOURCE_MISSING` / `SKILL_EXISTS_UNRELATED` | Skill install problems. |
+| `CODEX_STRICT_MODE_UNSAFE` | `doctor --require-safe`: the live Codex probe did not return `safeForStrictMode: true`. |
 
 ## Security boundary (read this)
 

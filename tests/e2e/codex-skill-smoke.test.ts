@@ -29,6 +29,7 @@ import type { CustomerCapsule, EvaluatorCapsule, PublicScenario } from "../../sr
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const distCliMain = join(REPO_ROOT, "dist", "cli", "main.js");
+const fakeCodex = fileURLToPath(new URL("../fixtures/fake-codex.mjs", import.meta.url));
 
 const text = (zh: string, en: string) => ({ "zh-CN": zh, "en-US": en });
 
@@ -241,5 +242,46 @@ describe("Codex Skill smoke", () => {
     const enJson = JSON.parse(en.stdout.trim());
     expect(enJson.ok).toBe(true);
     expect(enJson.locale).toBe("en-US");
+  });
+
+  it.skipIf(!hasDist)("real CLI: doctor --require-safe gates the release exit code (built binary)", () => {
+    const home = tmp();
+    const env = { ...process.env, FDE_GYM_HOME: join(home, "store") };
+    const missingCodex = join(home, "no-such-codex");
+
+    // A safe probe: both diagnostic and strict modes exit 0.
+    const diag = spawnSync(process.execPath, [distCliMain, "doctor", "--json", "--codex-bin", fakeCodex], {
+      encoding: "utf8",
+      env,
+    });
+    expect(diag.status).toBe(0);
+    const diagJson = JSON.parse(diag.stdout.trim());
+    expect(diagJson.ok).toBe(true);
+    expect(diagJson.data.report.safeForStrictMode).toBe(true);
+
+    const strictOk = spawnSync(
+      process.execPath,
+      [distCliMain, "doctor", "--json", "--require-safe", "--codex-bin", fakeCodex],
+      { encoding: "utf8", env },
+    );
+    expect(strictOk.status).toBe(0);
+
+    // An unsafe probe: diagnostic stays diagnostic, strict exits non-zero.
+    const diagUnsafe = spawnSync(process.execPath, [distCliMain, "doctor", "--json", "--codex-bin", missingCodex], {
+      encoding: "utf8",
+      env,
+    });
+    expect(diagUnsafe.status).toBe(0);
+    expect(JSON.parse(diagUnsafe.stdout.trim()).data.report.safeForStrictMode).toBe(false);
+
+    const strictUnsafe = spawnSync(
+      process.execPath,
+      [distCliMain, "doctor", "--json", "--require-safe", "--codex-bin", missingCodex],
+      { encoding: "utf8", env },
+    );
+    expect(strictUnsafe.status).toBe(1);
+    const strictJson = JSON.parse(strictUnsafe.stdout.trim());
+    expect(strictJson.ok).toBe(false);
+    expect(strictJson.code).toBe("CODEX_STRICT_MODE_UNSAFE");
   });
 });

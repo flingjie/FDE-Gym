@@ -60,7 +60,9 @@ none).
 ## Stage scores and Raw
 
 Stage scores are percentages `0..100` (weighted criterion means; see
-`computeStageScore`). The fixed capability rubric (`src/scoring/rubric.ts`):
+`computeStageScore`). The **`capabilityScoringRubric`** — the fixed,
+learner-safe capability-dimension table in `src/scoring/rubric.ts` (id
+`fde-capability`, version 1) — never varies per scenario:
 
 | Stage | Criteria (weight %) |
 |---|---|
@@ -91,6 +93,9 @@ All intermediate scores clamp to `0..100`; `final` is additionally rounded
 
 ## Pass gates
 
+The **executable** pass gates are `PassGateResults`, computed by
+`calculateScore` from measurable inputs — these actually pass or fail a run:
+
 ```
 passes.finalScore                            = final ≥ 75
 passes.briefSupport                          = briefSupport ≥ 0.75
@@ -98,6 +103,13 @@ passes.noUnacknowledgedCriticalContradiction = unacknowledgedCriticalContradicti
 passes.pitchExplicitAsk                      = pitch has a non-empty explicit ask
 passes.noLeakGuardViolation                  = no leak-guard violation
 ```
+
+These are distinct from the scenario-authored `evaluator.passGates[]` (the
+**`scenarioDeliverableRubric`**-adjacent authored gates in
+`docs/scenario-authoring.md`), which are **guidance-only**: they carry an `id`
+and a bilingual `description` but no executable predicate mapping, so no run
+currently passes or fails on them. Only the fixed `PassGateResults` above gate a
+run.
 
 The weighted **support ratio** (`src/evidence/brief-validator.ts`):
 

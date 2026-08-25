@@ -1,7 +1,9 @@
 # Replay
 
 `src/replay/projector.ts` provides two deterministic consumers of the committed
-event stream:
+event stream. **Claim (determinism #3): the same event log → byte-stable
+recorded replay** — `projectReplay` is a pure projection, so identical committed
+events yield identical bytes in every locale, across runs.
 
 - `foldRunAggregate(events, scenarioId, locale)` rebuilds the **full internal**
   `RunAggregate` so the orchestrator/firewall can resume a persisted run

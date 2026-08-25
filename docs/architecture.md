@@ -103,17 +103,30 @@ and `previousHash` chains to the prior event (empty for the first). `loadRun` /
 `loadEvents` re-verify the chain and reject a mismatch with
 `EVENT_CHAIN_INVALID`.
 
-Determinism is the product's core invariant:
+Determinism is the product's core invariant. Four claims are precise, and the
+verification suite asserts each one:
 
-- `decide()`/`reduce()` are pure folds over events (no wall-clock, no
-  `Math.random`).
-- The only randomness is a seeded `mulberry32` PRNG (`src/simulation/rng.ts`),
-  consumed solely to order the deterministic scenario-event wave; the run seed
-  defaults to a deterministic FNV-1a hash of the run id.
-- Scenario events are selected by a pure scheduler
-  (`src/simulation/event-scheduler.ts`): filter → sort by id → seeded shuffle.
-  Same scenario + seed + trigger context → identical event ids in identical
-  order (prose wording is explicitly out of scope).
+1. **Same committed events → same state.** `decide()`/`reduce()` are pure folds
+   over events (no wall-clock, no `Math.random`), so folding the same event log
+   always rebuilds the same aggregate.
+2. **Same scenario bundle digest + seed + trigger context → same scheduled
+   event order.** The only randomness is a seeded `mulberry32` PRNG
+   (`src/simulation/rng.ts`), consumed solely to order the deterministic
+   scenario-event wave; the run seed defaults to a deterministic FNV-1a hash of
+   the run id. Scenario events are selected by a pure scheduler
+   (`src/simulation/event-scheduler.ts`): filter → sort by id → seeded shuffle,
+   so the digest + seed + trigger context fully determine the scheduled order.
+3. **Same event log → byte-stable recorded replay.** `projectReplay` is a pure
+   projection of the committed events (see `docs/replay.md`).
+4. **A fresh model invocation does NOT guarantee identical prose or judgment.**
+   Only the control plane (state and ordering) is deterministic; role prose is
+   confined behind schema-validated boundaries and never drives the control
+   plane's decisions.
+
+"**MVP v1 frozen**" means the specification and acceptance baseline are frozen,
+**not** that the product is release-ready. Release stays blocked until a live
+`doctor --require-safe` probe returns `safeForStrictMode: true` (see
+`docs/mvp-acceptance.md`).
 
 Resume is just replay: `foldRunAggregate` rebuilds the full internal aggregate
 (phase, transcript, evidence graph, disclosure ledger, hints, brief, proposal,

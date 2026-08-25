@@ -893,11 +893,17 @@ export async function listCommand(ctx: CommandContext, args: ListArgs): Promise<
 export interface DoctorArgs {
   locale: Locale;
   executable?: string;
+  requireSafe?: boolean;
 }
 
 export async function doctorCommand(ctx: CommandContext, args: DoctorArgs): Promise<CliResult<DoctorData>> {
   return guard(args.locale, async () => {
     const report = await probeCodexCapabilities({ executable: args.executable ?? defaultCodexExecutable() });
+    if (args.requireSafe && !report.safeForStrictMode) {
+      // A release gate, not a diagnostic: reduce to a stable learner-safe code
+      // and never serialize the report (which could carry raw probe state).
+      throw { code: "CODEX_STRICT_MODE_UNSAFE" };
+    }
     return ok("", null, args.locale, { report });
   });
 }

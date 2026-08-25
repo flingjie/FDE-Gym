@@ -13,8 +13,11 @@ import {
   sanitizeChildEnv,
   probeCodexCapabilities,
 } from "../../src/integrations/codex/capability-probe";
+import { doctorCommand, type CommandContext } from "../../src/cli/commands.js";
+import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime.js";
 
 const fakeCodex = fileURLToPath(new URL("../fixtures/fake-codex.mjs", import.meta.url));
+const missingCodex = fileURLToPath(new URL("../fixtures/no-such-codex", import.meta.url));
 
 let tempRoots: string[] = [];
 
@@ -265,5 +268,64 @@ describe("codex capability probe — parsing units", () => {
     expect(env.FDE_PARENT_CANARY).toBeUndefined();
     // Explicitly allow-listed keys still pass through (used for test control).
     expect(env.SOME_PARENT_SECRET).toBe("ALSO_SECRET");
+  });
+});
+
+describe("doctor command — strict release gate", () => {
+  const ctx: CommandContext = { runtime: new FixtureAgentRuntime({ fixtures: {} }) };
+
+  it("returns a diagnostic report (ok) for an unsafe probe without --require-safe", async () => {
+    const result = await doctorCommand(ctx, { locale: "en-US", executable: missingCodex });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.report.safeForStrictMode).toBe(false);
+      // The diagnostic path preserves the full safe boolean matrix.
+      expect(result.data.report).toEqual(
+        expect.objectContaining({
+          localCommandExecution: expect.any(Boolean),
+          freshContext: expect.any(Boolean),
+          distinctRoleSessions: expect.any(Boolean),
+          structuredOutput: expect.any(Boolean),
+          toolsDisabled: expect.any(Boolean),
+          parentCanaryIsolated: expect.any(Boolean),
+          childCanaryContained: expect.any(Boolean),
+          safeForStrictMode: expect.any(Boolean),
+          failures: expect.any(Array),
+        }),
+      );
+    }
+  });
+
+  it("fails with CODEX_STRICT_MODE_UNSAFE under --require-safe for an unsafe probe", async () => {
+    const result = await doctorCommand(ctx, {
+      locale: "en-US",
+      executable: missingCodex,
+      requireSafe: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("CODEX_STRICT_MODE_UNSAFE");
+      // The strict failure is learner-safe: no report payload, no raw output,
+      // no model prose, no canary values.
+      expect("data" in result).toBe(false);
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain("safeForStrictMode");
+      expect(serialized).not.toContain("canary");
+    }
+  });
+
+  it("passes --require-safe for a safe probe", async () => {
+    const result = await doctorCommand(ctx, {
+      locale: "en-US",
+      executable: fakeCodex,
+      requireSafe: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.report.safeForStrictMode).toBe(true);
+    }
   });
 });

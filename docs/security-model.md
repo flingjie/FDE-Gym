@@ -25,11 +25,12 @@ exact exclusions:
 |---|---|---|
 | `customer` | `locale`, `question`, `stakeholderId`, `stakeholders`, `disclosureUnits`, `disclosedDisclosureUnitIds`, `responsePolicies` | The **evaluator capsule** (rubric, expected evidence, hint ladders, pass gates, critical contradictions), the evaluator canary, the learner's score/profile, the evidence graph, hints, and the learner's brief/proposal/pitch. |
 | `evidence_tracker` | `locale`, the latest public transcript `turn`, the public `graph` | **Any** capsule — passing one throws `FIREWALL_CAPSULE_FORBIDDEN`. It therefore cannot see ground truth, expected evidence, disclosure units, rubrics, hint ladders, or canaries. |
-| `coach_evaluator` | `locale` + the public brief/proposal/pitch/challenge-responses/graph/transcript/hint-ledger, plus the **evaluator capsule** (task-scoped: hint → `hintLadders`; brief-validation → brief+graph+transcript; final-review → brief+proposal+pitch+responses+graph+transcript+hint-ledger + the **fixed capability rubric** from `src/scoring/rubric.ts`) | The **customer capsule** (hidden facts, stakeholders, disclosure units, response policies), the customer canary, the **hidden scenario rubric** (`evaluator.rubric`), and the learner's score/profile/ground truth. |
+| `coach_evaluator` | `locale` + the public brief/proposal/pitch/challenge-responses/graph/transcript/hint-ledger, plus the **evaluator capsule** (task-scoped: hint → `hintLadders`; brief-validation → brief+graph+transcript; final-review → brief+proposal+pitch+responses+graph+transcript+hint-ledger + the **`capabilityScoringRubric`** from `src/scoring/rubric.ts`) | The **customer capsule** (hidden facts, stakeholders, disclosure units, response policies), the customer canary, the **hidden `scenarioDeliverableRubric`** (`evaluator.rubric`), and the learner's score/profile/ground truth. |
 
-The **fixed capability rubric** the Coach receives in `final-review` is the
+The **`capabilityScoringRubric`** the Coach receives in `final-review` is the
 public, learner-safe scoring-dimension table (`src/scoring/rubric.ts`) — never
-the scenario's hidden `evaluator.rubric` (ground-truth deliverable criteria).
+the scenario's hidden **`scenarioDeliverableRubric`** (`evaluator.rubric`,
+ground-truth deliverable criteria).
 It exists only so the Coach can assign per-criterion 0–100 scores; the numeric
 weights stay in the deterministic `computeStageScore` and never depend on the
 Coach's model.
