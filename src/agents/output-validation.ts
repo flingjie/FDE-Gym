@@ -119,7 +119,7 @@ export function validateFinalReviewOutput(
 
   for (const stage of RUBRIC_STAGES) {
     const stageScores = scores[stage];
-    if (stageScores === undefined) continue;
+    if (stageScores === undefined || Object.keys(stageScores).length === 0) continue;
 
     const rubricIds = new Set<string>();
     for (const criterion of input.rubric[stage]) {

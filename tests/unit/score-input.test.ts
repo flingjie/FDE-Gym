@@ -334,4 +334,9 @@ describe("validateFinalReviewOutput: fixed-rubric criterion membership", () => {
     const out = reviewOutput();
     expect(validateFinalReviewOutput(finalReviewInput(), out)).toBe(out);
   });
+
+  it("accepts an explicitly-empty stage map (scoring falls back)", () => {
+    const out: FinalReviewResult = { ...reviewOutput(), criterionScores: { solution: {} } };
+    expect(validateFinalReviewOutput(finalReviewInput(), out)).toBe(out);
+  });
 });
