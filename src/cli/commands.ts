@@ -22,19 +22,19 @@ import type {
 } from "../core/domain.js";
 import { decide } from "../core/state-machine.js";
 import { createInitialRunState } from "../core/reducer.js";
-import { appendEvents } from "../core/event-store.js";
+import { executeCommandTransaction } from "../core/command-transaction.js";
 import {
   assertFrameAllowed,
-  createRetry,
-  repairPendingEvidence,
-  requestClarification,
-  respondToChallenge,
-  runChallengeInjection,
-  runDiscoveryTurn,
-  runFramingGate,
-  submitPitch,
-  submitReview,
-  submitSolutionDesign,
+  prepareChallengeInjection,
+  prepareClarification,
+  prepareDiscoveryTurn,
+  prepareFramingGate,
+  preparePitch,
+  prepareRepairPendingEvidence,
+  prepareRespondToChallenge,
+  prepareRetry,
+  prepareReview,
+  prepareSolutionDesign,
 } from "../core/orchestrator.js";
 import { requestHint } from "../simulation/hints.js";
 import { createRng } from "../simulation/rng.js";
@@ -283,19 +283,30 @@ export async function startCommand(
 ): Promise<CliResult<StartData>> {
   return guard(args.locale, async () => {
     const { public: publicScenario } = resolveScenario(ctx, args.scenarioId);
-    const initial = createInitialRunState(args.runId);
-    const startEvents = decide(initial, {
-      type: "start",
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
-      scenarioId: args.scenarioId,
-      locale: args.locale,
+      request: { type: "start", scenarioId: args.scenarioId, locale: args.locale },
+      store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const initial = createInitialRunState(args.runId);
+        const startEvents = decide(initial, {
+          type: "start",
+          commandId: args.commandId,
+          scenarioId: args.scenarioId,
+          locale: args.locale,
+        });
+        const acceptEvents = decide(
+          { runId: args.runId, phase: "SCENARIO", seq: startEvents.length },
+          { type: "accept", commandId: `${args.commandId}:accept` },
+        );
+        return {
+          events: [...startEvents, ...acceptEvents],
+          result: { scenario: publicScenario, phase: "DISCOVERY" as const },
+        };
+      },
     });
-    const acceptEvents = decide(
-      { runId: args.runId, phase: "SCENARIO", seq: startEvents.length },
-      { type: "accept", commandId: `${args.commandId}:accept` },
-    );
-    await appendEvents(args.runId, [...startEvents, ...acceptEvents], { baseDir: ctx.baseDir });
-    return ok(args.runId, "DISCOVERY", args.locale, { scenario: publicScenario, phase: "DISCOVERY" });
+    return ok(args.runId, "DISCOVERY", args.locale, data);
   });
 }
 
@@ -308,12 +319,20 @@ export async function frameCommand(ctx: CommandContext, args: FrameArgs): Promis
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
     assertFrameAllowed(loaded.aggregate.pendingEvidence);
-    const events = decide(
-      { runId: args.runId, phase: loaded.phase, seq: 0 },
-      { type: "frame", commandId: args.commandId },
-    );
-    await appendEvents(args.runId, events, { baseDir: ctx.baseDir });
-    return ok(args.runId, "PROBLEM_FRAMING", loaded.locale, { phase: "PROBLEM_FRAMING" });
+    const data = await executeCommandTransaction({
+      runId: args.runId,
+      commandId: args.commandId,
+      request: { type: "frame" },
+      store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const events = decide(
+          { runId: args.runId, phase: loaded.phase, seq: 0 },
+          { type: "frame", commandId: args.commandId },
+        );
+        return { events, result: { phase: "PROBLEM_FRAMING" as const } };
+      },
+    });
+    return ok(args.runId, "PROBLEM_FRAMING", loaded.locale, data);
   });
 }
 
@@ -328,24 +347,35 @@ export async function askCommand(ctx: CommandContext, args: AskArgs): Promise<Cl
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
     const scenario = resolveScenario(ctx, loaded.scenarioId);
-    const result = await runDiscoveryTurn({
-      runtime: ctx.runtime,
-      capsule: scenario.customer,
-      state: loaded.aggregate,
-      question: args.question,
-      stakeholderId: args.stakeholderId,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
+      request: { type: "ask", question: args.question, stakeholderId: args.stakeholderId },
       store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const result = await prepareDiscoveryTurn({
+          runtime: ctx.runtime,
+          capsule: scenario.customer,
+          state: loaded.aggregate,
+          question: args.question,
+          stakeholderId: args.stakeholderId,
+          commandId: args.commandId,
+        });
+        const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
+        return {
+          events: result.acceptedEvents,
+          result: {
+            turnId: turn?.turnId ?? `${args.commandId}:turn`,
+            question: args.question,
+            customerReply: turn?.customerReply ?? { "zh-CN": "", "en-US": "" },
+            stakeholderId: turn?.stakeholderId ?? args.stakeholderId,
+            composite: result.metrics?.composite ?? null,
+            pendingEvidence: result.pendingEvidence ? { code: result.pendingEvidence.code } : null,
+          },
+        };
+      },
     });
-    const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
-    return ok(args.runId, result.updatedState.phase, loaded.locale, {
-      turnId: turn?.turnId ?? `${args.commandId}:turn`,
-      question: args.question,
-      customerReply: turn?.customerReply ?? { "zh-CN": "", "en-US": "" },
-      stakeholderId: turn?.stakeholderId ?? args.stakeholderId,
-      composite: result.metrics?.composite ?? null,
-      pendingEvidence: result.pendingEvidence ? { code: result.pendingEvidence.code } : null,
-    });
+    return ok(args.runId, loaded.phase, loaded.locale, data);
   });
 }
 
@@ -368,23 +398,34 @@ export async function repairEvidenceCommand(
     const askCommandId = turnId.endsWith(":turn") ? turnId.slice(0, -":turn".length) : turnId;
 
     const scenario = resolveScenario(ctx, loaded.scenarioId);
-    const result = await repairPendingEvidence({
-      runtime: ctx.runtime,
-      state: loaded.aggregate,
-      commandId: askCommandId,
-      canaries: [scenario.customer.canary],
+    const data = await executeCommandTransaction({
+      runId: args.runId,
+      commandId: args.commandId,
+      request: { type: "repair-evidence" },
       store: { baseDir: ctx.baseDir },
-    });
+      prepare: async () => {
+        const result = await prepareRepairPendingEvidence({
+          runtime: ctx.runtime,
+          state: loaded.aggregate,
+          commandId: askCommandId,
+          canaries: [scenario.customer.canary],
+        });
 
-    const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
-    return ok(args.runId, result.updatedState.phase, loaded.locale, {
-      turnId: turn?.turnId ?? turnId,
-      question: turn?.question ?? "",
-      customerReply: turn?.customerReply ?? { "zh-CN": "", "en-US": "" },
-      stakeholderId: turn?.stakeholderId ?? "",
-      composite: result.metrics?.composite ?? null,
-      pendingEvidence: null,
+        const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
+        return {
+          events: result.acceptedEvents,
+          result: {
+            turnId: turn?.turnId ?? turnId,
+            question: turn?.question ?? "",
+            customerReply: turn?.customerReply ?? { "zh-CN": "", "en-US": "" },
+            stakeholderId: turn?.stakeholderId ?? "",
+            composite: result.metrics?.composite ?? null,
+            pendingEvidence: null,
+          },
+        };
+      },
     });
+    return ok(args.runId, loaded.phase, loaded.locale, data);
   });
 }
 
@@ -402,26 +443,33 @@ export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<
       throw new InvalidPhaseCommandError("hint", loaded.phase);
     }
     const scenario = resolveScenario(ctx, loaded.scenarioId);
-    const grant = requestHint(
-      args.topic,
-      args.level ?? null,
-      scenario.evaluator.hintLadders,
-      loaded.aggregate.grantedHints,
-    );
-    const event: RunEvent = {
-      type: "hint.granted",
+    const data = await executeCommandTransaction({
       runId: args.runId,
       commandId: args.commandId,
-      topic: args.topic,
-      level: grant.level,
-      hint: grant.hint,
-    };
-    await appendEvents(args.runId, [event], { baseDir: ctx.baseDir });
-    return ok(args.runId, loaded.phase, loaded.locale, {
-      topic: args.topic,
-      level: grant.level,
-      hint: grant.hint,
+      request: { type: "hint", topic: args.topic, level: args.level ?? null },
+      store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const grant = requestHint(
+          args.topic,
+          args.level ?? null,
+          scenario.evaluator.hintLadders,
+          loaded.aggregate.grantedHints,
+        );
+        const event: RunEvent = {
+          type: "hint.granted",
+          runId: args.runId,
+          commandId: args.commandId,
+          topic: args.topic,
+          level: grant.level,
+          hint: grant.hint,
+        };
+        return {
+          events: [event],
+          result: { topic: args.topic, level: grant.level, hint: grant.hint },
+        };
+      },
     });
+    return ok(args.runId, loaded.phase, loaded.locale, data);
   });
 }
 
@@ -436,13 +484,24 @@ export async function clarifyCommand(
 ): Promise<CliResult<{ phase: RunPhase }>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    const result = await requestClarification({
-      state: loaded.aggregate,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
-      clarificationBudgetUsed: loaded.aggregate.clarificationBudgetUsed,
+      request: { type: "clarify" },
       store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const result = await prepareClarification({
+          state: loaded.aggregate,
+          commandId: args.commandId,
+          clarificationBudgetUsed: loaded.aggregate.clarificationBudgetUsed,
+        });
+        return {
+          events: result.acceptedEvents,
+          result: { phase: result.updatedState.phase ?? "DISCOVERY" },
+        };
+      },
     });
-    return ok(args.runId, result.updatedState.phase, loaded.locale, { phase: result.updatedState.phase ?? "DISCOVERY" });
+    return ok(args.runId, data.phase, loaded.locale, data);
   });
 }
 
@@ -459,19 +518,31 @@ export async function submitBriefCommand(
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
     const scenario = resolveScenario(ctx, loaded.scenarioId);
-    const result = await runFramingGate({
-      runtime: ctx.runtime,
-      capsule: scenario.evaluator,
-      state: loaded.aggregate,
-      brief: args.brief,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
+      request: { type: "submit-brief", brief: args.brief },
       store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const result = await prepareFramingGate({
+          runtime: ctx.runtime,
+          capsule: scenario.evaluator,
+          state: loaded.aggregate,
+          brief: args.brief,
+          commandId: args.commandId,
+        });
+        return {
+          events: result.acceptedEvents,
+          result: {
+            passed: result.passed,
+            supportRatio: result.supportRatio,
+            feedback: result.result.feedback,
+          },
+        };
+      },
     });
-    return ok(args.runId, result.updatedState.phase, loaded.locale, {
-      passed: result.passed,
-      supportRatio: result.supportRatio,
-      feedback: result.result.feedback,
-    });
+    const phase = data.passed ? "SOLUTION_DESIGN" : "PROBLEM_FRAMING";
+    return ok(args.runId, phase, loaded.locale, data);
   });
 }
 
@@ -489,26 +560,36 @@ export async function submitDesignCommand(
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
     const scenario = resolveScenario(ctx, loaded.scenarioId);
-    const design = await submitSolutionDesign({
-      state: loaded.aggregate,
-      proposal: args.proposal,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
+      request: { type: "submit-design", proposal: args.proposal, seed: args.seed ?? null },
       store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const design = await prepareSolutionDesign({
+          state: loaded.aggregate,
+          proposal: args.proposal,
+          commandId: args.commandId,
+        });
+        const injection = await prepareChallengeInjection({
+          state: design.updatedState,
+          capsule: scenario.customer,
+          candidates: scenario.events,
+          rng: createRng(args.seed ?? hashSeed(args.runId)),
+          commandId: `${args.commandId}:inject`,
+          alreadyInjectedChallengeIds: distinctInjectedChallengeIds(loaded.events),
+        });
+        return {
+          events: [...design.acceptedEvents, ...injection.acceptedEvents],
+          result: {
+            phase: "CHALLENGE" as const,
+            injectedChallengeIds: injection.injectedChallengeIds,
+            interruptions: injection.interruptions,
+          },
+        };
+      },
     });
-    const injection = await runChallengeInjection({
-      state: design.updatedState,
-      capsule: scenario.customer,
-      candidates: scenario.events,
-      rng: createRng(args.seed ?? hashSeed(args.runId)),
-      commandId: `${args.commandId}:inject`,
-      alreadyInjectedChallengeIds: distinctInjectedChallengeIds(loaded.events),
-      store: { baseDir: ctx.baseDir },
-    });
-    return ok(args.runId, "CHALLENGE", loaded.locale, {
-      phase: "CHALLENGE",
-      injectedChallengeIds: injection.injectedChallengeIds,
-      interruptions: injection.interruptions,
-    });
+    return ok(args.runId, "CHALLENGE", loaded.locale, data);
   });
 }
 
@@ -524,17 +605,28 @@ export async function respondChallengeCommand(
 ): Promise<CliResult<RespondData>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    const result = await respondToChallenge({
-      state: loaded.aggregate,
-      response: args.response,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
-      mandatoryChallengeIds: distinctInjectedChallengeIds(loaded.events),
+      request: { type: "respond-challenge", response: args.response },
       store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const result = await prepareRespondToChallenge({
+          state: loaded.aggregate,
+          response: args.response,
+          commandId: args.commandId,
+          mandatoryChallengeIds: distinctInjectedChallengeIds(loaded.events),
+        });
+        return {
+          events: result.acceptedEvents,
+          result: {
+            challengesAddressed: result.challengesAddressed,
+            phase: result.updatedState.phase ?? "CHALLENGE",
+          },
+        };
+      },
     });
-    return ok(args.runId, result.updatedState.phase, loaded.locale, {
-      challengesAddressed: result.challengesAddressed,
-      phase: result.updatedState.phase ?? "CHALLENGE",
-    });
+    return ok(args.runId, data.phase, loaded.locale, data);
   });
 }
 
@@ -550,13 +642,24 @@ export async function submitPitchCommand(
 ): Promise<CliResult<{ phase: RunPhase }>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    const result = await submitPitch({
-      state: loaded.aggregate,
-      pitch: args.pitch,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
+      request: { type: "submit-pitch", pitch: args.pitch },
       store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const result = await preparePitch({
+          state: loaded.aggregate,
+          pitch: args.pitch,
+          commandId: args.commandId,
+        });
+        return {
+          events: result.acceptedEvents,
+          result: { phase: result.updatedState.phase ?? "REVIEW" },
+        };
+      },
     });
-    return ok(args.runId, result.updatedState.phase, loaded.locale, { phase: result.updatedState.phase ?? "REVIEW" });
+    return ok(args.runId, data.phase, loaded.locale, data);
   });
 }
 
@@ -569,21 +672,29 @@ export async function reviewCommand(ctx: CommandContext, args: ReviewArgs): Prom
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
     const scenario = resolveScenario(ctx, loaded.scenarioId);
-    const result = await submitReview({
-      runtime: ctx.runtime,
-      capsule: scenario.evaluator,
-      customerCapsule: scenario.customer,
-      publicScenario: scenario.public,
-      events: loaded.events,
-      state: loaded.aggregate,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
+      request: { type: "review" },
       store: { baseDir: ctx.baseDir },
-      profileStore: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const result = await prepareReview({
+          runtime: ctx.runtime,
+          capsule: scenario.evaluator,
+          customerCapsule: scenario.customer,
+          publicScenario: scenario.public,
+          events: loaded.events,
+          state: loaded.aggregate,
+          commandId: args.commandId,
+        });
+        return {
+          events: result.events,
+          effects: [result.effect],
+          result: { review: result.review, score: result.score },
+        };
+      },
     });
-    return ok(args.runId, loaded.phase, loaded.locale, {
-      review: result.review,
-      score: result.score,
-    });
+    return ok(args.runId, loaded.phase, loaded.locale, data);
   });
 }
 
@@ -620,21 +731,41 @@ export async function retryCommand(ctx: CommandContext, args: RetryArgs): Promis
     if (!focusSummaries) {
       throw { code: "INVALID_RETRY_FOCUS" };
     }
-    const result = await createRetry(loaded.aggregate, {
-      newRunId: args.newRunId,
+    const data = await executeCommandTransaction({
+      runId: args.runId,
       commandId: args.commandId,
-      seed: args.seed,
-      focusSummaries,
+      request: { type: "retry", newRunId: args.newRunId, seed: args.seed ?? null, focusSummaries },
       store: { baseDir: ctx.baseDir },
+      prepare: async () => {
+        const result = await prepareRetry(loaded.aggregate, {
+          newRunId: args.newRunId,
+          commandId: args.commandId,
+          seed: args.seed,
+          focusSummaries,
+        });
+        return {
+          events: result.parentEvents,
+          effects: [
+            {
+              type: "retry.ensure-child",
+              effectId: `${result.parentRunId}:${args.commandId}:child`,
+              parentRunId: result.parentRunId,
+              childRunId: result.runId,
+              events: result.newRunEvents,
+            },
+          ],
+          result: {
+            runId: result.runId,
+            parentRunId: result.parentRunId,
+            scenarioId: result.scenarioId,
+            locale: result.locale,
+            phase: result.state.phase ?? "DISCOVERY",
+            focusSummaries: result.focusSummaries,
+          },
+        };
+      },
     });
-    return ok(args.newRunId, result.state.phase, result.locale, {
-      runId: result.runId,
-      parentRunId: result.parentRunId,
-      scenarioId: result.scenarioId,
-      locale: result.locale,
-      phase: result.state.phase ?? "DISCOVERY",
-      focusSummaries: result.focusSummaries,
-    });
+    return ok(args.newRunId, data.phase, data.locale, data);
   });
 }
 

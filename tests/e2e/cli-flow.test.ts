@@ -4,6 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime.js";
+import type {
+  AgentInvocationResult,
+  AgentInvokeOptions,
+  AgentRuntime,
+} from "../../src/agents/agent-runtime.js";
 import {
   askCommand,
   clarifyCommand,
@@ -30,6 +35,7 @@ import type {
   PitchArtifact,
   ProblemBrief,
   SolutionProposal,
+  AgentRole,
 } from "../../src/core/domain.js";
 import type {
   CustomerCapsule,
@@ -314,6 +320,21 @@ function mustOk<T>(result: CliResult<T>): T {
   return result.data;
 }
 
+/** Records every role invocation id so tests can assert the model is not re-invoked on replay. */
+class CountingRuntime implements AgentRuntime {
+  readonly invoked: string[] = [];
+  constructor(private readonly inner: AgentRuntime) {}
+
+  async invoke<TInput, TOutput>(
+    role: AgentRole,
+    input: TInput,
+    options: AgentInvokeOptions<TOutput>,
+  ): Promise<AgentInvocationResult<TOutput>> {
+    this.invoked.push(options.invocationId);
+    return this.inner.invoke(role, input, options);
+  }
+}
+
 interface JourneyResult {
   replay: LearnerReplay;
   childRunId: string;
@@ -535,5 +556,89 @@ describe("CLI evidence repair and clarification budget", () => {
     const exceeded = await clarifyCommand(ctx, { runId: "run-budget", commandId: "cmd-clarify-4" });
     expect(exceeded.ok).toBe(false);
     if (!exceeded.ok) expect(exceeded.code).toBe("CLARIFICATION_BUDGET_EXCEEDED");
+  });
+});
+
+describe("command transaction idempotency through the CLI", () => {
+  it("replays a repeated model-backed ask without re-invoking the fixture runtime", async () => {
+    const baseDir = makeStore();
+    const inner = new FixtureAgentRuntime({ fixtures: fixtures() });
+    const runtime = new CountingRuntime(inner);
+    const ctx: CommandContext = { runtime, baseDir, scenario: scenario() };
+
+    mustOk(await startCommand(ctx, {
+      runId: "run-ask-idem",
+      scenarioId: "scn-1",
+      locale: "zh-CN",
+      commandId: "cmd-start",
+    }));
+
+    const args = {
+      runId: "run-ask-idem",
+      question: "每天产生多少条告警？",
+      stakeholderId: "vp-operations",
+      commandId: "cmd-ask-1",
+    };
+
+    const first = mustOk(await askCommand(ctx, args));
+    const invocationsAfterFirst = runtime.invoked.length;
+    expect(invocationsAfterFirst).toBeGreaterThan(0);
+
+    const second = mustOk(await askCommand(ctx, args));
+    // The committed journal replays the stored result; the model is never re-invoked.
+    expect(runtime.invoked.length).toBe(invocationsAfterFirst);
+    expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+  });
+
+  it("never lets a duplicate start diverge the persisted scenario", async () => {
+    const baseDir = makeStore();
+    const ctx: CommandContext = {
+      runtime: new FixtureAgentRuntime({ fixtures: fixtures() }),
+      baseDir,
+      scenario: scenario(),
+    };
+
+    const first = mustOk(await startCommand(ctx, {
+      runId: "run-dup-start",
+      scenarioId: "scn-1",
+      locale: "zh-CN",
+      commandId: "cmd-start-a",
+    }));
+    expect(first.scenario.id).toBe("scn-1");
+
+    // Same runId + commandId + request -> the first stored result is returned.
+    const replay = mustOk(await startCommand(ctx, {
+      runId: "run-dup-start",
+      scenarioId: "scn-1",
+      locale: "zh-CN",
+      commandId: "cmd-start-a",
+    }));
+    expect(replay.scenario.id).toBe("scn-1");
+
+    // Same commandId + different scenario -> COMMAND_ID_CONFLICT.
+    const conflict = await startCommand(ctx, {
+      runId: "run-dup-start",
+      scenarioId: "scn-2",
+      locale: "zh-CN",
+      commandId: "cmd-start-a",
+    });
+    expect(conflict.ok).toBe(false);
+    if (!conflict.ok) expect(conflict.code).toBe("COMMAND_ID_CONFLICT");
+
+    // A different commandId on an already-started run -> RUN_ALREADY_EXISTS.
+    const exists = await startCommand(ctx, {
+      runId: "run-dup-start",
+      scenarioId: "scn-2",
+      locale: "zh-CN",
+      commandId: "cmd-start-b",
+    });
+    expect(exists.ok).toBe(false);
+    if (!exists.ok) expect(exists.code).toBe("RUN_ALREADY_EXISTS");
+
+    // First and last scenario ids can never diverge: exactly one run.started, still scn-1.
+    const recorded = await loadEvents("run-dup-start", { baseDir });
+    const started = recorded.filter((event) => event.type === "run.started");
+    expect(started).toHaveLength(1);
+    expect(started[0]).toMatchObject({ scenarioId: "scn-1" });
   });
 });

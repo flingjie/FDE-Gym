@@ -40,8 +40,9 @@ export function resolveBaseDir(): string {
 
 /**
  * Reject any resource id that is unsafe as a filename component BEFORE it can
- * reach a path join. `kind` labels the failing entity in the error; only run ids
- * become filenames today, while scenario and command ids do in later tasks.
+ * reach a path join. `kind` labels the failing entity in the error. Run ids and
+ * command ids become filenames (events.jsonl / the command journal); scenario
+ * ids are validated at the same boundary for later bundle/run lookups.
  */
 export function assertSafeResourceId(kind: "run" | "scenario" | "command", id: string): void {
   if (!SAFE_RESOURCE_ID.test(id)) {

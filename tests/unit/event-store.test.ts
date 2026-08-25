@@ -271,4 +271,10 @@ describe("safe resource ids", () => {
     expect(() => assertSafeResourceId("scenario", "my-scenario_v2.0")).not.toThrow();
     expect(() => assertSafeResourceId("command", "cmd-1")).not.toThrow();
   });
+
+  it("rejects a colon in a command id (derived `:accept` ids are event fields, never journal filenames)", () => {
+    expectCodeSync(() => assertSafeResourceId("command", "cmd:accept"), INVALID_RESOURCE_ID);
+    expectCodeSync(() => assertSafeResourceId("command", "cmd:inject"), INVALID_RESOURCE_ID);
+    expectCodeSync(() => assertSafeResourceId("command", "cmd:evidence"), INVALID_RESOURCE_ID);
+  });
 });

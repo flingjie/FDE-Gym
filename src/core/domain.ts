@@ -38,10 +38,10 @@ export type Locale = (typeof LOCALES)[number];
 export const LocaleSchema = z.enum(LOCALES);
 
 /** Exactly two locale keys; both required and non-empty. */
-export interface LocalizedText {
+export type LocalizedText = {
   "zh-CN": string;
   "en-US": string;
-}
+};
 
 export const LocalizedTextSchema = z
   .object({

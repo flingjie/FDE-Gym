@@ -26,7 +26,7 @@ import { selectScenarioEvents, type EventTriggerContext } from "../simulation/ev
 import type { Rng } from "../simulation/rng.js";
 import { calculateScore } from "../scoring/formulas.js";
 import { buildScoreInput, deriveAttemptReview } from "../scoring/score-input.js";
-import { createEmptyProfile, updateLearnerProfile, type LearnerProfile } from "../profile/learner-profile.js";
+import { createEmptyProfile, updateLearnerProfile, type AttemptReview, type LearnerProfile } from "../profile/learner-profile.js";
 import { loadLearnerProfile, saveLearnerProfile } from "../storage/fs-store.js";
 import {
   ChallengeResponseSchema,
@@ -51,6 +51,7 @@ import type {
 import { InvalidPhaseCommandError } from "./errors.js";
 import { decide } from "./state-machine.js";
 import { appendEvents, type StoreOptions } from "./event-store.js";
+import type { CommandEffect } from "./command-transaction.js";
 import { createInitialRunState, type RunState } from "./reducer.js";
 
 /**
@@ -197,14 +198,13 @@ function normalizeFailure(error: unknown): { code: string; message: string } {
 // The pipeline
 // ---------------------------------------------------------------------------
 
-export async function runDiscoveryTurn(
+export async function prepareDiscoveryTurn(
   input: RunDiscoveryTurnInput,
 ): Promise<DiscoveryTurnResult> {
   const { runtime, capsule, state, question, stakeholderId, commandId } = input;
   const runId = state.runId;
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
-  const store = input.store;
 
   // Step 1: record learner question. `decide` enforces the DISCOVERY phase.
   // (decide only reads runId + phase; seq is not consulted for `ask`.)
@@ -288,7 +288,6 @@ export async function runDiscoveryTurn(
       // must never be projected to the learner.
       failureCode: EVIDENCE_EXTRACTION_FAILED,
     };
-    await appendEvents(runId, [questionEvent, replyEvent, pendingEvent], store);
     return {
       runId,
       acceptedEvents: [questionEvent, replyEvent, pendingEvent],
@@ -298,8 +297,6 @@ export async function runDiscoveryTurn(
     };
   }
 
-  // Step 7: persist all accepted events.
-  await appendEvents(runId, [questionEvent, replyEvent, evidenceEvent, assessmentEvent], store);
   return {
     runId,
     acceptedEvents: [questionEvent, replyEvent, evidenceEvent, assessmentEvent],
@@ -310,18 +307,30 @@ export async function runDiscoveryTurn(
 }
 
 /**
+ * Persist the result of a discovery-turn preparation. Kept as the imperative
+ * orchestrator entry point (unit-tested directly); the CLI layers the same
+ * preparation inside `executeCommandTransaction`.
+ */
+export async function runDiscoveryTurn(
+  input: RunDiscoveryTurnInput,
+): Promise<DiscoveryTurnResult> {
+  const result = await prepareDiscoveryTurn(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
+}
+
+/**
  * Repair a turn left in EVIDENCE_PENDING: re-run the Evidence Tracker on the
  * retained public turn, apply the patch, persist `evidence.patched`, and clear
  * the pending marker. Throws (leaving the turn pending) if extraction fails.
  */
-export async function repairPendingEvidence(
+export async function prepareRepairPendingEvidence(
   input: RepairPendingEvidenceInput,
 ): Promise<DiscoveryTurnResult> {
   const { runtime, state, commandId } = input;
   const runId = state.runId;
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [];
-  const store = input.store;
 
   const evidence = await extractEvidence({
     runtime,
@@ -352,7 +361,6 @@ export async function repairPendingEvidence(
   };
   const updatedState: RunAggregate = { ...state, graph: nextGraph, pendingEvidence: null };
 
-  await appendEvents(runId, [evidenceEvent, assessmentEvent, resolvedEvent], store);
   return {
     runId,
     acceptedEvents: [evidenceEvent, assessmentEvent, resolvedEvent],
@@ -360,6 +368,15 @@ export async function repairPendingEvidence(
     metrics: computeDiscoveryMetrics(evidence.questionAssessment),
     updatedState,
   };
+}
+
+/** Persist the result of a pending-evidence repair preparation. */
+export async function repairPendingEvidence(
+  input: RepairPendingEvidenceInput,
+): Promise<DiscoveryTurnResult> {
+  const result = await prepareRepairPendingEvidence(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -404,12 +421,11 @@ export interface FramingGateResult {
  * emits `phase.changed` to SOLUTION_DESIGN. The gate never reveals hidden
  * evidence text: it holds only the public brief + graph + entailments.
  */
-export async function runFramingGate(input: FramingGateInput): Promise<FramingGateResult> {
+export async function prepareFramingGate(input: FramingGateInput): Promise<FramingGateResult> {
   const { runtime, capsule, state, brief, commandId } = input;
   const runId = state.runId;
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
-  const store = input.store;
 
   // Phase guard: `decide` enforces PROBLEM_FRAMING and throws otherwise. Its
   // phase-changed collapse is superseded by the multi-step gate below.
@@ -461,8 +477,6 @@ export async function runFramingGate(input: FramingGateInput): Promise<FramingGa
     phase = "SOLUTION_DESIGN";
   }
 
-  await appendEvents(runId, events, store);
-
   return {
     runId,
     passed,
@@ -471,6 +485,13 @@ export async function runFramingGate(input: FramingGateInput): Promise<FramingGa
     acceptedEvents: events,
     updatedState: { ...state, brief, phase },
   };
+}
+
+/** Persist the result of a framing-gate preparation. */
+export async function runFramingGate(input: FramingGateInput): Promise<FramingGateResult> {
+  const result = await prepareFramingGate(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
 }
 
 /**
@@ -527,7 +548,7 @@ export interface ClarificationResult {
  * Throws `CLARIFICATION_BUDGET_EXCEEDED` when the budget is exhausted. The
  * budget is caller-managed (in-memory), mirroring `pendingEvidence`.
  */
-export async function requestClarification(
+export async function prepareClarification(
   input: ClarificationInput,
 ): Promise<ClarificationResult> {
   const { state, commandId } = input;
@@ -544,14 +565,21 @@ export async function requestClarification(
   // Phase guard + the `phase.changed` event (PROBLEM_FRAMING -> DISCOVERY).
   const events = decide(runState, { type: "clarify", commandId });
 
-  await appendEvents(runId, events, input.store);
-
   return {
     runId,
     acceptedEvents: events,
     updatedState: { ...state, phase: "DISCOVERY" },
     clarificationBudgetUsed: input.clarificationBudgetUsed + 1,
   };
+}
+
+/** Persist the result of a clarification preparation. */
+export async function requestClarification(
+  input: ClarificationInput,
+): Promise<ClarificationResult> {
+  const result = await prepareClarification(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -584,7 +612,7 @@ export interface SubmitSolutionDesignResult {
  * fails validation THROWS (ZodError) and persists nothing — no `design.submitted`,
  * no `phase.changed`.
  */
-export async function submitSolutionDesign(
+export async function prepareSolutionDesign(
   input: SubmitSolutionDesignInput,
 ): Promise<SubmitSolutionDesignResult> {
   const { state, proposal, commandId } = input;
@@ -603,8 +631,6 @@ export async function submitSolutionDesign(
     { type: "phase.changed", runId, commandId, from: "SOLUTION_DESIGN", to: "CHALLENGE" },
   ];
 
-  await appendEvents(runId, events, input.store);
-
   return {
     runId,
     acceptedEvents: events,
@@ -612,16 +638,25 @@ export async function submitSolutionDesign(
   };
 }
 
+/** Persist the result of a solution-design preparation. */
+export async function submitSolutionDesign(
+  input: SubmitSolutionDesignInput,
+): Promise<SubmitSolutionDesignResult> {
+  const result = await prepareSolutionDesign(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Challenge injection (Task 9): deterministic challenge wave
 // ---------------------------------------------------------------------------
 
-export interface ChallengeInterruption {
+export type ChallengeInterruption = {
   challengeId: string;
   /** The learner-visible interruption text — exactly the scenario's `prompt`. */
   reply: LocalizedText;
   stakeholderId: string;
-}
+};
 
 export interface ChallengeInjectionInput {
   /** Aggregate; `phase` must be CHALLENGE. */
@@ -689,7 +724,7 @@ function buildTriggerContext(state: RunAggregate, capsule: CustomerCapsule): Eve
  * were to fail. The run stays in CHALLENGE (no `phase.changed` here); the
  * learner addresses the injected challenges via `respond-challenge`.
  */
-export async function runChallengeInjection(
+export async function prepareChallengeInjection(
   input: ChallengeInjectionInput,
 ): Promise<ChallengeInjectionResult> {
   const { state, capsule, candidates, rng, commandId } = input;
@@ -733,8 +768,6 @@ export async function runChallengeInjection(
     interruptions.push({ challengeId, reply: prompt, stakeholderId });
   }
 
-  await appendEvents(runId, events, input.store);
-
   return {
     runId,
     injectedChallengeIds: toInject.map((candidate) => candidate.id),
@@ -742,6 +775,15 @@ export async function runChallengeInjection(
     acceptedEvents: events,
     updatedState: { ...state },
   };
+}
+
+/** Persist the result of a challenge-injection preparation. */
+export async function runChallengeInjection(
+  input: ChallengeInjectionInput,
+): Promise<ChallengeInjectionResult> {
+  const result = await prepareChallengeInjection(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -779,7 +821,7 @@ export interface RespondToChallengeResult {
  * not a structural gate here. An invalid response THROWS (ZodError) and persists
  * nothing.
  */
-export async function respondToChallenge(
+export async function prepareRespondToChallenge(
   input: RespondToChallengeInput,
 ): Promise<RespondToChallengeResult> {
   const { state, response, commandId } = input;
@@ -804,14 +846,21 @@ export async function respondToChallenge(
     phase = "PITCH";
   }
 
-  await appendEvents(runId, events, input.store);
-
   return {
     runId,
     challengesAddressed,
     acceptedEvents: events,
     updatedState: { ...state, challengeResponses: responses, phase },
   };
+}
+
+/** Persist the result of a challenge-response preparation. */
+export async function respondToChallenge(
+  input: RespondToChallengeInput,
+): Promise<RespondToChallengeResult> {
+  const result = await prepareRespondToChallenge(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -841,7 +890,7 @@ export interface SubmitPitchResult {
  * explicit ask, and next steps). An invalid pitch THROWS (ZodError) and persists
  * nothing.
  */
-export async function submitPitch(input: SubmitPitchInput): Promise<SubmitPitchResult> {
+export async function preparePitch(input: SubmitPitchInput): Promise<SubmitPitchResult> {
   const { state, pitch, commandId } = input;
   const runId = state.runId;
 
@@ -857,13 +906,18 @@ export async function submitPitch(input: SubmitPitchInput): Promise<SubmitPitchR
     { type: "phase.changed", runId, commandId, from: "PITCH", to: "REVIEW" },
   ];
 
-  await appendEvents(runId, events, input.store);
-
   return {
     runId,
     acceptedEvents: events,
     updatedState: { ...state, pitch, phase: "REVIEW" },
   };
+}
+
+/** Persist the result of a pitch preparation. */
+export async function submitPitch(input: SubmitPitchInput): Promise<SubmitPitchResult> {
+  const result = await preparePitch(input);
+  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -924,7 +978,7 @@ export const INVALID_RETRY_FOCUS = "INVALID_RETRY_FOCUS" as const;
  * Deterministic: no randomness, no wall-clock. `newRunId` is caller-supplied so
  * the CLI (Task 11) controls the identity.
  */
-export async function createRetry(
+export async function prepareRetry(
   parentRun: RunAggregate,
   options: CreateRetryOptions,
 ): Promise<CreateRetryResult> {
@@ -984,9 +1038,6 @@ export async function createRetry(
     { type: "retry.started", runId: parentRun.runId, commandId, newRunId },
   ];
 
-  await appendEvents(parentRun.runId, parentEvents, options.store);
-  await appendEvents(newRunId, newRunEvents, options.store);
-
   return {
     parentRunId: parentRun.runId,
     runId: newRunId,
@@ -999,6 +1050,17 @@ export async function createRetry(
     newRunEvents,
     parentEvents,
   };
+}
+
+/** Persist the parent link + the new run's start events produced by a retry preparation. */
+export async function createRetry(
+  parentRun: RunAggregate,
+  options: CreateRetryOptions,
+): Promise<CreateRetryResult> {
+  const result = await prepareRetry(parentRun, options);
+  await appendEvents(parentRun.runId, result.parentEvents, options.store);
+  await appendEvents(result.runId, result.newRunEvents, options.store);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1046,12 +1108,19 @@ export interface SubmitReviewResult {
  * scores) — see `src/scoring/score-input.ts`. This is a Task 13 refinement
  * point, not a blocker for Task 11.
  */
-export async function submitReview(input: SubmitReviewInput): Promise<SubmitReviewResult> {
+export interface PreparedReview {
+  events: RunEvent[];
+  review: FinalReviewResult;
+  score: ScoreBreakdown;
+  /** The attempt review to fold into the durable learner profile as a transaction effect. */
+  effect: CommandEffect;
+}
+
+export async function prepareReview(input: SubmitReviewInput): Promise<PreparedReview> {
   const { runtime, capsule, customerCapsule, publicScenario, events, state, commandId } = input;
   const runId = state.runId;
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
-  const store = input.store;
 
   // Phase guard: `decide` enforces REVIEW (and emits nothing for `review`).
   const runState: RunState = { runId, phase: state.phase, seq: 0 };
@@ -1080,23 +1149,43 @@ export async function submitReview(input: SubmitReviewInput): Promise<SubmitRevi
   // Defense-in-depth: the persisted score must satisfy the domain schema.
   ScoreBreakdownSchema.parse(score);
 
-  // 3. Persist review.completed + score.computed (in that order).
+  // 3. review.completed + score.computed (persisted by the transaction).
   const reviewEvent: RunEvent = { type: "review.completed", runId, commandId, review };
   const scoreEvent: RunEvent = { type: "score.computed", runId, commandId, score };
-  await appendEvents(runId, [reviewEvent, scoreEvent], store);
 
-  // 4. Fold the attempt into the durable learner profile.
-  const base = input.profile ?? (await loadLearnerProfile(input.profileStore)) ?? createEmptyProfile();
+  // 4. The profile fold becomes an idempotent transaction effect.
   const attempt = deriveAttemptReview(scoreInput, score, events, state);
-  const updatedProfile = updateLearnerProfile(base, { ...attempt, retryFocuses: review.nextFocus });
+  const attemptReview: AttemptReview = { ...attempt, retryFocuses: review.nextFocus };
+  const effect: CommandEffect = {
+    type: "profile.apply-attempt",
+    effectId: `${runId}:${commandId}:profile`,
+    runId,
+    review: attemptReview,
+  };
+
+  return { events: [reviewEvent, scoreEvent], review, score, effect };
+}
+
+/** Persist the result of a review preparation (imperative entry point). */
+export async function submitReview(input: SubmitReviewInput): Promise<SubmitReviewResult> {
+  const prepared = await prepareReview(input);
+  await appendEvents(input.state.runId, prepared.events, input.store);
+
+  // Fold the attempt into the durable learner profile.
+  const effect = prepared.effect;
+  if (effect.type !== "profile.apply-attempt") {
+    throw new Error("review preparation produced an unexpected effect");
+  }
+  const base = input.profile ?? (await loadLearnerProfile(input.profileStore)) ?? createEmptyProfile();
+  const updatedProfile = updateLearnerProfile(base, effect.review);
   await saveLearnerProfile(updatedProfile, input.profileStore);
 
   return {
-    runId,
-    review,
-    score,
-    acceptedEvents: [reviewEvent, scoreEvent],
-    updatedState: { ...state },
+    runId: input.state.runId,
+    review: prepared.review,
+    score: prepared.score,
+    acceptedEvents: prepared.events,
+    updatedState: { ...input.state },
     profile: updatedProfile,
   };
 }

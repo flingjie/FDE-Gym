@@ -10,6 +10,8 @@ export const INVALID_PHASE_COMMAND = "INVALID_PHASE_COMMAND" as const;
 export const EVENT_CHAIN_INVALID = "EVENT_CHAIN_INVALID" as const;
 export const RUN_NOT_FOUND = "RUN_NOT_FOUND" as const;
 export const RUN_ALREADY_EXISTS = "RUN_ALREADY_EXISTS" as const;
+/** A command id was re-issued with a different canonical request than the journal recorded. */
+export const COMMAND_ID_CONFLICT = "COMMAND_ID_CONFLICT" as const;
 /** A run/scenario/command id is unsafe to use as a filename component. */
 export const INVALID_RESOURCE_ID = "INVALID_RESOURCE_ID" as const;
 /** Another process (live owner) holds the run's exclusive writer lock. */
@@ -24,6 +26,7 @@ export type FdeErrorCode =
   | typeof EVENT_CHAIN_INVALID
   | typeof RUN_NOT_FOUND
   | typeof RUN_ALREADY_EXISTS
+  | typeof COMMAND_ID_CONFLICT
   | typeof INVALID_RESOURCE_ID
   | typeof RUN_LOCKED
   | typeof UNSUPPORTED_SCHEMA_VERSION
@@ -76,6 +79,18 @@ export class RunAlreadyExistsError extends FdeError {
     super(RUN_ALREADY_EXISTS, `run already started: ${runId}`);
     this.name = "RunAlreadyExistsError";
     this.runId = runId;
+  }
+}
+
+/** A command id was re-issued with a different canonical request than its journal recorded. */
+export class CommandIdConflictError extends FdeError {
+  readonly runId: string;
+  readonly commandId: string;
+  constructor(runId: string, commandId: string) {
+    super(COMMAND_ID_CONFLICT, `command id conflict: ${runId}/${commandId}`);
+    this.name = "CommandIdConflictError";
+    this.runId = runId;
+    this.commandId = commandId;
   }
 }
 
