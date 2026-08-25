@@ -10,6 +10,10 @@ export const INVALID_PHASE_COMMAND = "INVALID_PHASE_COMMAND" as const;
 export const EVENT_CHAIN_INVALID = "EVENT_CHAIN_INVALID" as const;
 export const RUN_NOT_FOUND = "RUN_NOT_FOUND" as const;
 export const RUN_ALREADY_EXISTS = "RUN_ALREADY_EXISTS" as const;
+/** A run/scenario/command id is unsafe to use as a filename component. */
+export const INVALID_RESOURCE_ID = "INVALID_RESOURCE_ID" as const;
+/** Another process (live owner) holds the run's exclusive writer lock. */
+export const RUN_LOCKED = "RUN_LOCKED" as const;
 /** Reserved for the Task 12 schema-v1 freeze; not emitted by Task 4. */
 export const UNSUPPORTED_SCHEMA_VERSION = "UNSUPPORTED_SCHEMA_VERSION" as const;
 /** A role output passed Zod/sanitizer but references an entity absent from its input. */
@@ -20,6 +24,8 @@ export type FdeErrorCode =
   | typeof EVENT_CHAIN_INVALID
   | typeof RUN_NOT_FOUND
   | typeof RUN_ALREADY_EXISTS
+  | typeof INVALID_RESOURCE_ID
+  | typeof RUN_LOCKED
   | typeof UNSUPPORTED_SCHEMA_VERSION
   | typeof AGENT_OUTPUT_DOMAIN_INVALID;
 
@@ -69,6 +75,28 @@ export class RunAlreadyExistsError extends FdeError {
   constructor(runId: string) {
     super(RUN_ALREADY_EXISTS, `run already started: ${runId}`);
     this.name = "RunAlreadyExistsError";
+    this.runId = runId;
+  }
+}
+
+/** A resource id is unsafe to use as a filename component (traversal, separators, empty). */
+export class InvalidResourceIdError extends FdeError {
+  readonly kind: string;
+  readonly id: string;
+  constructor(kind: string, id: string) {
+    super(INVALID_RESOURCE_ID, `invalid ${kind} id: ${id}`);
+    this.name = "InvalidResourceIdError";
+    this.kind = kind;
+    this.id = id;
+  }
+}
+
+/** Another process holds the run's exclusive writer lock. */
+export class RunLockedError extends FdeError {
+  readonly runId: string;
+  constructor(runId: string) {
+    super(RUN_LOCKED, `run is locked: ${runId}`);
+    this.name = "RunLockedError";
     this.runId = runId;
   }
 }

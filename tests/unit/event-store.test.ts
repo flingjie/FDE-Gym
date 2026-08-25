@@ -4,9 +4,16 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { RunCommand, RunEvent } from "../../src/core/domain";
-import { EVENT_CHAIN_INVALID, RUN_NOT_FOUND, UNSUPPORTED_SCHEMA_VERSION } from "../../src/core/errors";
+import {
+  EVENT_CHAIN_INVALID,
+  INVALID_RESOURCE_ID,
+  RUN_ALREADY_EXISTS,
+  RUN_LOCKED,
+  RUN_NOT_FOUND,
+  UNSUPPORTED_SCHEMA_VERSION,
+} from "../../src/core/errors";
 import { createInitialRunState, reduce } from "../../src/core/reducer";
-import { appendEvents, loadEvents, loadRun } from "../../src/core/event-store";
+import { appendEvents, assertSafeResourceId, loadEvents, loadRun } from "../../src/core/event-store";
 import { decide } from "../../src/core/state-machine";
 
 const RUN_ID = "run-1";
@@ -43,6 +50,17 @@ async function expectCode(promise: Promise<unknown>, code: string): Promise<void
   let caught: unknown;
   try {
     await promise;
+  } catch (error) {
+    caught = error;
+  }
+  expect(caught).toBeDefined();
+  expect((caught as { code?: string }).code).toBe(code);
+}
+
+function expectCodeSync(fn: () => unknown, code: string): void {
+  let caught: unknown;
+  try {
+    fn();
   } catch (error) {
     caught = error;
   }
@@ -175,5 +193,82 @@ describe("event store", () => {
       failureCode: "EVIDENCE_EXTRACTION_FAILED",
     });
     expect(recorded[1]).toMatchObject({ turnId: "cp:turn" });
+  });
+
+  it("rejects a second run.started with RUN_ALREADY_EXISTS", async () => {
+    await appendEvents(RUN_ID, journeyEvents(RUN_ID), { baseDir });
+
+    await expectCode(
+      appendEvents(
+        RUN_ID,
+        [{ type: "run.started", runId: RUN_ID, commandId: "cX", scenarioId: "s1", locale: "zh-CN" }],
+        { baseDir },
+      ),
+      RUN_ALREADY_EXISTS,
+    );
+  });
+
+  it("physically removes an incomplete trailing line before a later append", async () => {
+    await appendEvents(RUN_ID, journeyEvents(RUN_ID), { baseDir });
+    appendFileSync(eventsFile(), '{"type":"phase.changed","runId":"run-1","commandId":"c9","from":"PROB', "utf8");
+
+    await appendEvents(
+      RUN_ID,
+      [{ type: "question.asked", runId: RUN_ID, commandId: "c9", questionId: "c9", question: "after repair?" }],
+      { baseDir },
+    );
+
+    const raw = readFileSync(eventsFile(), "utf8");
+    expect(raw).not.toContain('"from":"PROB');
+    const recorded = await loadEvents(RUN_ID, { baseDir });
+    expect(recorded).toHaveLength(5);
+    recorded.forEach((event, i) => expect(event.seq).toBe(i + 1));
+  });
+
+  it("prevents two concurrent appends from both computing from the same head", async () => {
+    const startBatch = journeyEvents(RUN_ID);
+    const hintBatch: RunEvent[] = [
+      {
+        type: "hint.granted",
+        runId: RUN_ID,
+        commandId: "cH",
+        topic: "t",
+        level: 1,
+        hint: { "zh-CN": "提示", "en-US": "hint" },
+      },
+    ];
+
+    const settled = await Promise.allSettled([
+      appendEvents(RUN_ID, startBatch, { baseDir }),
+      appendEvents(RUN_ID, hintBatch, { baseDir }),
+    ]);
+
+    const fulfilled = settled.filter((r) => r.status === "fulfilled");
+    const rejected = settled.filter((r) => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: RUN_LOCKED });
+
+    const recorded = await loadEvents(RUN_ID, { baseDir });
+    const types = recorded.map((event) => event.type);
+    const isStartBatch = types.length === 4 && types[0] === "run.started";
+    const isHintBatch = types.length === 1 && types[0] === "hint.granted";
+    expect(isStartBatch || isHintBatch).toBe(true);
+    recorded.forEach((event, i) => expect(event.seq).toBe(i + 1));
+  });
+});
+
+describe("safe resource ids", () => {
+  it("rejects traversal, absolute, empty, and separator ids with INVALID_RESOURCE_ID", () => {
+    for (const id of ["../outside", "/absolute", "", "a/b", "a\\b", ".", ".."]) {
+      expectCodeSync(() => assertSafeResourceId("run", id), INVALID_RESOURCE_ID);
+    }
+  });
+
+  it("preserves full UUIDs and hyphenated scenario ids", () => {
+    expect(() => assertSafeResourceId("run", "run-1")).not.toThrow();
+    expect(() => assertSafeResourceId("scenario", "550e8400-e29b-41d4-a716-446655440000")).not.toThrow();
+    expect(() => assertSafeResourceId("scenario", "my-scenario_v2.0")).not.toThrow();
+    expect(() => assertSafeResourceId("command", "cmd-1")).not.toThrow();
   });
 });

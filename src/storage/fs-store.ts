@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { resolveBaseDir } from "../core/event-store.js";
 import { FDE_SCHEMA_VERSION } from "../core/domain.js";
 import { UnsupportedSchemaVersionError } from "../core/errors.js";
+import { atomicWriteFile } from "./atomic-file.js";
 import {
   LearnerProfileSchema,
   type LearnerProfile,
@@ -34,7 +35,7 @@ export async function saveLearnerProfile(
   const baseDir = options.baseDir ?? resolveBaseDir();
   const validated = LearnerProfileSchema.parse(profile);
   await mkdir(baseDir, { recursive: true });
-  await writeFile(profileFile(baseDir), JSON.stringify(validated, null, 2) + "\n", "utf8");
+  await atomicWriteFile(profileFile(baseDir), JSON.stringify(validated, null, 2) + "\n");
 }
 
 /** Load and validate the profile; `null` when none has been saved yet. */

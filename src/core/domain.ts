@@ -21,6 +21,18 @@ import { z } from "zod";
  */
 export const FDE_SCHEMA_VERSION = 1 as const;
 
+/**
+ * Safe filesystem resource-id shape. Every id that becomes a filename component
+ * (run ids today; scenario ids and command-journal ids in later tasks) must
+ * match this before any path join: a leading alphanumeric, then up to 127 of
+ * `[A-Za-z0-9._-]`. It preserves full UUIDs and hyphenated scenario ids while
+ * excluding path separators, traversal, and empty strings.
+ */
+export const SAFE_RESOURCE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+/** Zod form of `SAFE_RESOURCE_ID` for schema-level validation of filename-bound ids. */
+export const SafeResourceIdSchema = z.string().regex(SAFE_RESOURCE_ID);
+
 export const LOCALES = ["zh-CN", "en-US"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const LocaleSchema = z.enum(LOCALES);

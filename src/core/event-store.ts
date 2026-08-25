@@ -1,12 +1,20 @@
 import { createHash } from "node:crypto";
-import { access, appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
-import { FDE_SCHEMA_VERSION, RunEventSchema, type RecordedEvent, type RunEvent } from "./domain.js";
-import { EventChainInvalidError, RunNotFoundError, UnsupportedSchemaVersionError } from "./errors.js";
+import { FDE_SCHEMA_VERSION, RunEventSchema, SAFE_RESOURCE_ID, type RecordedEvent, type RunEvent } from "./domain.js";
+import {
+  EventChainInvalidError,
+  InvalidResourceIdError,
+  RunAlreadyExistsError,
+  RunNotFoundError,
+  UnsupportedSchemaVersionError,
+} from "./errors.js";
 import { createInitialRunState, reduce, type RunState } from "./reducer.js";
+import { atomicWriteFile } from "../storage/atomic-file.js";
+import { withRunLock, type RunLock } from "../storage/run-lock.js";
 
 /**
  * Append-only, hash-chained JSONL event store under `${FDE_GYM_HOME}/runs/<run-id>/events.jsonl`.
@@ -21,11 +29,24 @@ const SHA256_HEX_LENGTH = 64;
 export interface StoreOptions {
   /** Overrides `$FDE_GYM_HOME`/`~/.fde-gym` — used by tests to point at a temp dir. */
   baseDir?: string;
+  /** A run lock already held by the caller; reused instead of re-acquiring. */
+  lock?: RunLock;
 }
 
 /** Resolve the store root: `$FDE_GYM_HOME` when set (non-empty), else `~/.fde-gym`. */
 export function resolveBaseDir(): string {
   return process.env.FDE_GYM_HOME || join(homedir(), ".fde-gym");
+}
+
+/**
+ * Reject any resource id that is unsafe as a filename component BEFORE it can
+ * reach a path join. `kind` labels the failing entity in the error; only run ids
+ * become filenames today, while scenario and command ids do in later tasks.
+ */
+export function assertSafeResourceId(kind: "run" | "scenario" | "command", id: string): void {
+  if (!SAFE_RESOURCE_ID.test(id)) {
+    throw new InvalidResourceIdError(kind, id);
+  }
 }
 
 /** Envelope schema; the domain payload schema is intersected in below. */
@@ -74,6 +95,15 @@ function manifestFile(baseDir: string, runId: string): string {
   return join(baseDir, "runs", runId, "manifest.json");
 }
 
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Validate the run manifest's schemaVersion (Task 14 freeze). A missing or
  * unparseable manifest, or a version other than `FDE_SCHEMA_VERSION`, fails
@@ -109,6 +139,10 @@ async function readRunManifest(baseDir: string, runId: string): Promise<void> {
  * Append domain events to a run, assigning the envelope and chaining hashes.
  * Idempotent by `commandId`: an event whose `commandId` is already recorded is
  * skipped, so replaying a command never duplicates effects.
+ *
+ * The append runs under the run's exclusive cross-process lock and replaces the
+ * events file atomically (see `atomicWriteFile`), so two writers can never both
+ * compute a batch from the same committed head.
  */
 export async function appendEvents(
   runId: string,
@@ -116,8 +150,14 @@ export async function appendEvents(
   options: StoreOptions = {},
 ): Promise<void> {
   if (events.length === 0) return;
+  assertSafeResourceId("run", runId);
   const baseDir = options.baseDir ?? resolveBaseDir();
-  const existing = await readRecordedEvents(baseDir, runId);
+  await withRunLock(runId, { ...options, baseDir }, () => appendEventsLocked(runId, events, baseDir));
+}
+
+async function appendEventsLocked(runId: string, events: RunEvent[], baseDir: string): Promise<void> {
+  const { events: existing, committedPrefix } = await readEventsAndPrefix(baseDir, runId);
+  const alreadyStarted = existing.some((event) => event.type === "run.started");
 
   // Idempotency keyed by commandId at the COMMAND level: a single command may
   // legitimately emit several events (e.g. `start` emits run.started +
@@ -138,6 +178,12 @@ export async function appendEvents(
   }
   if (toAppend.length === 0) return;
 
+  // A second `run.started` for an already-started run is rejected at the store
+  // boundary (the in-memory state machine can't see the persisted start).
+  if (alreadyStarted && toAppend.some((event) => event.type === "run.started")) {
+    throw new RunAlreadyExistsError(runId);
+  }
+
   let seq = existing.length + 1;
   let logicalTime = existing.length === 0 ? 1 : existing[existing.length - 1].logicalTime + 1;
   let previousHash =
@@ -152,13 +198,23 @@ export async function appendEvents(
     previousHash = recorded.hash;
   }
 
-  await mkdir(join(baseDir, "runs", runId), { recursive: true });
-  await writeFile(
-    manifestFile(baseDir, runId),
-    JSON.stringify({ schemaVersion: FDE_SCHEMA_VERSION }) + "\n",
-    "utf8",
-  );
-  await appendFile(eventsFile(baseDir, runId), lines.join(""), "utf8");
+  const runDir = join(baseDir, "runs", runId);
+  await mkdir(runDir, { recursive: true });
+
+  // The run manifest is immutable after creation: created exclusively for a new
+  // run, validated (never rewritten) for an existing one.
+  if (await fileExists(manifestFile(baseDir, runId))) {
+    await readRunManifest(baseDir, runId);
+  } else {
+    await atomicWriteFile(
+      manifestFile(baseDir, runId),
+      JSON.stringify({ schemaVersion: FDE_SCHEMA_VERSION }) + "\n",
+    );
+  }
+
+  // Replace the events file atomically with the valid committed prefix (any
+  // incomplete trailing fragment physically discarded) plus the new batch.
+  await atomicWriteFile(eventsFile(baseDir, runId), committedPrefix + lines.join(""));
 }
 
 /**
@@ -167,6 +223,7 @@ export async function appendEvents(
  * tolerates only a final incomplete line from an interrupted write.
  */
 export async function loadRun(runId: string, options: StoreOptions = {}): Promise<RunState> {
+  assertSafeResourceId("run", runId);
   const baseDir = options.baseDir ?? resolveBaseDir();
   const file = eventsFile(baseDir, runId);
 
@@ -179,7 +236,7 @@ export async function loadRun(runId: string, options: StoreOptions = {}): Promis
   if (!exists) throw new RunNotFoundError(runId);
 
   await readRunManifest(baseDir, runId);
-  const events = await readRecordedEvents(baseDir, runId);
+  const { events } = await readEventsAndPrefix(baseDir, runId);
   let state = createInitialRunState(runId);
   for (const event of events) state = reduce(state, event);
   return state;
@@ -191,6 +248,7 @@ export async function loadRun(runId: string, options: StoreOptions = {}): Promis
  * replay projector and the CLI resume path to fold the full `RunAggregate`.
  */
 export async function loadEvents(runId: string, options: StoreOptions = {}): Promise<RecordedEvent[]> {
+  assertSafeResourceId("run", runId);
   const baseDir = options.baseDir ?? resolveBaseDir();
   const file = eventsFile(baseDir, runId);
 
@@ -203,7 +261,8 @@ export async function loadEvents(runId: string, options: StoreOptions = {}): Pro
   if (!exists) throw new RunNotFoundError(runId);
 
   await readRunManifest(baseDir, runId);
-  return readRecordedEvents(baseDir, runId);
+  const { events } = await readEventsAndPrefix(baseDir, runId);
+  return events;
 }
 
 function recordEvent(
@@ -222,23 +281,44 @@ function hashRecordedEvent(recorded: RecordedEvent): string {
   return sha256Hex(canonicalJson(withoutHash));
 }
 
-/** Read + validate the chain. Returns [] for a run with no file yet. */
-async function readRecordedEvents(baseDir: string, runId: string): Promise<RecordedEvent[]> {
+/**
+ * Read + validate the chain, returning the committed events together with the
+ * exact on-disk bytes of their committed prefix (valid lines up to the last
+ * good one). Returns `{ events: [], committedPrefix: "" }` for a run with no
+ * file yet. An incomplete TRAILING line (an interrupted write) is tolerated and
+ * excluded from the prefix; any corruption in the middle rejects with
+ * `EVENT_CHAIN_INVALID`.
+ */
+async function readEventsAndPrefix(
+  baseDir: string,
+  runId: string,
+): Promise<{ events: RecordedEvent[]; committedPrefix: string }> {
   const file = eventsFile(baseDir, runId);
   let raw: string;
   try {
     raw = await readFile(file, "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { events: [], committedPrefix: "" };
+    }
     throw error;
   }
 
-  const lines = raw.split("\n").filter((line) => line.trim().length > 0);
+  const lines = raw.split("\n");
   const events: RecordedEvent[] = [];
+  let committedCount = 0;
   for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim().length === 0) {
+      // The final artifact of a trailing newline; an empty line in the middle
+      // is corruption.
+      if (i === lines.length - 1) break;
+      throw new EventChainInvalidError(`empty committed event at line ${i + 1}`);
+    }
+
     let parsed: unknown;
     try {
-      parsed = JSON.parse(lines[i]);
+      parsed = JSON.parse(line);
     } catch {
       // Only a trailing line cut off mid-write is tolerated.
       if (i === lines.length - 1) break;
@@ -267,6 +347,10 @@ async function readRecordedEvents(baseDir: string, runId: string): Promise<Recor
       throw new EventChainInvalidError(`hash mismatch at line ${i + 1}`);
     }
     events.push(recorded);
+    committedCount = i + 1;
   }
-  return events;
+
+  const committedPrefix =
+    committedCount === 0 ? "" : lines.slice(0, committedCount).join("\n") + "\n";
+  return { events, committedPrefix };
 }

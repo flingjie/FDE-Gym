@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -57,5 +57,25 @@ describe("learner profile store (schema freeze)", () => {
     const { schemaVersion: _version, ...unversioned } = createEmptyProfile();
     writeFileSync(profileFile(), JSON.stringify(unversioned), "utf8");
     expect(await codeOf(loadLearnerProfile({ baseDir }))).toBe(UNSUPPORTED_SCHEMA_VERSION);
+  });
+
+  it("leaves the previous profile valid when a write fails before the atomic rename", async () => {
+    await saveLearnerProfile(createEmptyProfile(), { baseDir });
+    const before = readFileSync(profileFile(), "utf8");
+
+    // Read-only dir: the sibling temp file cannot be created, so the write
+    // fails before the rename and the existing profile must survive intact.
+    chmodSync(baseDir, 0o555);
+    try {
+      await expect(
+        saveLearnerProfile({ ...createEmptyProfile(), attempts: 1 }, { baseDir }),
+      ).rejects.toThrow();
+    } finally {
+      chmodSync(baseDir, 0o755);
+    }
+
+    expect(readFileSync(profileFile(), "utf8")).toBe(before);
+    const loaded = await loadLearnerProfile({ baseDir });
+    expect(loaded!.attempts).toBe(0);
   });
 });
