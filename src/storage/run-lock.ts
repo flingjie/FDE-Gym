@@ -3,7 +3,8 @@ import { mkdir, open, readFile, rm } from "node:fs/promises";
 import { hostname, homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { RunLockedError } from "../core/errors.js";
+import { SAFE_RESOURCE_ID } from "../core/domain.js";
+import { InvalidResourceIdError, RunLockedError } from "../core/errors.js";
 import type { StoreOptions } from "../core/event-store.js";
 
 /**
@@ -41,6 +42,11 @@ export async function withRunLock<T>(
   options: StoreOptions,
   work: (lock: RunLock) => Promise<T>,
 ): Promise<T> {
+  // Self-validate before any path is constructed: `withRunLock` is a public
+  // interface and must never turn a runId into a filename component unchecked.
+  if (!SAFE_RESOURCE_ID.test(runId)) {
+    throw new InvalidResourceIdError("run", runId);
+  }
   if (options.lock) {
     return work(options.lock);
   }

@@ -5,7 +5,7 @@ import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { RUN_LOCKED } from "../../src/core/errors";
+import { INVALID_RESOURCE_ID, RUN_LOCKED } from "../../src/core/errors";
 import { withRunLock } from "../../src/storage/run-lock";
 
 let baseDir: string;
@@ -38,6 +38,14 @@ function deadPid(): Promise<number> {
 }
 
 describe("run lock", () => {
+  it("rejects an unsafe runId with INVALID_RESOURCE_ID", async () => {
+    for (const id of ["../outside", "/absolute"]) {
+      await expect(withRunLock(id, { baseDir }, async () => {})).rejects.toMatchObject({
+        code: INVALID_RESOURCE_ID,
+      });
+    }
+  });
+
   it("recovers a dead-owner lock", async () => {
     const path = lockPath("run-lock-a");
     await mkdir(dirname(path), { recursive: true });
