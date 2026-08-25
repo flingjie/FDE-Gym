@@ -12,6 +12,8 @@ export const RUN_NOT_FOUND = "RUN_NOT_FOUND" as const;
 export const RUN_ALREADY_EXISTS = "RUN_ALREADY_EXISTS" as const;
 /** A command id was re-issued with a different canonical request than the journal recorded. */
 export const COMMAND_ID_CONFLICT = "COMMAND_ID_CONFLICT" as const;
+/** A command journal's content contains a hidden canary value; rejected without persisting it. */
+export const JOURNAL_CANARY_LEAK = "JOURNAL_CANARY_LEAK" as const;
 /** A run/scenario/command id is unsafe to use as a filename component. */
 export const INVALID_RESOURCE_ID = "INVALID_RESOURCE_ID" as const;
 /** Another process (live owner) holds the run's exclusive writer lock. */
@@ -27,6 +29,7 @@ export type FdeErrorCode =
   | typeof RUN_NOT_FOUND
   | typeof RUN_ALREADY_EXISTS
   | typeof COMMAND_ID_CONFLICT
+  | typeof JOURNAL_CANARY_LEAK
   | typeof INVALID_RESOURCE_ID
   | typeof RUN_LOCKED
   | typeof UNSUPPORTED_SCHEMA_VERSION
@@ -91,6 +94,14 @@ export class CommandIdConflictError extends FdeError {
     this.name = "CommandIdConflictError";
     this.runId = runId;
     this.commandId = commandId;
+  }
+}
+
+/** Journal content contains a hidden canary value; the message never echoes the value. */
+export class JournalCanaryLeakError extends FdeError {
+  constructor() {
+    super(JOURNAL_CANARY_LEAK, "journal content contains a canary value");
+    this.name = "JournalCanaryLeakError";
   }
 }
 

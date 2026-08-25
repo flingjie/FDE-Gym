@@ -5,11 +5,12 @@ import { z } from "zod";
 
 import { collectProhibitedKeyPaths } from "../agents/contracts.js";
 import { createEmptyProfile, updateLearnerProfile, type AttemptReview } from "../profile/learner-profile.js";
+import { containsCanary } from "../security/sanitizer.js";
 import { atomicWriteFile } from "../storage/atomic-file.js";
 import { loadLearnerProfile, saveLearnerProfile } from "../storage/fs-store.js";
 import { withRunLock } from "../storage/run-lock.js";
 import { RunEventSchema, type RunEvent } from "./domain.js";
-import { CommandIdConflictError } from "./errors.js";
+import { CommandIdConflictError, JournalCanaryLeakError } from "./errors.js";
 import {
   appendEvents,
   assertSafeResourceId,
@@ -120,6 +121,26 @@ function validatePlan(events: RunEvent[], result: JsonValue, effects: CommandEff
   z.array(RunEventSchema).parse(events);
 }
 
+/**
+ * Second line of defense at the journal boundary: reject a journal whose
+ * serialized content (events + result + effects) contains any provided canary
+ * value. Canaries are scan-time inputs only and are never persisted.
+ */
+function assertNoCanaryValues(
+  journal: PreparedCommand<JsonValue>,
+  canaries: readonly string[],
+): void {
+  if (canaries.length === 0) return;
+  const content = JSON.stringify({
+    events: journal.events,
+    result: journal.result,
+    effects: journal.effects,
+  });
+  if (containsCanary(content ?? "", canaries)) {
+    throw new JournalCanaryLeakError();
+  }
+}
+
 /** Read a journal, failing closed on a missing (`null`) or malformed file. */
 async function readJournal(path: string): Promise<PreparedCommand<JsonValue> | null> {
   let raw: string;
@@ -164,7 +185,12 @@ async function readJournal(path: string): Promise<PreparedCommand<JsonValue> | n
   return journal as unknown as PreparedCommand<JsonValue>;
 }
 
-async function writeJournal(path: string, journal: PreparedCommand<JsonValue>): Promise<void> {
+async function writeJournal(
+  path: string,
+  journal: PreparedCommand<JsonValue>,
+  canaries: readonly string[],
+): Promise<void> {
+  assertNoCanaryValues(journal, canaries);
   await mkdir(dirname(path), { recursive: true });
   await atomicWriteFile(path, JSON.stringify(journal) + "\n");
 }
@@ -212,9 +238,12 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
   commandId: string;
   request: JsonValue;
   store?: StoreOptions;
+  /** Hidden values that must never appear in journaled events/result/effects. */
+  canaries?: readonly string[];
   prepare: () => Promise<CommandPlan<T>>;
 }): Promise<T> {
   const { runId, commandId, request } = options;
+  const canaries = options.canaries ?? [];
   // The top-level commandId becomes a journal filename component, so it must be
   // validated with the same resource-id shape as run ids. The `:`-suffixed ids
   // in DERIVED event commandId fields are event data, never filenames.
@@ -239,7 +268,7 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
       // commandId; effects are applied once more (idempotent per effect).
       await appendEvents(runId, existing.events, store);
       await applyEffects(existing.effects, baseDir);
-      await writeJournal(path, { ...existing, status: "committed" });
+      await writeJournal(path, { ...existing, status: "committed" }, canaries);
       return existing.result as T;
     }
 
@@ -259,10 +288,10 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
       result,
       effects,
     };
-    await writeJournal(path, prepared);
+    await writeJournal(path, prepared, canaries);
     await appendEvents(runId, events, store);
     await applyEffects(effects, baseDir);
-    await writeJournal(path, { ...prepared, status: "committed" });
+    await writeJournal(path, { ...prepared, status: "committed" }, canaries);
     return result as T;
   });
 }

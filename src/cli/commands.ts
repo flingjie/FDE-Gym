@@ -352,6 +352,7 @@ export async function askCommand(ctx: CommandContext, args: AskArgs): Promise<Cl
       commandId: args.commandId,
       request: { type: "ask", question: args.question, stakeholderId: args.stakeholderId },
       store: { baseDir: ctx.baseDir },
+      canaries: [scenario.customer.canary],
       prepare: async () => {
         const result = await prepareDiscoveryTurn({
           runtime: ctx.runtime,
@@ -403,6 +404,7 @@ export async function repairEvidenceCommand(
       commandId: args.commandId,
       request: { type: "repair-evidence" },
       store: { baseDir: ctx.baseDir },
+      canaries: [scenario.customer.canary],
       prepare: async () => {
         const result = await prepareRepairPendingEvidence({
           runtime: ctx.runtime,
@@ -523,6 +525,7 @@ export async function submitBriefCommand(
       commandId: args.commandId,
       request: { type: "submit-brief", brief: args.brief },
       store: { baseDir: ctx.baseDir },
+      canaries: [scenario.evaluator.canary],
       prepare: async () => {
         const result = await prepareFramingGate({
           runtime: ctx.runtime,
@@ -677,6 +680,7 @@ export async function reviewCommand(ctx: CommandContext, args: ReviewArgs): Prom
       commandId: args.commandId,
       request: { type: "review" },
       store: { baseDir: ctx.baseDir },
+      canaries: [scenario.evaluator.canary],
       prepare: async () => {
         const result = await prepareReview({
           runtime: ctx.runtime,

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -10,7 +10,7 @@ import {
   type JsonValue,
 } from "../../src/core/command-transaction.js";
 import { canonicalJson, loadEvents } from "../../src/core/event-store.js";
-import { COMMAND_ID_CONFLICT, RUN_LOCKED } from "../../src/core/errors.js";
+import { COMMAND_ID_CONFLICT, JOURNAL_CANARY_LEAK, RUN_LOCKED } from "../../src/core/errors.js";
 import type { RunEvent } from "../../src/core/domain.js";
 
 /**
@@ -248,5 +248,31 @@ describe("command transaction journal", () => {
         }),
       }),
     ).rejects.toThrow(/not a JSON value/);
+  });
+
+  it("rejects a journal whose content contains a canary value before write", async () => {
+    const canary = "CANARY-9f2c1b";
+    await expect(
+      executeCommandTransaction({
+        runId: RUN_ID,
+        commandId: "cmd-7",
+        request: { type: "hint", topic: "workflow" },
+        store: { baseDir },
+        canaries: [canary],
+        prepare: async () => ({
+          events: [],
+          result: { topic: "workflow", note: `hidden ${canary}` },
+        }),
+      }),
+    ).rejects.toMatchObject({ code: JOURNAL_CANARY_LEAK });
+
+    // The journal boundary must fail closed: no file is persisted, so the
+    // canary never reaches the journal (nor any sibling file).
+    const commandsDir = join(baseDir, "runs", RUN_ID, "commands");
+    const files = existsSync(commandsDir) ? readdirSync(commandsDir) : [];
+    expect(files).toEqual([]);
+    for (const file of files) {
+      expect(readFileSync(join(commandsDir, file), "utf8")).not.toContain(canary);
+    }
   });
 });

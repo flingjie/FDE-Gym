@@ -265,6 +265,17 @@ const ERROR_TABLE: LocalizedError[] = [
     },
   },
   {
+    code: "JOURNAL_CANARY_LEAK",
+    "zh-CN": {
+      message: "命令日志包含泄露值，已拒绝写入。",
+      nextActions: ["重试该命令。"],
+    },
+    "en-US": {
+      message: "The command journal contained a canary value and was rejected.",
+      nextActions: ["Retry the command."],
+    },
+  },
+  {
     code: "AGENT_TIMEOUT",
     "zh-CN": {
       message: "角色调用超时。",
