@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { RunCommand, RunEvent } from "../../src/core/domain";
 import { EVENT_CHAIN_INVALID, RUN_NOT_FOUND, UNSUPPORTED_SCHEMA_VERSION } from "../../src/core/errors";
 import { createInitialRunState, reduce } from "../../src/core/reducer";
-import { appendEvents, loadRun } from "../../src/core/event-store";
+import { appendEvents, loadEvents, loadRun } from "../../src/core/event-store";
 import { decide } from "../../src/core/state-machine";
 
 const RUN_ID = "run-1";
@@ -148,5 +148,32 @@ describe("event store", () => {
       "utf8",
     );
     await expectCode(loadRun(RUN_ID, { baseDir }), UNSUPPORTED_SCHEMA_VERSION);
+  });
+
+  it("round-trips evidence.pending and evidence.resolved events", async () => {
+    const events: RunEvent[] = [
+      {
+        type: "evidence.pending",
+        runId: RUN_ID,
+        commandId: "cp",
+        turnId: "cp:turn",
+        failureCode: "EVIDENCE_EXTRACTION_FAILED",
+      },
+      {
+        type: "evidence.resolved",
+        runId: RUN_ID,
+        commandId: "cr",
+        turnId: "cp:turn",
+      },
+    ];
+    await appendEvents(RUN_ID, events, { baseDir });
+
+    const recorded = await loadEvents(RUN_ID, { baseDir });
+    expect(recorded.map((event) => event.type)).toEqual(["evidence.pending", "evidence.resolved"]);
+    expect(recorded[0]).toMatchObject({
+      turnId: "cp:turn",
+      failureCode: "EVIDENCE_EXTRACTION_FAILED",
+    });
+    expect(recorded[1]).toMatchObject({ turnId: "cp:turn" });
   });
 });

@@ -9,6 +9,7 @@ import {
   clarifyCommand,
   frameCommand,
   hintCommand,
+  repairEvidenceCommand,
   replayCommand,
   respondChallengeCommand,
   retryCommand,
@@ -20,6 +21,7 @@ import {
   submitPitchCommand,
   type CommandContext,
 } from "../../src/cli/commands.js";
+import { loadEvents } from "../../src/core/event-store.js";
 import type { CliResult } from "../../src/cli/render.js";
 import type { LearnerReplay } from "../../src/replay/projector.js";
 import type {
@@ -377,4 +379,107 @@ describe("CLI learner journey (both locales)", () => {
       expect(serialized).not.toContain("chainOfThought");
     });
   }
+});
+
+describe("CLI evidence repair and clarification budget", () => {
+  it("blocks frame on pending evidence and clears it through repair", async () => {
+    const baseDir = makeStore();
+    const fx: Record<string, unknown> = {
+      "customer:cmd-repair-ask:customer": {
+        reply: text("工程师40%的时间花在低价值告警上。", "Engineers spend 40% of time on low-value alerts."),
+        stakeholderId: "technical-lead",
+        disclosedDisclosureUnitIds: ["du-3"],
+      },
+      // Intentionally NO evidence_tracker fixture for cmd-repair-ask:evidence yet.
+    };
+    const runtime = new FixtureAgentRuntime({ fixtures: fx });
+    const ctx: CommandContext = { runtime, baseDir, scenario: scenario() };
+
+    mustOk(await startCommand(ctx, {
+      runId: "run-repair",
+      scenarioId: "scn-1",
+      locale: "zh-CN",
+      commandId: "cmd-start",
+    }));
+
+    const asked = mustOk(await askCommand(ctx, {
+      runId: "run-repair",
+      question: "工程师的时间花在哪里？",
+      stakeholderId: "technical-lead",
+      commandId: "cmd-repair-ask",
+    }));
+    expect(asked.pendingEvidence).toEqual({ code: "EVIDENCE_EXTRACTION_FAILED" });
+
+    // frame is blocked while evidence is pending.
+    const blocked = await frameCommand(ctx, { runId: "run-repair", commandId: "cmd-frame-blocked" });
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) expect(blocked.code).toBe("FRAME_BLOCKED");
+
+    // The persisted failure event carries ONLY turnId + stable code, never the message.
+    const recorded = await loadEvents("run-repair", { baseDir });
+    const pendingRecord = recorded.find((event) => event.type === "evidence.pending");
+    expect(pendingRecord).toBeDefined();
+    expect(pendingRecord).toHaveProperty("turnId", "cmd-repair-ask:turn");
+    expect(pendingRecord).toHaveProperty("failureCode", "EVIDENCE_EXTRACTION_FAILED");
+    expect(pendingRecord).not.toHaveProperty("message");
+    expect(pendingRecord).not.toHaveProperty("error");
+
+    // Provide the missing tracker fixture and repair.
+    fx["evidence_tracker:cmd-repair-ask:evidence"] = {
+      patch: {
+        patchId: "p-repair",
+        expectedVersion: 0,
+        addNodes: [
+          {
+            id: "ev-repair",
+            kind: "fact",
+            claim: text("40%时间浪费", "40% time wasted"),
+            status: "active",
+            sourceTranscriptIds: ["cmd-repair-ask:turn"],
+            weight: 1,
+            version: 0,
+          },
+        ],
+        addEdges: [],
+        invalidateNodeIds: [],
+      },
+      questionAssessment: { intentCount: 1, atomicity: 1, neutrality: 1, relevance: 1, redundancy: 0 },
+    };
+
+    const repaired = mustOk(await repairEvidenceCommand(ctx, {
+      runId: "run-repair",
+      commandId: "cmd-repair-fix",
+    }));
+    expect(repaired.pendingEvidence).toBeNull();
+    expect(repaired.composite).not.toBeNull();
+
+    // frame now succeeds.
+    const framed = mustOk(await frameCommand(ctx, { runId: "run-repair", commandId: "cmd-frame-ok" }));
+    expect(framed.phase).toBe("PROBLEM_FRAMING");
+  });
+
+  it("persists the clarification budget across separate CLI calls", async () => {
+    const baseDir = makeStore();
+    const runtime = new FixtureAgentRuntime({ fixtures: fixtures() });
+    const ctx: CommandContext = { runtime, baseDir, scenario: scenario() };
+
+    mustOk(await startCommand(ctx, {
+      runId: "run-budget",
+      scenarioId: "scn-1",
+      locale: "zh-CN",
+      commandId: "cmd-start",
+    }));
+
+    // Three clarification round-trips consume the budget of 3.
+    for (let i = 1; i <= 3; i++) {
+      mustOk(await frameCommand(ctx, { runId: "run-budget", commandId: `cmd-frame-${i}` }));
+      mustOk(await clarifyCommand(ctx, { runId: "run-budget", commandId: `cmd-clarify-${i}` }));
+    }
+
+    // The fourth clarify (after reload) exceeds the persisted budget.
+    mustOk(await frameCommand(ctx, { runId: "run-budget", commandId: "cmd-frame-4" }));
+    const exceeded = await clarifyCommand(ctx, { runId: "run-budget", commandId: "cmd-clarify-4" });
+    expect(exceeded.ok).toBe(false);
+    if (!exceeded.ok) expect(exceeded.code).toBe("CLARIFICATION_BUDGET_EXCEEDED");
+  });
 });

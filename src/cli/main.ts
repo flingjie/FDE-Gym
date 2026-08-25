@@ -15,6 +15,7 @@ import {
   hintCommand,
   listCommand,
   profileCommand,
+  repairEvidenceCommand,
   replayCommand,
   respondChallengeCommand,
   retryCommand,
@@ -52,6 +53,7 @@ const COMMAND_NAMES = [
   "ask",
   "hint",
   "clarify",
+  "repair-evidence",
   "submit-brief",
   "submit-design",
   "respond-challenge",
@@ -107,6 +109,7 @@ function usage(): string {
     "  ask               ask the customer a question (--run-id --command-id; JSON stdin)",
     "  hint              request a hint (--run-id --command-id --topic [--level])",
     "  clarify           PROBLEM_FRAMING -> DISCOVERY (--run-id --command-id)",
+    "  repair-evidence   re-run a pending evidence extraction (--run-id --command-id)",
     "  submit-brief      submit a problem brief (--run-id --command-id; JSON stdin)",
     "  submit-design     submit a solution design + inject challenges (--run-id --command-id; JSON stdin)",
     "  respond-challenge answer a challenge (--run-id --command-id; JSON stdin)",
@@ -245,6 +248,14 @@ async function main(): Promise<void> {
         break;
       }
       result = await clarifyCommand(ctx, { runId, commandId });
+      break;
+    }
+    case "repair-evidence": {
+      if (!runId || !commandId) {
+        result = { ok: false, code: "MISSING_ARGUMENT", ...localize("MISSING_ARGUMENT", locale) };
+        break;
+      }
+      result = await repairEvidenceCommand(ctx, { runId, commandId });
       break;
     }
     case "submit-brief": {

@@ -91,6 +91,12 @@ export function projectPublic(event: RunEvent): PublicEvent | null {
       // never surfaced as a public event (the learner sees only aggregate
       // numbers via the score breakdown).
       return null;
+    case "evidence.pending":
+      // Internal durability marker (turnId + stable code only); never projected.
+      return null;
+    case "evidence.resolved":
+      // Internal durability marker; never projected.
+      return null;
     case "hint.granted":
       return {
         type: "hint.granted",

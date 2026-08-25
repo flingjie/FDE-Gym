@@ -188,6 +188,17 @@ const ERROR_TABLE: LocalizedError[] = [
     },
   },
   {
+    code: "NOTHING_TO_REPAIR",
+    "zh-CN": {
+      message: "当前没有待修复的证据提取。",
+      nextActions: ["检查运行状态后重试，或继续提问。"],
+    },
+    "en-US": {
+      message: "There is no pending evidence extraction to repair.",
+      nextActions: ["Check the run status and retry, or ask a question."],
+    },
+  },
+  {
     code: "INVALID_RETRY_FOCUS",
     "zh-CN": {
       message: "重试需要 2 或 3 条重点总结。",

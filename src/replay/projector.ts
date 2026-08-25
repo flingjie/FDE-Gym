@@ -167,6 +167,8 @@ function emptyAggregate(scenarioId: string, locale: Locale): RunAggregate {
     proposal: null,
     pitch: null,
     challengeResponses: [],
+    pendingEvidence: null,
+    clarificationBudgetUsed: 0,
   };
 }
 
@@ -193,6 +195,11 @@ export function foldRunAggregate(
       }
       case "phase.changed": {
         agg.phase = event.to;
+        // A `clarify` round-trip (PROBLEM_FRAMING -> DISCOVERY) consumes one unit
+        // of the clarification budget; no other command produces this transition.
+        if (event.from === "PROBLEM_FRAMING" && event.to === "DISCOVERY") {
+          agg.clarificationBudgetUsed += 1;
+        }
         break;
       }
       case "question.asked": {
@@ -224,6 +231,16 @@ export function foldRunAggregate(
       }
       case "evidence.patched": {
         agg.graph = applyEvidencePatch(agg.graph, event.patch);
+        break;
+      }
+      case "evidence.pending": {
+        agg.pendingEvidence = { turnId: event.turnId, code: event.failureCode };
+        break;
+      }
+      case "evidence.resolved": {
+        if (agg.pendingEvidence?.turnId === event.turnId) {
+          agg.pendingEvidence = null;
+        }
         break;
       }
       case "hint.granted": {

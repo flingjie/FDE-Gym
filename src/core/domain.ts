@@ -664,6 +664,30 @@ export const QuestionAssessedEventSchema = z
   })
   .strict();
 
+/**
+ * Durable pending-evidence marker emitted when the Evidence Tracker fails.
+ * Carries ONLY the pending turn id + a stable failure code — never the thrown
+ * error message, reasoning, or any canary/payload text (learner-visible
+ * durability contract).
+ */
+export const EvidencePendingEventSchema = z
+  .object({
+    type: z.literal("evidence.pending"),
+    ...EVENT_BASE,
+    turnId: z.string().min(1),
+    failureCode: z.string().min(1),
+  })
+  .strict();
+
+/** Durable resolution marker; clears the pending marker only for its own turn. */
+export const EvidenceResolvedEventSchema = z
+  .object({
+    type: z.literal("evidence.resolved"),
+    ...EVENT_BASE,
+    turnId: z.string().min(1),
+  })
+  .strict();
+
 export const HintGrantedEventSchema = z
   .object({
     type: z.literal("hint.granted"),
@@ -825,6 +849,8 @@ export const RunEventSchema = z.discriminatedUnion("type", [
   CustomerRepliedEventSchema,
   EvidencePatchedEventSchema,
   QuestionAssessedEventSchema,
+  EvidencePendingEventSchema,
+  EvidenceResolvedEventSchema,
   HintGrantedEventSchema,
   BriefSubmittedEventSchema,
   BriefValidatedEventSchema,

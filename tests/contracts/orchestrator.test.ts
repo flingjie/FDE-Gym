@@ -12,7 +12,8 @@ import {
   runDiscoveryTurn,
   type RunDiscoveryTurnInput,
 } from "../../src/core/orchestrator";
-import { loadRun } from "../../src/core/event-store";
+import { loadEvents, loadRun } from "../../src/core/event-store";
+import { foldRunAggregate } from "../../src/replay/projector";
 import type { RunAggregate } from "../../src/security/context-firewall";
 import type { CustomerCapsule } from "../../src/scenarios/schema";
 
@@ -63,6 +64,8 @@ function aggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
     proposal: null,
     pitch: null,
     challengeResponses: [],
+    pendingEvidence: null,
+    clarificationBudgetUsed: 0,
     ...overrides,
   };
 }
@@ -180,6 +183,7 @@ describe("discovery turn pipeline", () => {
     expect(result.acceptedEvents.map((e) => e.type)).toEqual([
       "question.asked",
       "customer.replied",
+      "evidence.pending",
     ]);
     expect(result.pendingEvidence).not.toBeNull();
     expect(result.metrics).toBeNull();
@@ -198,7 +202,34 @@ describe("discovery turn pipeline", () => {
     expect((frameError as { code?: string } | null)?.code).toBe(FRAME_BLOCKED);
 
     const loaded = await loadRun("run-1", { baseDir });
-    expect(loaded.seq).toBe(2);
+    expect(loaded.seq).toBe(3);
+  });
+
+  it("persists the pending marker as a durable event and folds it back on reload", async () => {
+    const baseDir = makeStore();
+    const runtime = new FixtureAgentRuntime({
+      fixtures: { "customer:cmd-1:customer": customerOutput() }, // no evidence fixture
+    });
+
+    await runDiscoveryTurn(runInput({ runtime, store: { baseDir } }));
+
+    // Reload + fold: pendingEvidence is reconstructed from committed events.
+    const recorded = await loadEvents("run-1", { baseDir });
+    const folded = foldRunAggregate(recorded, "scn-1", "zh-CN");
+    expect(folded.pendingEvidence).toEqual({
+      turnId: "cmd-1:turn",
+      code: "EVIDENCE_EXTRACTION_FAILED",
+    });
+    expect(() => assertFrameAllowed(folded.pendingEvidence)).toThrow();
+
+    // The persisted failure event carries ONLY turnId + the stable code —
+    // never the thrown error message.
+    const pendingRecord = recorded.find((event) => event.type === "evidence.pending");
+    expect(pendingRecord).toBeDefined();
+    expect(pendingRecord).toHaveProperty("turnId", "cmd-1:turn");
+    expect(pendingRecord).toHaveProperty("failureCode", "EVIDENCE_EXTRACTION_FAILED");
+    expect(pendingRecord).not.toHaveProperty("message");
+    expect(pendingRecord).not.toHaveProperty("error");
   });
 
   it("clears EVIDENCE_PENDING on a successful repair", async () => {
@@ -229,9 +260,14 @@ describe("discovery turn pipeline", () => {
     expect(repaired.metrics).not.toBeNull();
     expect(repaired.updatedState.graph.version).toBe(1);
     expect(() => assertFrameAllowed(repaired.pendingEvidence)).not.toThrow();
+    expect(repaired.acceptedEvents.map((e) => e.type)).toEqual([
+      "evidence.patched",
+      "question.assessed",
+      "evidence.resolved",
+    ]);
 
     const loaded = await loadRun("run-1", { baseDir });
-    expect(loaded.seq).toBe(4);
+    expect(loaded.seq).toBe(6);
   });
 });
 

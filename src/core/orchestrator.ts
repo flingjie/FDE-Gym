@@ -139,7 +139,7 @@ export class OrchestratorError extends Error {
 }
 
 /** The gate the CLI/later tasks call before issuing `frame`. */
-export function assertFrameAllowed(pending: PendingEvidence | null): void {
+export function assertFrameAllowed(pending: { turnId: string; code: string } | null): void {
   if (pending !== null) {
     throw new OrchestratorError(
       FRAME_BLOCKED,
@@ -274,10 +274,17 @@ export async function runDiscoveryTurn(
       code: failure.code,
       message: failure.message,
     };
-    await appendEvents(runId, [questionEvent, replyEvent], store);
+    const pendingEvent: RunEvent = {
+      type: "evidence.pending",
+      runId,
+      commandId: `${commandId}:evidence-pending`,
+      turnId: `${commandId}:turn`,
+      failureCode: failure.code,
+    };
+    await appendEvents(runId, [questionEvent, replyEvent, pendingEvent], store);
     return {
       runId,
-      acceptedEvents: [questionEvent, replyEvent],
+      acceptedEvents: [questionEvent, replyEvent, pendingEvent],
       pendingEvidence: pending,
       metrics: null,
       updatedState: aggReply,
@@ -330,12 +337,18 @@ export async function repairPendingEvidence(
     questionId: commandId,
     assessment: evidence.questionAssessment,
   };
-  const updatedState: RunAggregate = { ...state, graph: nextGraph };
+  const resolvedEvent: RunEvent = {
+    type: "evidence.resolved",
+    runId,
+    commandId: `${commandId}:evidence`,
+    turnId: `${commandId}:turn`,
+  };
+  const updatedState: RunAggregate = { ...state, graph: nextGraph, pendingEvidence: null };
 
-  await appendEvents(runId, [evidenceEvent, assessmentEvent], store);
+  await appendEvents(runId, [evidenceEvent, assessmentEvent, resolvedEvent], store);
   return {
     runId,
-    acceptedEvents: [evidenceEvent, assessmentEvent],
+    acceptedEvents: [evidenceEvent, assessmentEvent, resolvedEvent],
     pendingEvidence: null,
     metrics: computeDiscoveryMetrics(evidence.questionAssessment),
     updatedState,
@@ -955,6 +968,8 @@ export async function createRetry(
     proposal: null,
     pitch: null,
     challengeResponses: [],
+    pendingEvidence: null,
+    clarificationBudgetUsed: 0,
     previousAttemptReview: { focusSummaries: options.focusSummaries },
   };
 

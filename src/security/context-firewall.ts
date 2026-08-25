@@ -103,6 +103,10 @@ export interface RunAggregate {
   proposal: SolutionProposal | null;
   pitch: PitchArtifact | null;
   challengeResponses: ChallengeResponse[];
+  /** Durable pending-evidence marker: the turn's id + a stable failure code (never a message). */
+  pendingEvidence: { turnId: string; code: string } | null;
+  /** Clarifications consumed this framing attempt, folded from committed phase changes. */
+  clarificationBudgetUsed: number;
   // ---- Sensitive fields (later tasks). Never projected into a role input. ----
   score?: unknown;
   learnerProfile?: unknown;
@@ -138,6 +142,12 @@ export const RunAggregateSchema = z
     proposal: SolutionProposalSchema.nullable(),
     pitch: PitchArtifactSchema.nullable(),
     challengeResponses: z.array(ChallengeResponseSchema),
+    pendingEvidence: z
+      .object({ turnId: z.string().min(1), code: z.string().min(1) })
+      .strict()
+      .nullable()
+      .optional(),
+    clarificationBudgetUsed: z.number().int().nonnegative().optional(),
     score: z.unknown().optional(),
     learnerProfile: z.unknown().optional(),
     previousAttemptReview: z.unknown().optional(),

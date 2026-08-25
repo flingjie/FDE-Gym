@@ -24,7 +24,9 @@ import { decide } from "../core/state-machine.js";
 import { createInitialRunState } from "../core/reducer.js";
 import { appendEvents } from "../core/event-store.js";
 import {
+  assertFrameAllowed,
   createRetry,
+  repairPendingEvidence,
   requestClarification,
   respondToChallenge,
   runChallengeInjection,
@@ -305,6 +307,7 @@ export interface FrameArgs {
 export async function frameCommand(ctx: CommandContext, args: FrameArgs): Promise<CliResult<{ phase: RunPhase }>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
+    assertFrameAllowed(loaded.aggregate.pendingEvidence);
     const events = decide(
       { runId: args.runId, phase: loaded.phase, seq: 0 },
       { type: "frame", commandId: args.commandId },
@@ -342,6 +345,45 @@ export async function askCommand(ctx: CommandContext, args: AskArgs): Promise<Cl
       stakeholderId: turn?.stakeholderId ?? args.stakeholderId,
       composite: result.metrics?.composite ?? null,
       pendingEvidence: result.pendingEvidence ? { code: result.pendingEvidence.code } : null,
+    });
+  });
+}
+
+export interface RepairEvidenceArgs {
+  runId: string;
+  commandId: string;
+}
+
+export async function repairEvidenceCommand(
+  ctx: CommandContext,
+  args: RepairEvidenceArgs,
+): Promise<CliResult<AskData>> {
+  const loaded = await loadRunState(ctx, args.runId);
+  return guard(loaded.locale, async () => {
+    const pending = loaded.aggregate.pendingEvidence;
+    if (!pending) {
+      throw { code: "NOTHING_TO_REPAIR" };
+    }
+    const turnId = pending.turnId;
+    const askCommandId = turnId.endsWith(":turn") ? turnId.slice(0, -":turn".length) : turnId;
+
+    const scenario = resolveScenario(ctx, loaded.scenarioId);
+    const result = await repairPendingEvidence({
+      runtime: ctx.runtime,
+      state: loaded.aggregate,
+      commandId: askCommandId,
+      canaries: [scenario.customer.canary],
+      store: { baseDir: ctx.baseDir },
+    });
+
+    const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
+    return ok(args.runId, result.updatedState.phase, loaded.locale, {
+      turnId: turn?.turnId ?? turnId,
+      question: turn?.question ?? "",
+      customerReply: turn?.customerReply ?? { "zh-CN": "", "en-US": "" },
+      stakeholderId: turn?.stakeholderId ?? "",
+      composite: result.metrics?.composite ?? null,
+      pendingEvidence: null,
     });
   });
 }
@@ -397,7 +439,7 @@ export async function clarifyCommand(
     const result = await requestClarification({
       state: loaded.aggregate,
       commandId: args.commandId,
-      clarificationBudgetUsed: 0,
+      clarificationBudgetUsed: loaded.aggregate.clarificationBudgetUsed,
       store: { baseDir: ctx.baseDir },
     });
     return ok(args.runId, result.updatedState.phase, loaded.locale, { phase: result.updatedState.phase ?? "DISCOVERY" });
