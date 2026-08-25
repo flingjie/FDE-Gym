@@ -19,6 +19,10 @@ import { buildRoleInput, type RunAggregate } from "../security/context-firewall.
 import { sanitizeAgentResult } from "../security/sanitizer.js";
 import type { EvaluatorCapsule } from "../scenarios/schema.js";
 import { wrapUntrustedLearnerInput } from "./customer.js";
+import {
+  validateBriefValidationOutput,
+  validateFinalReviewOutput,
+} from "./output-validation.js";
 
 /**
  * FDE Gym — Coach/Evaluator wrapper.
@@ -189,7 +193,7 @@ export async function validateProblemBrief(context: CoachContext): Promise<Brief
   if (!safe.ok) {
     throw new CoachError(safe.failure.code, safe.failure.message);
   }
-  return safe.output;
+  return validateBriefValidationOutput(input, safe.output);
 }
 
 /**
@@ -224,5 +228,5 @@ export async function runFinalReview(context: CoachContext): Promise<FinalReview
   if (!safe.ok) {
     throw new CoachError(safe.failure.code, safe.failure.message);
   }
-  return safe.output;
+  return validateFinalReviewOutput(input, safe.output);
 }

@@ -11,6 +11,7 @@ import {
 import type { EvidenceGraphPatch } from "../core/domain.js";
 import { buildRoleInput, type RunAggregate } from "../security/context-firewall.js";
 import { sanitizeAgentResult } from "../security/sanitizer.js";
+import { validateEvidenceTrackerOutput } from "./output-validation.js";
 
 /**
  * FDE Gym — Evidence Tracker wrapper.
@@ -116,9 +117,10 @@ export async function extractEvidence(
   if (!safe.ok) {
     throw new EvidenceTrackerError(safe.failure.code, safe.failure.message);
   }
+  const validated = validateEvidenceTrackerOutput(input, safe.output);
   return {
-    patch: safe.output.patch,
-    questionAssessment: safe.output.questionAssessment,
+    patch: validated.patch,
+    questionAssessment: validated.questionAssessment,
     invocationId: safe.invocationId,
   };
 }

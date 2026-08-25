@@ -7,6 +7,11 @@ import {
   renderCustomerPrompt,
   type AnswerDiscoveryQuestionContext,
 } from "../../src/agents/customer";
+import {
+  AGENT_OUTPUT_DOMAIN_INVALID,
+  validateCustomerOutput,
+} from "../../src/agents/output-validation";
+import type { CustomerInput, CustomerOutput } from "../../src/agents/contracts";
 import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
 import type { CustomerCapsule } from "../../src/scenarios/schema";
@@ -346,5 +351,80 @@ describe("customer prompt template", () => {
     expect(rendered).toContain("only");
     expect(rendered).toContain("do not");
     expect(rendered).toContain("hidden");
+  });
+});
+
+function customerInput(): CustomerInput {
+  const built = buildRoleInput("customer", aggregate(), capsule());
+  expect(built.kind).toBe("customer");
+  if (built.kind !== "customer") throw new Error("expected customer input");
+  return built.input;
+}
+
+describe("customer output domain validation", () => {
+  const reply = text("好的。", "Okay.");
+
+  it("rejects a stakeholder id absent from the scenario", () => {
+    expect(() =>
+      validateCustomerOutput(customerInput(), {
+        reply,
+        stakeholderId: "unknown-stakeholder",
+        disclosedDisclosureUnitIds: [],
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("rejects a disclosure unit id absent from the scenario", () => {
+    expect(() =>
+      validateCustomerOutput(customerInput(), {
+        reply,
+        stakeholderId: "s-owner",
+        disclosedDisclosureUnitIds: ["d-unknown"],
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("rejects a newly disclosed unit whose prerequisite is not yet disclosed", () => {
+    // d2 declares prerequisites: ["d1"], and the input ledger is empty.
+    expect(() =>
+      validateCustomerOutput(customerInput(), {
+        reply,
+        stakeholderId: "s-owner",
+        disclosedDisclosureUnitIds: ["d2"],
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("accepts a batch whose prerequisite is disclosed within the same output", () => {
+    const out = validateCustomerOutput(customerInput(), {
+      reply,
+      stakeholderId: "s-owner",
+      disclosedDisclosureUnitIds: ["d1", "d2"],
+    });
+    expect(out.disclosedDisclosureUnitIds).toEqual(["d1", "d2"]);
+  });
+
+  it("accepts a valid output unchanged", () => {
+    const out: CustomerOutput = {
+      reply,
+      stakeholderId: "s-owner",
+      disclosedDisclosureUnitIds: ["d1"],
+    };
+    expect(validateCustomerOutput(customerInput(), out)).toBe(out);
+  });
+
+  it("rejects a fabricated stakeholder from the runtime with AGENT_OUTPUT_DOMAIN_INVALID", async () => {
+    const runtime = new FixtureAgentRuntime({
+      fixtures: {
+        "customer:inv-1": {
+          reply: text("好的。", "Okay."),
+          stakeholderId: "unknown-stakeholder",
+          disclosedDisclosureUnitIds: [],
+        },
+      },
+    });
+
+    const error = await answerDiscoveryQuestion(context(runtime)).catch((e) => e);
+    expect((error as { code?: string }).code).toBe(AGENT_OUTPUT_DOMAIN_INVALID);
   });
 });

@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import type { RunEvent } from "../../src/core/domain.js";
+import type { FinalReviewInput, FinalReviewResult, RunEvent } from "../../src/core/domain.js";
 import type { RunAggregate } from "../../src/security/context-firewall.js";
 import type {
   CustomerCapsule,
   EvaluatorCapsule,
   PublicScenario,
 } from "../../src/scenarios/schema.js";
+import {
+  AGENT_OUTPUT_DOMAIN_INVALID,
+  validateFinalReviewOutput,
+} from "../../src/agents/output-validation.js";
 import { buildScoreInput } from "../../src/scoring/score-input.js";
-import { computeStageScore } from "../../src/scoring/rubric.js";
+import { RUBRIC, computeStageScore } from "../../src/scoring/rubric.js";
 
 const text = (zh: string, en: string) => ({ "zh-CN": zh, "en-US": en });
 
@@ -200,5 +204,134 @@ describe("buildScoreInput: per-criterion stage scores", () => {
     // framing weighted; solution empty → fallback (proposal null → 0).
     expect(input.stageScores.framing).toBe(45);
     expect(input.stageScores.solution).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateFinalReviewOutput: fixed-rubric criterion membership (Task 2)
+// ---------------------------------------------------------------------------
+
+function fixedRubric() {
+  return {
+    framing: RUBRIC.framing.map(({ id, label, weight }) => ({ id, label, weight })),
+    solution: RUBRIC.solution.map(({ id, label, weight }) => ({ id, label, weight })),
+    challenge: RUBRIC.challenge.map(({ id, label, weight }) => ({ id, label, weight })),
+    pitch: RUBRIC.pitch.map(({ id, label, weight }) => ({ id, label, weight })),
+    process: RUBRIC.process.map(({ id, label, weight }) => ({ id, label, weight })),
+  };
+}
+
+function finalReviewInput(overrides: Partial<FinalReviewInput> = {}): FinalReviewInput {
+  return {
+    locale: "zh-CN",
+    brief: {
+      id: "brief-1",
+      problemStatement: text("p", "p"),
+      goal: text("g", "g"),
+      constraints: [],
+      claims: [],
+      successMeasures: [],
+      unknowns: [],
+      contradictions: [],
+    },
+    proposal: {
+      id: "prop-1",
+      objective: text("o", "o"),
+      approach: text("a", "a"),
+      approachEvidenceIds: ["ev-1"],
+      assumptions: [],
+      alternatives: [{ id: "alt-1", description: text("d", "d"), tradeoff: text("t", "t") }],
+      tradeoffs: [],
+      risks: [],
+      validationPlan: [],
+      rolloutPlan: [],
+      decisions: [],
+    },
+    pitch: {
+      id: "pitch-1",
+      audience: text("a", "a"),
+      problem: text("p", "p"),
+      recommendation: text("r", "r"),
+      expectedValue: text("v", "v"),
+      evidenceIds: ["ev-1"],
+      risks: [],
+      ask: text("ask", "ask"),
+      nextSteps: [],
+    },
+    challengeResponses: [],
+    graph: { version: 0, nodes: [], edges: [] },
+    transcript: [],
+    hintLedger: [],
+    rubric: fixedRubric(),
+    ...overrides,
+  };
+}
+
+function reviewOutput(): FinalReviewResult {
+  return {
+    verdict: "pass",
+    strengths: [],
+    weaknesses: [],
+    missedOpportunities: [],
+    decisionDivergencePoints: [],
+    nextFocus: [],
+  };
+}
+
+describe("validateFinalReviewOutput: fixed-rubric criterion membership", () => {
+  const fullFraming = {
+    "evidence-support": 100,
+    "goal-clarity": 100,
+    "constraints-tradeoffs": 100,
+    "unknown-risk-handling": 100,
+  };
+
+  it("accepts an exact fixed-rubric criterion map", () => {
+    const out: FinalReviewResult = { ...reviewOutput(), criterionScores: { framing: fullFraming } };
+    expect(validateFinalReviewOutput(finalReviewInput(), out)).toBe(out);
+  });
+
+  it("rejects an unknown criterion id", () => {
+    expect(() =>
+      validateFinalReviewOutput(finalReviewInput(), {
+        ...reviewOutput(),
+        criterionScores: { framing: { ...fullFraming, "bogus-criterion": 50 } },
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("rejects a criterion map missing a fixed-rubric criterion id", () => {
+    expect(() =>
+      validateFinalReviewOutput(finalReviewInput(), {
+        ...reviewOutput(),
+        criterionScores: { framing: { "evidence-support": 100 } },
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("rejects a duplicate criterion id in the fixed rubric", () => {
+    const input = finalReviewInput({
+      rubric: {
+        framing: [
+          { id: "evidence-support", label: "a", weight: 40 },
+          { id: "evidence-support", label: "b", weight: 25 },
+        ],
+        solution: [],
+        challenge: [],
+        pitch: [],
+        process: [],
+      },
+    });
+    expect(() =>
+      validateFinalReviewOutput(input, {
+        ...reviewOutput(),
+        criterionScores: { framing: fullFraming },
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("accepts a stage with no criterion scores (scoring falls back)", () => {
+    const out = reviewOutput();
+    expect(validateFinalReviewOutput(finalReviewInput(), out)).toBe(out);
   });
 });

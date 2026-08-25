@@ -12,13 +12,16 @@ export const RUN_NOT_FOUND = "RUN_NOT_FOUND" as const;
 export const RUN_ALREADY_EXISTS = "RUN_ALREADY_EXISTS" as const;
 /** Reserved for the Task 12 schema-v1 freeze; not emitted by Task 4. */
 export const UNSUPPORTED_SCHEMA_VERSION = "UNSUPPORTED_SCHEMA_VERSION" as const;
+/** A role output passed Zod/sanitizer but references an entity absent from its input. */
+export const AGENT_OUTPUT_DOMAIN_INVALID = "AGENT_OUTPUT_DOMAIN_INVALID" as const;
 
 export type FdeErrorCode =
   | typeof INVALID_PHASE_COMMAND
   | typeof EVENT_CHAIN_INVALID
   | typeof RUN_NOT_FOUND
   | typeof RUN_ALREADY_EXISTS
-  | typeof UNSUPPORTED_SCHEMA_VERSION;
+  | typeof UNSUPPORTED_SCHEMA_VERSION
+  | typeof AGENT_OUTPUT_DOMAIN_INVALID;
 
 /** Base class for all FDE Gym errors. The `code` field is the stable contract. */
 export class FdeError extends Error {

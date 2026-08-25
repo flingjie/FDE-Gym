@@ -10,6 +10,7 @@ import {
 } from "./contracts.js";
 import { buildRoleInput, type RunAggregate } from "../security/context-firewall.js";
 import { sanitizeAgentResult } from "../security/sanitizer.js";
+import { validateCustomerOutput } from "./output-validation.js";
 import type { CustomerCapsule } from "../scenarios/schema.js";
 
 /**
@@ -121,5 +122,5 @@ export async function answerDiscoveryQuestion(
   if (!safe.ok) {
     throw new CustomerAgentError(safe.failure.code, safe.failure.message);
   }
-  return safe.output;
+  return validateCustomerOutput(input, safe.output);
 }

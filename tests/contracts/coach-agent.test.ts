@@ -9,6 +9,11 @@ import {
   type CoachContext,
 } from "../../src/agents/coach";
 import { CoachHintOutputSchema } from "../../src/agents/contracts";
+import {
+  AGENT_OUTPUT_DOMAIN_INVALID,
+  validateBriefValidationOutput,
+} from "../../src/agents/output-validation";
+import type { BriefValidationInput } from "../../src/agents/contracts";
 import { BriefValidationResultSchema } from "../../src/core/domain";
 import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
@@ -314,5 +319,51 @@ describe("coach prompt template", () => {
     expect(rendered).toContain("only");
     expect(rendered).toContain("do not");
     expect(rendered).toContain("hidden");
+  });
+});
+
+function briefValidationInput(): BriefValidationInput {
+  const built = buildRoleInput("coach_evaluator", aggregate(), evaluatorCapsule());
+  expect(built.kind).toBe("brief-validation");
+  if (built.kind !== "brief-validation") throw new Error("expected brief-validation input");
+  return built.input;
+}
+
+describe("coach output domain validation — brief validation", () => {
+  it("rejects an entailment claim id absent from the brief", () => {
+    expect(() =>
+      validateBriefValidationOutput(briefValidationInput(), {
+        ...coachEntailmentOutput(),
+        entailments: [{ claimId: "claim-unknown", entailment: "supported" }],
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("rejects an unsupported claim id absent from the brief", () => {
+    expect(() =>
+      validateBriefValidationOutput(briefValidationInput(), {
+        ...coachEntailmentOutput(),
+        unsupportedClaimIds: ["claim-unknown"],
+      }),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("accepts a valid brief validation output unchanged", () => {
+    const out = coachEntailmentOutput();
+    expect(validateBriefValidationOutput(briefValidationInput(), out)).toBe(out);
+  });
+
+  it("rejects a fabricated claim id from the runtime with AGENT_OUTPUT_DOMAIN_INVALID", async () => {
+    const runtime = new FixtureAgentRuntime({
+      fixtures: {
+        "coach_evaluator:inv-1": {
+          ...coachEntailmentOutput(),
+          entailments: [{ claimId: "claim-unknown", entailment: "supported" }],
+        },
+      },
+    });
+
+    const error = await validateProblemBrief(context(runtime)).catch((e) => e);
+    expect((error as { code?: string }).code).toBe(AGENT_OUTPUT_DOMAIN_INVALID);
   });
 });

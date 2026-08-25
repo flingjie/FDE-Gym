@@ -8,6 +8,11 @@ import {
   type ExtractEvidenceContext,
 } from "../../src/agents/evidence-tracker";
 import { EvidenceTrackerOutputSchema } from "../../src/agents/contracts";
+import {
+  AGENT_OUTPUT_DOMAIN_INVALID,
+  validateEvidenceTrackerOutput,
+} from "../../src/agents/output-validation";
+import type { EvidenceTrackerInput } from "../../src/agents/contracts";
 import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
 import { EvidenceGraphPatchSchema, EvidenceKindSchema } from "../../src/core/domain";
@@ -230,5 +235,54 @@ describe("evidence tracker prompt template", () => {
     expect(rendered).toContain(built.input.turn.question);
     expect(rendered).not.toContain("expectedEvidence");
     expect(rendered).not.toContain(CANARY);
+  });
+});
+
+function trackerInput(): EvidenceTrackerInput {
+  const built = buildRoleInput("evidence_tracker", aggregate());
+  expect(built.kind).toBe("evidence_tracker");
+  if (built.kind !== "evidence_tracker") throw new Error("expected tracker input");
+  return built.input;
+}
+
+function outputWithSources(sourceTranscriptIds: string[]) {
+  const patch = validPatch();
+  return {
+    patch: { ...patch, addNodes: [{ ...patch.addNodes[0], sourceTranscriptIds }] },
+    questionAssessment: validOutput().questionAssessment,
+  };
+}
+
+describe("evidence tracker output domain validation", () => {
+  it("rejects a fact node sourced from a different transcript turn", () => {
+    expect(() =>
+      validateEvidenceTrackerOutput(trackerInput(), outputWithSources(["t2"])),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("rejects a fact node with extra transcript sources beyond the current turn", () => {
+    expect(() =>
+      validateEvidenceTrackerOutput(trackerInput(), outputWithSources(["t1", "t2"])),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("rejects a fact node with no transcript source", () => {
+    expect(() =>
+      validateEvidenceTrackerOutput(trackerInput(), outputWithSources([])),
+    ).toThrowError(expect.objectContaining({ code: AGENT_OUTPUT_DOMAIN_INVALID }));
+  });
+
+  it("accepts a fact node sourced exactly from the current turn", () => {
+    const out = outputWithSources(["t1"]);
+    expect(validateEvidenceTrackerOutput(trackerInput(), out)).toBe(out);
+  });
+
+  it("rejects a wrong-turn fact node from the runtime with AGENT_OUTPUT_DOMAIN_INVALID", async () => {
+    const runtime = new FixtureAgentRuntime({
+      fixtures: { "evidence_tracker:inv-e1": outputWithSources(["t2"]) },
+    });
+
+    const error = await extractEvidence(context(runtime)).catch((e) => e);
+    expect((error as { code?: string }).code).toBe(AGENT_OUTPUT_DOMAIN_INVALID);
   });
 });
