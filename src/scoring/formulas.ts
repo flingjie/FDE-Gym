@@ -6,6 +6,8 @@ import type {
 } from "../core/domain.js";
 import { RAW_STAGE_WEIGHTS } from "./rubric.js";
 
+export { FORMULA_VERSION } from "./provenance.js";
+
 /**
  * FDE Gym — exact scoring formulas.
  *

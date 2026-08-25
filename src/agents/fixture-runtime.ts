@@ -18,15 +18,19 @@ export interface FixtureAgentRuntimeOptions {
   fixtureDir?: string;
   /** In-memory map keyed by `${role}:${invocationId}` → raw output value. */
   fixtures?: Record<string, unknown>;
+  /** Optional model family identifier reported on every result (provenance metadata). */
+  modelId?: string | null;
 }
 
 export class FixtureAgentRuntime implements AgentRuntime {
   private readonly fixtureDir: string | undefined;
   private readonly fixtures: Record<string, unknown>;
+  private readonly modelId: string | null;
 
   constructor(options: FixtureAgentRuntimeOptions = {}) {
     this.fixtureDir = options.fixtureDir;
     this.fixtures = options.fixtures ?? {};
+    this.modelId = options.modelId ?? null;
   }
 
   async invoke<TInput, TOutput>(
@@ -38,7 +42,7 @@ export class FixtureAgentRuntime implements AgentRuntime {
     // but must still accept them so the three-role contract stays uniform.
     const raw = this.resolve(role, options.invocationId);
     const output = options.outputSchema.parse(raw);
-    return { invocationId: options.invocationId, output };
+    return { invocationId: options.invocationId, output, modelId: this.modelId };
   }
 
   private resolve(role: AgentRole, invocationId: string): unknown {

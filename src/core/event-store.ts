@@ -4,7 +4,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
-import { FDE_SCHEMA_VERSION, RunEventSchema, SAFE_RESOURCE_ID, type RecordedEvent, type RunEvent } from "./domain.js";
+import { RunEventSchema, SAFE_RESOURCE_ID, type RecordedEvent, type RunEvent } from "./domain.js";
+import {
+  RUN_FORMAT_VERSION,
+  resolveRunFormatVersion,
+  upcastRecordedEvent,
+} from "./versioning.js";
 import {
   EventChainInvalidError,
   InvalidResourceIdError,
@@ -106,12 +111,13 @@ async function fileExists(path: string): Promise<boolean> {
 }
 
 /**
- * Validate the run manifest's schemaVersion (Task 14 freeze). A missing or
- * unparseable manifest, or a version other than `FDE_SCHEMA_VERSION`, fails
+ * Read and resolve the run manifest's run format version. A missing or
+ * unparseable manifest, or a run format this build does not support, fails
  * closed with `UNSUPPORTED_SCHEMA_VERSION` and a migration instruction rather
- * than partially parsing the run.
+ * than partially parsing the run. Frozen v1 manifests (`schemaVersion: 1`)
+ * resolve to run format 1 so the event upcaster selects the v1 path.
  */
-async function readRunManifest(baseDir: string, runId: string): Promise<void> {
+async function readRunManifest(baseDir: string, runId: string): Promise<number> {
   let raw: string;
   try {
     raw = await readFile(manifestFile(baseDir, runId), "utf8");
@@ -127,13 +133,7 @@ async function readRunManifest(baseDir: string, runId: string): Promise<void> {
   } catch {
     throw new UnsupportedSchemaVersionError(`run ${runId}`, "unparseable manifest");
   }
-  const version =
-    parsed !== null && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>).schemaVersion
-      : undefined;
-  if (version !== FDE_SCHEMA_VERSION) {
-    throw new UnsupportedSchemaVersionError(`run ${runId}`, version);
-  }
+  return resolveRunFormatVersion(parsed);
 }
 
 /**
@@ -209,7 +209,7 @@ async function appendEventsLocked(runId: string, events: RunEvent[], baseDir: st
   } else {
     await atomicWriteFile(
       manifestFile(baseDir, runId),
-      JSON.stringify({ schemaVersion: FDE_SCHEMA_VERSION }) + "\n",
+      JSON.stringify({ runFormatVersion: RUN_FORMAT_VERSION }) + "\n",
     );
   }
 
@@ -228,15 +228,8 @@ export async function loadRun(runId: string, options: StoreOptions = {}): Promis
   const baseDir = options.baseDir ?? resolveBaseDir();
   const file = eventsFile(baseDir, runId);
 
-  let exists = true;
-  try {
-    await access(file);
-  } catch {
-    exists = false;
-  }
-  if (!exists) throw new RunNotFoundError(runId);
+  if (!(await fileExists(file))) throw new RunNotFoundError(runId);
 
-  await readRunManifest(baseDir, runId);
   const { events } = await readEventsAndPrefix(baseDir, runId);
   let state = createInitialRunState(runId);
   for (const event of events) state = reduce(state, event);
@@ -253,15 +246,8 @@ export async function loadEvents(runId: string, options: StoreOptions = {}): Pro
   const baseDir = options.baseDir ?? resolveBaseDir();
   const file = eventsFile(baseDir, runId);
 
-  let exists = true;
-  try {
-    await access(file);
-  } catch {
-    exists = false;
-  }
-  if (!exists) throw new RunNotFoundError(runId);
+  if (!(await fileExists(file))) throw new RunNotFoundError(runId);
 
-  await readRunManifest(baseDir, runId);
   const { events } = await readEventsAndPrefix(baseDir, runId);
   return events;
 }
@@ -277,9 +263,27 @@ function recordEvent(
   return { ...withoutHash, hash };
 }
 
-function hashRecordedEvent(recorded: RecordedEvent): string {
-  const { hash: _hash, ...withoutHash } = recorded;
+/** Recompute the hash over a raw record's non-hash fields (canonical key order). */
+function hashRawRecord(raw: Record<string, unknown>): string {
+  const { hash: _hash, ...withoutHash } = raw;
   return sha256Hex(canonicalJson(withoutHash));
+}
+
+/** Validate the envelope fields of a raw record, returning them typed (or null). */
+function envelopeFields(raw: Record<string, unknown>): {
+  seq: number;
+  logicalTime: number;
+  previousHash: string;
+  hash: string;
+} | null {
+  const { seq, logicalTime, previousHash, hash } = raw;
+  if (typeof seq !== "number" || !Number.isInteger(seq) || seq <= 0) return null;
+  if (typeof logicalTime !== "number" || !Number.isInteger(logicalTime) || logicalTime <= 0) {
+    return null;
+  }
+  if (typeof previousHash !== "string") return null;
+  if (typeof hash !== "string" || hash.length !== SHA256_HEX_LENGTH) return null;
+  return { seq, logicalTime, previousHash, hash };
 }
 
 /**
@@ -289,6 +293,11 @@ function hashRecordedEvent(recorded: RecordedEvent): string {
  * file yet. An incomplete TRAILING line (an interrupted write) is tolerated and
  * excluded from the prefix; any corruption in the middle rejects with
  * `EVENT_CHAIN_INVALID`.
+ *
+ * Processing order (Task 8): parse raw record -> validate the ORIGINAL
+ * envelope/hash -> select the explicit upcaster by run format -> validate the
+ * CURRENT `RecordedEventSchema` -> emit. Hash verification therefore always
+ * runs on the original bytes, before any upcast can rewrite a payload.
  */
 async function readEventsAndPrefix(
   baseDir: string,
@@ -304,6 +313,8 @@ async function readEventsAndPrefix(
     }
     throw error;
   }
+
+  const runFormatVersion = await readRunManifest(baseDir, runId);
 
   const lines = raw.split("\n");
   const events: RecordedEvent[] = [];
@@ -326,28 +337,38 @@ async function readEventsAndPrefix(
       throw new EventChainInvalidError(`unparseable committed event at line ${i + 1}`);
     }
 
-    const validation = RecordedEventSchema.safeParse(parsed);
-    if (!validation.success) {
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new EventChainInvalidError(`invalid recorded event at line ${i + 1}`);
     }
-    const recorded = validation.data as RecordedEvent;
+    const rawRecord = parsed as Record<string, unknown>;
+    const envelope = envelopeFields(rawRecord);
+    if (envelope === null) {
+      throw new EventChainInvalidError(`invalid recorded event at line ${i + 1}`);
+    }
 
     const expectedSeq = events.length + 1;
     const expectedPreviousHash =
       events.length === 0 ? FIRST_PREVIOUS_HASH : events[events.length - 1].hash;
 
-    if (recorded.seq !== expectedSeq) {
+    if (envelope.seq !== expectedSeq) {
       throw new EventChainInvalidError(
-        `seq discontinuity at line ${i + 1}: expected ${expectedSeq}, got ${recorded.seq}`,
+        `seq discontinuity at line ${i + 1}: expected ${expectedSeq}, got ${envelope.seq}`,
       );
     }
-    if (recorded.previousHash !== expectedPreviousHash) {
+    if (envelope.previousHash !== expectedPreviousHash) {
       throw new EventChainInvalidError(`previousHash mismatch at line ${i + 1}`);
     }
-    if (hashRecordedEvent(recorded) !== recorded.hash) {
+    if (hashRawRecord(rawRecord) !== envelope.hash) {
       throw new EventChainInvalidError(`hash mismatch at line ${i + 1}`);
     }
-    events.push(recorded);
+
+    // Hash is verified; now select the upcaster and validate the CURRENT schema.
+    const upcasted = upcastRecordedEvent(rawRecord, runFormatVersion);
+    const validation = RecordedEventSchema.safeParse(upcasted);
+    if (!validation.success) {
+      throw new EventChainInvalidError(`invalid recorded event at line ${i + 1}`);
+    }
+    events.push(validation.data);
     committedCount = i + 1;
   }
 

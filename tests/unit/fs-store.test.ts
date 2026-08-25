@@ -60,6 +60,7 @@ function review(): AttemptReview {
     unsupportedClaimRate: 0,
     contradictionHandling: 0,
     retryFocuses: [],
+    comparabilityKey: "key-1",
   };
 }
 

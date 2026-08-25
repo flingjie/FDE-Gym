@@ -3,12 +3,16 @@ import type { AgentRole } from "../core/domain.js";
 
 /**
  * The result of one agent invocation. Kept intentionally lean: the validated
- * `output` and its `invocationId` only. No chain-of-thought, no raw prompt, no
- * transcript — those never leave the role boundary.
+ * `output`, its `invocationId`, and the configured model family identifier
+ * (`modelId`, when the runtime knows it) — safe invocation metadata only. No
+ * chain-of-thought, no raw prompt, no transcript — those never leave the role
+ * boundary.
  */
 export interface AgentInvocationResult<TOutput> {
   invocationId: string;
   output: TOutput;
+  /** The configured model family identifier, or `null` when the runtime has none. */
+  modelId: string | null;
 }
 
 /**

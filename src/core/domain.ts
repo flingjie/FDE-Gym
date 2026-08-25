@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ScoreProvenanceSchema } from "../scoring/provenance.js";
+
 /**
  * FDE Gym — core domain types and strict schemas.
  *
@@ -832,6 +834,8 @@ export const ScoreComputedEventSchema = z
     type: z.literal("score.computed"),
     ...EVENT_BASE,
     score: ScoreBreakdownSchema,
+    /** Task 8 provenance: the scoring-function identity + per-stage source. */
+    provenance: ScoreProvenanceSchema,
   })
   .strict();
 

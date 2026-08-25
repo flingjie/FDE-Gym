@@ -10,6 +10,7 @@ import type {
 } from "../core/domain.js";
 import type { HintLedgerEntry } from "../agents/contracts.js";
 import type { RunAggregate } from "../security/context-firewall.js";
+import type { ScoreProvenance } from "../scoring/provenance.js";
 import { applyEvidencePatch, createEmptyEvidenceGraph } from "../evidence/graph.js";
 
 /**
@@ -451,3 +452,36 @@ export function projectReplay(events: readonly RunEvent[], locale: Locale): Lear
 
 /** Re-exported for callers that need the raw ledger type (typing convenience). */
 export type { HintLedgerEntry, DecisionDivergencePoint };
+
+// ---------------------------------------------------------------------------
+// Score provenance projection (Task 8)
+// ---------------------------------------------------------------------------
+
+/**
+ * The learner-safe subset of a score's provenance: everything needed to explain
+ * comparability (score/formula/rubric/model identity + comparability key) and
+ * fallback use (per-stage source), minus the internal `evaluatorInvocationId`
+ * and `scenarioBundleSha256` the learner does not need.
+ */
+export type LearnerSafeScoreProvenance = Omit<
+  ScoreProvenance,
+  "scenarioBundleSha256" | "evaluatorInvocationId"
+>;
+
+/**
+ * Project the persisted `score.computed` provenance into its learner-safe
+ * subset, or `null` when the run has no score yet. Kept SEPARATE from
+ * `LearnerReplay` so the recorded-replay bytes stay frozen; a legacy (upcast)
+ * score returns its non-comparable provenance verbatim.
+ */
+export function projectScoreProvenance(events: readonly RunEvent[]): LearnerSafeScoreProvenance | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i];
+    if (event.type === "score.computed") {
+      const { scenarioBundleSha256: _scenario, evaluatorInvocationId: _invocation, ...safe } =
+        event.provenance;
+      return safe;
+    }
+  }
+  return null;
+}

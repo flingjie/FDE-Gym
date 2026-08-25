@@ -13,6 +13,17 @@
  * Localization of these labels (for learner-facing coaching) is a later concern.
  */
 
+import { createHash } from "node:crypto";
+
+// ---------------------------------------------------------------------------
+// Version identity (Task 8)
+// ---------------------------------------------------------------------------
+
+/** Stable capability-rubric identifier. A change in this id marks a rubric replacement. */
+export const CAPABILITY_RUBRIC_ID = "fde-capability" as const;
+/** The rubric's calibration version. Bumping it marks a deliberate re-calibration. */
+export const CAPABILITY_RUBRIC_VERSION = 1 as const;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -129,4 +140,41 @@ export function computeStageScore(
     total += criterion.weight * (criterionScores[criterion.id] ?? 0);
   }
   return clamp100(total / 100);
+}
+
+// ---------------------------------------------------------------------------
+// Rubric content hash (Task 8)
+// ---------------------------------------------------------------------------
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
+}
+
+/**
+ * Deterministic serialization of the capability rubric table: stages in
+ * `RUBRIC_STAGE_IDS` order, criteria within each stage sorted by id, each
+ * criterion reduced to `{ id, label, weight }` in fixed key order. This is the
+ * canonical identity the score provenance hashes.
+ */
+function canonicalRubricJson(): string {
+  return JSON.stringify(
+    RUBRIC_STAGE_IDS.map((stage) => ({
+      stage,
+      criteria: [...RUBRIC[stage]]
+        .map((criterion) => ({
+          id: criterion.id,
+          label: criterion.label,
+          weight: criterion.weight,
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    })),
+  );
+}
+
+let cachedRubricSha256: string | null = null;
+
+/** SHA-256 of the canonical rubric table — the rubric's stable content identity. */
+export function capabilityRubricSha256(): string {
+  if (cachedRubricSha256 === null) cachedRubricSha256 = sha256Hex(canonicalRubricJson());
+  return cachedRubricSha256;
 }

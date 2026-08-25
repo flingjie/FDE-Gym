@@ -233,7 +233,7 @@ export class CodexAgentRuntime implements AgentRuntime {
         if (sanitized.failure.code === LEAK_GUARD_TRIGGERED) return { outcome: "leak" };
         return { outcome: "malformed" };
       }
-      return { outcome: "ok", result: { invocationId: options.invocationId, output: sanitized.output } };
+      return { outcome: "ok", result: { invocationId: options.invocationId, output: sanitized.output, modelId: this.model ?? null } };
     } finally {
       if (this.cleanup) {
         try {

@@ -2,8 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { resolveBaseDir } from "../core/event-store.js";
-import { FDE_SCHEMA_VERSION } from "../core/domain.js";
-import { UnsupportedSchemaVersionError } from "../core/errors.js";
+import { upcastLearnerProfile } from "../core/versioning.js";
 import { atomicWriteFile } from "./atomic-file.js";
 import {
   LearnerProfileSchema,
@@ -89,31 +88,9 @@ export async function loadLearnerProfile(
     throw new Error("invalid learner profile: not valid JSON");
   }
 
-  // Load-time schema-version gate (Task 14 freeze): reject a profile whose
-  // schemaVersion is not the current version BEFORE structural validation, so an
-  // unsupported (or unversioned) profile fails with UNSUPPORTED_SCHEMA_VERSION
-  // and a migration instruction instead of a generic parse error.
-  const version =
-    parsed !== null && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>).schemaVersion
-      : undefined;
-  if (version !== FDE_SCHEMA_VERSION) {
-    throw new UnsupportedSchemaVersionError("learner profile", version);
-  }
-
-  // Defensive upcast for pre-Task-6 v1 profiles that predate the applied-id
-  // bookkeeping fields. The formal versioning layer (Task 8) owns this upcast;
-  // until then, load defensively so an old profile still parses without
-  // weakening `LearnerProfileSchema` (which requires the arrays).
-  if (parsed !== null && typeof parsed === "object") {
-    const record = parsed as Record<string, unknown>;
-    if (!Array.isArray(record.appliedEffectIds)) record.appliedEffectIds = [];
-    if (!Array.isArray(record.appliedRunIds)) record.appliedRunIds = [];
-  }
-
-  const result = LearnerProfileSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(`invalid learner profile: ${result.error.message}`);
-  }
-  return result.data;
+  // Load-time version gate + upcast live in the versioning layer (Task 8):
+  // an unsupported/unversioned profile fails with UNSUPPORTED_SCHEMA_VERSION,
+  // and older v1 profiles missing the applied-id/comparability fields are
+  // filled with their neutral defaults before strict schema validation.
+  return upcastLearnerProfile(parsed);
 }

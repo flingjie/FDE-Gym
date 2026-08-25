@@ -27,6 +27,7 @@ function review(overrides: Partial<AttemptReview> = {}): AttemptReview {
     unsupportedClaimRate: 0,
     contradictionHandling: 0,
     retryFocuses: [],
+    comparabilityKey: "key-1",
     ...overrides,
   };
 }
@@ -214,5 +215,34 @@ describe("updateLearnerProfile: applied-id bookkeeping", () => {
     const next = updateLearnerProfile(before, review());
     expect(next.appliedEffectIds).toEqual(["e1"]);
     expect(next.appliedRunIds).toEqual(["r1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// comparability guard (Task 8)
+// ---------------------------------------------------------------------------
+
+describe("updateLearnerProfile: comparability guard", () => {
+  it("blends EMA across attempts that share a comparability key", () => {
+    let p = createEmptyProfile();
+    p = updateLearnerProfile(p, review({ comparabilityKey: "key-1", competencies: { ...scores(50), discovery: 100 } }));
+    // 0.7×50 + 0.3×100 = 65.
+    expect(p.competencies.discovery).toBe(65);
+    p = updateLearnerProfile(p, review({ comparabilityKey: "key-1", competencies: { ...scores(50), discovery: 100 } }));
+    // 0.7×65 + 0.3×100 = 75.5.
+    expect(p.competencies.discovery).toBeCloseTo(75.5, 10);
+    expect(p.discontinuities).toBe(0);
+  });
+
+  it("starts a new cohort and marks a discontinuity when the key changes", () => {
+    let p = createEmptyProfile();
+    p = updateLearnerProfile(p, review({ comparabilityKey: "key-1", competencies: { ...scores(50), discovery: 100 } }));
+    expect(p.competencies.discovery).toBe(65);
+
+    p = updateLearnerProfile(p, review({ comparabilityKey: "key-2", competencies: { ...scores(50), discovery: 100 } }));
+    // NOT silently blended: re-based from neutral 50 → 65, not 75.5.
+    expect(p.competencies.discovery).toBe(65);
+    expect(p.discontinuities).toBe(1);
+    expect(p.comparabilityKey).toBe("key-2");
   });
 });

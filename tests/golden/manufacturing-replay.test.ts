@@ -1,10 +1,12 @@
-import { readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { projectReplay } from "../../src/replay/projector.js";
-import type { Locale, RunEvent } from "../../src/core/domain.js";
+import { loadEvents } from "../../src/core/event-store.js";
+import type { Locale, RecordedEvent, RunEvent } from "../../src/core/domain.js";
 
 /**
  * Golden replay test (Task 11).
@@ -117,6 +119,35 @@ describe("golden replay: manufacturing", () => {
       for (const marker of HIDDEN_MARKERS) {
         expect(serialized).not.toContain(marker);
       }
+    }
+  });
+});
+
+describe("golden replay: frozen v1 manufacturing run", () => {
+  const V1_FIXTURE_DIR = join(FIXTURE_DIR, "..", "fixtures", "runs", "v1", "manufacturing");
+
+  function stripEnvelope(recorded: RecordedEvent): RunEvent {
+    const { seq: _seq, logicalTime: _lt, previousHash: _ph, hash: _hash, ...event } = recorded;
+    return event as RunEvent;
+  }
+
+  it("reproduces the existing learner replay bytes through the current reader", async () => {
+    const baseDir = mkdtempSync(join(tmpdir(), "fde-golden-v1-"));
+    try {
+      const runDir = join(baseDir, "runs", "manufacturing");
+      mkdirSync(runDir, { recursive: true });
+      copyFileSync(join(V1_FIXTURE_DIR, "events.jsonl"), join(runDir, "events.jsonl"));
+      copyFileSync(join(V1_FIXTURE_DIR, "manifest.json"), join(runDir, "manifest.json"));
+
+      const recorded = await loadEvents("manufacturing", { baseDir });
+      const replayEvents = recorded.map(stripEnvelope);
+      expect(replayEvents).toHaveLength(24);
+
+      for (const locale of ["zh-CN", "en-US"] as const) {
+        expect(canonical(projectReplay(replayEvents, locale))).toBe(loadSnapshot(locale));
+      }
+    } finally {
+      rmSync(baseDir, { recursive: true, force: true });
     }
   });
 });

@@ -63,6 +63,8 @@ export interface AttemptReview {
   contradictionHandling: number;
   /** The current attempt's focus summaries (0..3), used to build the retry-focus history. */
   retryFocuses: LocalizedText[];
+  /** The score's comparability key (Task 8); guards the EMA against silent blending. */
+  comparabilityKey: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +88,10 @@ export interface LearnerProfile {
   appliedEffectIds: string[];
   /** Run ids whose review has been folded into this profile. */
   appliedRunIds: string[];
+  /** The comparability key of the most recent folded attempt; null until the first attempt. */
+  comparabilityKey: string | null;
+  /** Number of comparability discontinuities detected (key changes across attempts). */
+  discontinuities: number;
 }
 
 export const LearnerProfileSchema = z
@@ -102,6 +108,8 @@ export const LearnerProfileSchema = z
     retryFocuses: z.array(LocalizedTextSchema),
     appliedEffectIds: z.array(z.string().min(1)),
     appliedRunIds: z.array(z.string().min(1)),
+    comparabilityKey: z.string().min(1).nullable(),
+    discontinuities: z.number().int().nonnegative(),
   })
   .strict();
 
@@ -116,6 +124,13 @@ function clamp01(value: number): number {
 function clamp100(value: number): number {
   if (Number.isNaN(value)) return 0;
   return Math.min(100, Math.max(0, value));
+}
+
+/** Neutral competency map (every competency at `INITIAL_COMPETENCY`). */
+function neutralCompetencies(): CompetencyScores {
+  const competencies = {} as CompetencyScores;
+  for (const key of COMPETENCY_KEYS) competencies[key] = INITIAL_COMPETENCY;
+  return competencies;
 }
 
 /** A pristine profile with neutral competencies and zero attempts. */
@@ -135,6 +150,8 @@ export function createEmptyProfile(): LearnerProfile {
     retryFocuses: [],
     appliedEffectIds: [],
     appliedRunIds: [],
+    comparabilityKey: null,
+    discontinuities: 0,
   };
 }
 
@@ -144,6 +161,11 @@ export function createEmptyProfile(): LearnerProfile {
  * the latest attempt's values; `attempts` increments; `strongest`/`weakest`
  * are recomputed (ties resolve to the first key in `COMPETENCY_KEYS` order);
  * `retryFocuses` keeps the latest three, newest first.
+ *
+ * Comparability guard (Task 8): when the incoming attempt's `comparabilityKey`
+ * differs from the stored one, the EMA is NOT blended across the two keys —
+ * a new cohort is started from the neutral `INITIAL_COMPETENCY` baseline and
+ * the trend discontinuity is recorded in `discontinuities`.
  */
 export function updateLearnerProfile(
   profile: LearnerProfile,
@@ -155,8 +177,12 @@ export function updateLearnerProfile(
   let strongestCompetency: CompetencyKey | null = null;
   let weakestCompetency: CompetencyKey | null = null;
 
+  const sameComparability =
+    profile.comparabilityKey === null || profile.comparabilityKey === review.comparabilityKey;
+  const previous = sameComparability ? profile.competencies : neutralCompetencies();
+
   for (const key of COMPETENCY_KEYS) {
-    const value = clamp100(0.7 * profile.competencies[key] + 0.3 * review.competencies[key]);
+    const value = clamp100(0.7 * previous[key] + 0.3 * review.competencies[key]);
     competencies[key] = value;
     if (value > strongestScore) {
       strongestScore = value;
@@ -183,5 +209,7 @@ export function updateLearnerProfile(
     retryFocuses,
     appliedEffectIds: profile.appliedEffectIds,
     appliedRunIds: profile.appliedRunIds,
+    comparabilityKey: review.comparabilityKey,
+    discontinuities: profile.discontinuities + (sameComparability ? 0 : 1),
   };
 }

@@ -196,13 +196,21 @@ export async function validateProblemBrief(context: CoachContext): Promise<Brief
   return validateBriefValidationOutput(input, safe.output);
 }
 
+/** The sanitized final review plus safe invocation metadata. */
+export interface FinalReviewInvocation {
+  review: FinalReviewResult;
+  invocationId: string;
+  modelId: string | null;
+}
+
 /**
  * Build `FinalReviewInput` via the firewall (`coachTask="final-review"`) and
- * invoke the Coach. Returns the sanitized, schema-validated `FinalReviewResult`.
- * The Coach sees ONLY the public brief + proposal + pitch + challenge responses
- * + graph + transcript + hint ledger (never the capsule's ground truth).
+ * invoke the Coach. Returns the sanitized, schema-validated `FinalReviewResult`
+ * together with the safe invocation metadata (`invocationId`, configured model
+ * family). The Coach sees ONLY the public brief + proposal + pitch + challenge
+ * responses + graph + transcript + hint ledger (never the capsule's ground truth).
  */
-export async function runFinalReview(context: CoachContext): Promise<FinalReviewResult> {
+export async function runFinalReview(context: CoachContext): Promise<FinalReviewInvocation> {
   const built = buildRoleInput("coach_evaluator", context.state, context.capsule);
   if (built.kind !== "final-review") {
     throw new CoachError(COACH_OUTPUT_REJECTED, "coach firewall built the wrong role");
@@ -228,5 +236,6 @@ export async function runFinalReview(context: CoachContext): Promise<FinalReview
   if (!safe.ok) {
     throw new CoachError(safe.failure.code, safe.failure.message);
   }
-  return validateFinalReviewOutput(input, safe.output);
+  const review = validateFinalReviewOutput(input, safe.output);
+  return { review, invocationId: result.invocationId, modelId: result.modelId };
 }

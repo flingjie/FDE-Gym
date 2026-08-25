@@ -34,6 +34,7 @@ import {
 } from "../../src/core/command-transaction.js";
 import { appendEvents, canonicalJson, loadEvents } from "../../src/core/event-store.js";
 import { loadLearnerProfile } from "../../src/storage/fs-store.js";
+import { legacyScoreProvenance } from "../../src/scoring/provenance.js";
 import type { AttemptReview } from "../../src/profile/learner-profile.js";
 import type { CliResult } from "../../src/cli/render.js";
 import type { LearnerReplay } from "../../src/replay/projector.js";
@@ -671,6 +672,7 @@ function attemptReview(): AttemptReview {
     unsupportedClaimRate: 0,
     contradictionHandling: 0,
     retryFocuses: [],
+    comparabilityKey: "key-1",
   };
 }
 
@@ -751,6 +753,7 @@ describe("profile effect exactly-once through the transaction", () => {
           noLeakGuardViolation: true,
         },
       },
+      provenance: legacyScoreProvenance(),
     };
     const events = [reviewEvent, scoreEvent];
     const effect: CommandEffect = {

@@ -1114,13 +1114,13 @@ export interface SubmitReviewResult {
 /**
  * Run the REVIEW phase: invoke the Coach's `final-review` task, compute the
  * deterministic `ScoreBreakdown` via `calculateScore`, persist
- * `review.completed` + `score.computed`, and fold the attempt into the durable
- * learner profile.
+ * `review.completed` + `score.computed` (with its score provenance), and fold
+ * the attempt into the durable learner profile.
  *
- * The score uses DOCUMENTED deterministic fallbacks for the two inputs the
- * current event model cannot supply (per-question form metrics and stage
- * scores) — see `src/scoring/score-input.ts`. This is a Task 13 refinement
- * point, not a blocker for Task 11.
+ * Stage scores and per-question form metrics are sourced from the Coach's
+ * criterion scores and the Evidence Tracker's persisted assessments; the
+ * deterministic fallback (see `src/scoring/score-input.ts`) applies only when
+ * that model judgment is explicitly missing (legacy runs or an absent stage).
  */
 export interface PreparedReview {
   events: RunEvent[];
@@ -1141,7 +1141,7 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   decide(runState, { type: "review", commandId });
 
   // 1. Coach final-review through the firewall (public-only input).
-  const review = await runFinalReview({
+  const { review, invocationId, modelId } = await runFinalReview({
     runtime,
     state: { ...state, coachTask: "final-review" },
     capsule,
@@ -1150,14 +1150,22 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     canaries,
   });
 
-  // 2. Deterministic score.
-  const scoreInput = buildScoreInput({
+  // The verified scenario-bundle digest recorded at run start (provenance only).
+  const started = events.find((event) => event.type === "run.started");
+  const scenarioBundleSha256 =
+    started && started.type === "run.started" ? (started.scenarioBundleDigest ?? null) : null;
+
+  // 2. Deterministic score + provenance.
+  const { input: scoreInput, provenance } = buildScoreInput({
     events,
     aggregate: state,
     customerCapsule,
     evaluatorCapsule: capsule,
     publicScenario,
     criterionScores: review.criterionScores,
+    evaluatorInvocationId: invocationId,
+    modelId,
+    scenarioBundleSha256,
   });
   const score = calculateScore(scoreInput);
   // Defense-in-depth: the persisted score must satisfy the domain schema.
@@ -1165,10 +1173,16 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
 
   // 3. review.completed + score.computed (persisted by the transaction).
   const reviewEvent: RunEvent = { type: "review.completed", runId, commandId, review };
-  const scoreEvent: RunEvent = { type: "score.computed", runId, commandId, score };
+  const scoreEvent: RunEvent = { type: "score.computed", runId, commandId, score, provenance };
 
   // 4. The profile fold becomes an idempotent transaction effect.
-  const attempt = deriveAttemptReview(scoreInput, score, events, state);
+  const attempt = deriveAttemptReview(
+    scoreInput,
+    score,
+    events,
+    state,
+    provenance.comparabilityKey,
+  );
   const attemptReview: AttemptReview = { ...attempt, retryFocuses: review.nextFocus };
   const effect: CommandEffect = {
     type: "profile.apply-attempt",

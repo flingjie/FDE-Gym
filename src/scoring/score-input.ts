@@ -9,6 +9,12 @@ import { calculateSupportRatio } from "../evidence/brief-validator.js";
 import type { AttemptReview, CompetencyScores } from "../profile/learner-profile.js";
 import type { ScoreBreakdown } from "../core/domain.js";
 import { computeStageScore, type RubricStageId } from "./rubric.js";
+import {
+  buildScoreProvenance,
+  deriveStageProvenance,
+  type ScoreProvenance,
+  type StageScoreProvenance,
+} from "./provenance.js";
 import type {
   HintCounts,
   QuestionScoreInput,
@@ -17,20 +23,22 @@ import type {
 } from "./formulas.js";
 
 /**
- * FDE Gym — deterministic derivation of the scoring inputs (Task 11).
+ * FDE Gym — deterministic derivation of the scoring inputs and score provenance.
  *
- * `calculateScore` needs a `ScoreInput` the product cannot source directly:
+ * `calculateScore` needs two inputs the product derives from the committed event
+ * stream plus model outputs:
  *   - Per-question FORM metrics (atomicity/neutrality/relevance/redundancy) come
- *     from the Evidence Tracker's `questionAssessment`, which is NOT persisted to
- *     the event stream;
- *   - The Coach's `FinalReviewResult` has NO per-criterion scores, so the five
- *     stage scores have no direct source.
+ *     from the Evidence Tracker's persisted `question.assessed` event;
+ *   - The five stage scores come from the Coach's persisted per-criterion
+ *     `criterionScores` (weighted by `computeStageScore` against the fixed
+ *     capability rubric).
  *
- * Both are therefore derived with DOCUMENTED deterministic fallbacks below.
- * These are placeholder-quality and MUST be replaced when Task 13 persists the
- * Evidence Tracker's assessments and adds per-criterion Coach scores. They are
- * deterministic (no randomness, no wall-clock, no model call) so the replay and
- * the score remain byte-stable.
+ * Both have a DOCUMENTED deterministic fallback, used ONLY when the model
+ * judgment is explicitly missing: a legacy run that predates the persisted
+ * assessment/criterion scores, or a stage whose `criterionScores` map is absent
+ * or empty. The fallback is deterministic (no randomness, no wall-clock, no
+ * model call) so the replay and the score remain byte-stable. Each stage's
+ * model-vs-fallback choice is recorded in the returned `ScoreProvenance`.
  */
 
 // ---------------------------------------------------------------------------
@@ -97,29 +105,33 @@ export function fallbackStageScores(input: {
 }
 
 /**
- * Derive the five stage scores. When the Coach's final review carries
- * per-criterion scores, weight them with `computeStageScore` against the fixed
- * capability rubric; otherwise fall back to `fallbackStageScores`. A stage is
- * derived from criterion scores only when at least one is present — a missing
- * stage falls back rather than collapsing to 0.
+ * Derive the five stage scores plus each stage's provenance. When the Coach's
+ * final review carries per-criterion scores, weight them with `computeStageScore`
+ * against the fixed capability rubric; otherwise fall back to `fallbackStageScores`.
+ * A stage is derived from criterion scores only when at least one is present — a
+ * missing stage falls back rather than collapsing to 0. The per-stage
+ * model-vs-fallback choice is recorded for `ScoreProvenance`.
  */
 function deriveStageScores(
   criterionScores: CriterionScores | undefined,
   fallback: StageScores,
-): StageScores {
+): { stageScores: StageScores; stageProvenance: Record<RubricStageId, StageScoreProvenance> } {
+  const stageProvenance = deriveStageProvenance(criterionScores);
   const stageScore = (stage: RubricStageId): number => {
-    const map = criterionScores?.[stage];
-    if (map !== undefined && Object.keys(map).length > 0) {
-      return computeStageScore(stage, map);
+    if (stageProvenance[stage].source === "model") {
+      return computeStageScore(stage, criterionScores![stage]!);
     }
     return fallback[stage];
   };
   return {
-    framing: stageScore("framing"),
-    solution: stageScore("solution"),
-    challenge: stageScore("challenge"),
-    pitch: stageScore("pitch"),
-    process: stageScore("process"),
+    stageScores: {
+      framing: stageScore("framing"),
+      solution: stageScore("solution"),
+      challenge: stageScore("challenge"),
+      pitch: stageScore("pitch"),
+      process: stageScore("process"),
+    },
+    stageProvenance,
   };
 }
 
@@ -197,10 +209,21 @@ export interface BuildScoreInputOptions {
   publicScenario: PublicScenario;
   /** The Coach's per-criterion scores from final-review (optional). */
   criterionScores?: CriterionScores;
+  /** The Coach final-review invocation id (provenance metadata). */
+  evaluatorInvocationId?: string | null;
+  /** The configured model family identifier (provenance metadata). */
+  modelId?: string | null;
+  /** The verified scenario-bundle digest recorded at run start (provenance metadata). */
+  scenarioBundleSha256?: string | null;
 }
 
-/** Assemble the full `ScoreInput` for `calculateScore` from public run state. */
-export function buildScoreInput(options: BuildScoreInputOptions): ScoreInput {
+export interface BuildScoreInputResult {
+  input: ScoreInput;
+  provenance: ScoreProvenance;
+}
+
+/** Assemble the full `ScoreInput` for `calculateScore` plus its provenance. */
+export function buildScoreInput(options: BuildScoreInputOptions): BuildScoreInputResult {
   const { events, aggregate, customerCapsule, evaluatorCapsule, publicScenario } = options;
 
   // --- coverage: revealed expected-evidence weight / total weight -------------
@@ -282,9 +305,9 @@ export function buildScoreInput(options: BuildScoreInputOptions): ScoreInput {
     pitchExplicitAsk,
     hintPenalty,
   });
-  const stageScores = deriveStageScores(options.criterionScores, fallback);
+  const { stageScores, stageProvenance } = deriveStageScores(options.criterionScores, fallback);
 
-  return {
+  const input: ScoreInput = {
     coverage: clamp01(coverage),
     totalExpectedWeight: Math.max(0, totalExpectedWeight),
     questionBudget: publicScenario.questionBudget,
@@ -299,6 +322,15 @@ export function buildScoreInput(options: BuildScoreInputOptions): ScoreInput {
     pitchExplicitAsk,
     leakGuardViolation: false,
   };
+
+  const provenance = buildScoreProvenance({
+    stageProvenance,
+    evaluatorInvocationId: options.evaluatorInvocationId ?? null,
+    modelId: options.modelId ?? null,
+    scenarioBundleSha256: options.scenarioBundleSha256 ?? null,
+  });
+
+  return { input, provenance };
 }
 
 // ---------------------------------------------------------------------------
@@ -320,13 +352,16 @@ function mapCompetencies(score: ScoreBreakdown): CompetencyScores {
 /**
  * Derive the `AttemptReview` profile inputs from the computed score. The six
  * competencies map 1:1 onto the stage/discovery scores; `evidenceReasoning`
- * uses `process` (evidence hygiene). Deterministic.
+ * uses `process` (evidence hygiene). The score's `comparabilityKey` is carried
+ * through so the profile never blends EMA across incompatible scoring identity.
+ * Deterministic.
  */
 export function deriveAttemptReview(
   scoreInput: ScoreInput,
   score: ScoreBreakdown,
   events: readonly RunEvent[],
   aggregate: RunAggregate,
+  comparabilityKey: string,
 ): Omit<AttemptReview, "retryFocuses"> {
   const questionCount = score.questions.length;
   const repeated = score.questions.filter((question) => question.gq === 0).length;
@@ -340,5 +375,6 @@ export function deriveAttemptReview(
     unsupportedClaimRate:
       totalClaims > 0 ? (validation?.unsupportedClaimIds.length ?? 0) / totalClaims : 0,
     contradictionHandling: scoreInput.contradictionHandling,
+    comparabilityKey,
   };
 }

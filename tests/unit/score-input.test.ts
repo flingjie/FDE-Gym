@@ -13,6 +13,10 @@ import {
 } from "../../src/agents/output-validation.js";
 import { buildScoreInput } from "../../src/scoring/score-input.js";
 import { RUBRIC, computeStageScore } from "../../src/scoring/rubric.js";
+import {
+  LEGACY_COMPARABILITY_KEY,
+  ScoreProvenanceSchema,
+} from "../../src/scoring/provenance.js";
 
 const text = (zh: string, en: string) => ({ "zh-CN": zh, "en-US": en });
 
@@ -152,7 +156,7 @@ describe("computeStageScore: fixed capability rubric weighting", () => {
 
 describe("buildScoreInput: per-question FORM metrics", () => {
   it("uses the persisted question assessment for form metrics", () => {
-    const input = buildScoreInput(baseOptions(true));
+    const { input } = buildScoreInput(baseOptions(true));
     expect(input.questions).toHaveLength(1);
     expect(input.questions[0].atomicity).toBe(0.5);
     expect(input.questions[0].neutrality).toBe(0.6);
@@ -161,7 +165,7 @@ describe("buildScoreInput: per-question FORM metrics", () => {
   });
 
   it("falls back to the revelation heuristic when no assessment is persisted", () => {
-    const input = buildScoreInput(baseOptions(false));
+    const { input } = buildScoreInput(baseOptions(false));
     expect(input.questions).toHaveLength(1);
     // Revealed new evidence → clean, relevant, non-redundant.
     expect(input.questions[0].atomicity).toBe(1);
@@ -175,7 +179,7 @@ describe("buildScoreInput: per-criterion stage scores", () => {
   it("derives stage scores from the Coach's criterion scores when present", () => {
     const withoutCriterion = buildScoreInput(baseOptions(true));
     // brief is null → fallback framing = briefSupport × 100 = 0.
-    expect(withoutCriterion.stageScores.framing).toBe(0);
+    expect(withoutCriterion.input.stageScores.framing).toBe(0);
 
     const withCriterion = buildScoreInput({
       ...baseOptions(true),
@@ -188,13 +192,13 @@ describe("buildScoreInput: per-criterion stage scores", () => {
         },
       },
     });
-    expect(withCriterion.stageScores.framing).toBe(100);
+    expect(withCriterion.input.stageScores.framing).toBe(100);
     // solution has no criterion scores → falls back (proposal null → 0).
-    expect(withCriterion.stageScores.solution).toBe(0);
+    expect(withCriterion.input.stageScores.solution).toBe(0);
   });
 
   it("falls back per-stage when a stage's criterion scores are empty", () => {
-    const input = buildScoreInput({
+    const { input } = buildScoreInput({
       ...baseOptions(true),
       criterionScores: {
         framing: { "evidence-support": 50, "goal-clarity": 100 },
@@ -204,6 +208,61 @@ describe("buildScoreInput: per-criterion stage scores", () => {
     // framing weighted; solution empty → fallback (proposal null → 0).
     expect(input.stageScores.framing).toBe(45);
     expect(input.stageScores.solution).toBe(0);
+  });
+});
+
+describe("buildScoreInput: score provenance", () => {
+  it("reports separate model vs deterministic-fallback stage sources", () => {
+    const { provenance } = buildScoreInput({
+      ...baseOptions(true),
+      criterionScores: {
+        framing: {
+          "evidence-support": 100,
+          "goal-clarity": 100,
+          "constraints-tradeoffs": 100,
+          "unknown-risk-handling": 100,
+        },
+      },
+    });
+    expect(ScoreProvenanceSchema.safeParse(provenance).success).toBe(true);
+    expect(provenance.stages.framing.source).toBe("model");
+    expect(provenance.stages.solution.source).toBe("deterministic-fallback");
+    expect(provenance.stages.solution.fallbackReason).toBeDefined();
+    expect(provenance.stages.challenge.source).toBe("deterministic-fallback");
+    expect(provenance.stages.pitch.source).toBe("deterministic-fallback");
+    expect(provenance.stages.process.source).toBe("deterministic-fallback");
+  });
+
+  it("marks every stage deterministic-fallback when there are no criterion scores", () => {
+    const { provenance } = buildScoreInput(baseOptions(true));
+    for (const stage of Object.values(provenance.stages)) {
+      expect(stage.source).toBe("deterministic-fallback");
+    }
+    expect(provenance.comparabilityKey).not.toBe(LEGACY_COMPARABILITY_KEY);
+  });
+
+  it("carries the rubric, model, and scenario-bundle identity into provenance", () => {
+    const { provenance } = buildScoreInput({
+      ...baseOptions(true),
+      evaluatorInvocationId: "cmd-review:coach",
+      modelId: "model-family-a",
+      scenarioBundleSha256: "c".repeat(64),
+    });
+    expect(provenance.scoreSchemaVersion).toBe(1);
+    expect(provenance.formulaVersion).toBe(1);
+    expect(provenance.capabilityRubricId).toBe("fde-capability");
+    expect(provenance.capabilityRubricVersion).toBe(1);
+    expect(provenance.capabilityRubricSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(provenance.outputSchemaVersion).toBe(1);
+    expect(provenance.evaluatorInvocationId).toBe("cmd-review:coach");
+    expect(provenance.modelId).toBe("model-family-a");
+    expect(provenance.scenarioBundleSha256).toBe("c".repeat(64));
+  });
+
+  it("derives a deterministic comparability key that changes with the model family", () => {
+    const a = buildScoreInput({ ...baseOptions(true), modelId: "model-family-a" }).provenance;
+    const b = buildScoreInput({ ...baseOptions(true), modelId: "model-family-b" }).provenance;
+    expect(a.comparabilityKey).not.toBe(b.comparabilityKey);
   });
 });
 
