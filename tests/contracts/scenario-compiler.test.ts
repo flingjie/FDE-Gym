@@ -17,7 +17,6 @@ import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime";
 import { askCommand, startCommand, type CommandContext } from "../../src/cli/commands";
 import type { AgentRole } from "../../src/core/domain";
 
-const COMPILED_DIR = join(process.cwd(), "scenarios", "compiled");
 const SOURCE_YAML = join(
   process.cwd(),
   "scenarios",
@@ -33,13 +32,33 @@ const PUBLIC_SNAPSHOT = join(
 
 const scenarioId = "manufacturing-alert-triage";
 const canarySeed = "test-seed-2026-08-23";
-const compiledPath = join(COMPILED_DIR, scenarioId);
 
 const BUNDLE_PATHS = ["public.json", "customer.json", "evaluator.json", "events.json"] as const;
 
 function readJsonFile(filePath: string): unknown {
   return JSON.parse(readFileSync(filePath, "utf-8"));
 }
+
+// Throwaway compiled roots for the default-root call sites below. The compiler
+// defaults to `<cwd>/scenarios/compiled`, which is the COMMITTED bundle — so
+// these tests compile into the OS temp dir instead and clean up afterwards,
+// leaving the committed bundle byte-identical (matching scenario-calibration /
+// all-scenarios, which already isolate compilation this way).
+const tempRoots: string[] = [];
+function makeCompiledRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), "fde-compiled-"));
+  tempRoots.push(root);
+  return root;
+}
+afterEach(() => {
+  for (const root of tempRoots.splice(0)) {
+    try {
+      rmSync(root, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Bundle fixture helpers (Task 7) — build/mutate hash-consistent bundles so the
@@ -115,35 +134,36 @@ describe("Scenario Compiler and Loader", () => {
       expect(() => ScenarioAuthoringSchema.parse(parsed)).not.toThrow();
     });
 
-    it("produces five JSON files under scenarios/compiled/<id>/", () => {
-      const result = compileScenario(SOURCE_YAML, canarySeed);
+    it("produces five JSON files under <compiledRoot>/<id>/", () => {
+      const root = makeCompiledRoot();
+      const result = compileScenario(SOURCE_YAML, canarySeed, root);
       expect(result.manifest).toBeDefined();
       expect(result.publicScenario).toBeDefined();
       expect(result.customerCapsule).toBeDefined();
       expect(result.evaluatorCapsule).toBeDefined();
 
       for (const file of ["public.json", "customer.json", "evaluator.json", "events.json", "manifest.json"]) {
-        expect(() => readFileSync(join(compiledPath, file), "utf-8")).not.toThrow();
+        expect(() => readFileSync(join(root, scenarioId, file), "utf-8")).not.toThrow();
       }
     });
 
     it("injects unique canaries into customer and evaluator partitions", () => {
-      const result = compileScenario(SOURCE_YAML, canarySeed);
+      const result = compileScenario(SOURCE_YAML, canarySeed, makeCompiledRoot());
       expect(result.customerCapsule.canary.length).toBeGreaterThan(0);
       expect(result.evaluatorCapsule.canary.length).toBeGreaterThan(0);
       expect(result.customerCapsule.canary).not.toBe(result.evaluatorCapsule.canary);
     });
 
     it("deterministically derives canaries from the seed", () => {
-      const r1 = compileScenario(SOURCE_YAML, canarySeed);
-      const r2 = compileScenario(SOURCE_YAML, canarySeed);
+      const r1 = compileScenario(SOURCE_YAML, canarySeed, makeCompiledRoot());
+      const r2 = compileScenario(SOURCE_YAML, canarySeed, makeCompiledRoot());
       expect(r1.customerCapsule.canary).toBe(r2.customerCapsule.canary);
       expect(r1.evaluatorCapsule.canary).toBe(r2.evaluatorCapsule.canary);
     });
 
     it("derives different canaries from different seeds", () => {
-      const r1 = compileScenario(SOURCE_YAML, "seed-a");
-      const r2 = compileScenario(SOURCE_YAML, "seed-b");
+      const r1 = compileScenario(SOURCE_YAML, "seed-a", makeCompiledRoot());
+      const r2 = compileScenario(SOURCE_YAML, "seed-b", makeCompiledRoot());
       expect(r1.customerCapsule.canary).not.toBe(r2.customerCapsule.canary);
       expect(r1.evaluatorCapsule.canary).not.toBe(r2.evaluatorCapsule.canary);
     });
@@ -154,8 +174,9 @@ describe("Scenario Compiler and Loader", () => {
     let publicContent: Record<string, any>;
 
     beforeAll(() => {
-      compileScenario(SOURCE_YAML, canarySeed);
-      publicJson = readFileSync(join(compiledPath, "public.json"), "utf-8");
+      const root = makeCompiledRoot();
+      compileScenario(SOURCE_YAML, canarySeed, root);
+      publicJson = readFileSync(join(root, scenarioId, "public.json"), "utf-8");
       publicContent = JSON.parse(publicJson);
     });
 
@@ -205,9 +226,10 @@ describe("Scenario Compiler and Loader", () => {
     let evaluatorContent: Record<string, any>;
 
     beforeAll(() => {
-      compileScenario(SOURCE_YAML, canarySeed);
-      customerContent = readJsonFile(join(compiledPath, "customer.json")) as any;
-      evaluatorContent = readJsonFile(join(compiledPath, "evaluator.json")) as any;
+      const root = makeCompiledRoot();
+      compileScenario(SOURCE_YAML, canarySeed, root);
+      customerContent = readJsonFile(join(root, scenarioId, "customer.json")) as any;
+      evaluatorContent = readJsonFile(join(root, scenarioId, "evaluator.json")) as any;
     });
 
     it("customer partition contains its canary", () => {
@@ -346,8 +368,9 @@ describe("Scenario Compiler and Loader", () => {
     let manifest: Record<string, any>;
 
     beforeAll(() => {
-      compileScenario(SOURCE_YAML, canarySeed);
-      manifest = readJsonFile(join(compiledPath, "manifest.json")) as any;
+      const root = makeCompiledRoot();
+      compileScenario(SOURCE_YAML, canarySeed, root);
+      manifest = readJsonFile(join(root, scenarioId, "manifest.json")) as any;
     });
 
     it("contains scenario id, manifestVersion, and schemaVersion", () => {
