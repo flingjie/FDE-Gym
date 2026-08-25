@@ -279,7 +279,10 @@ export async function runDiscoveryTurn(
       runId,
       commandId: `${commandId}:evidence-pending`,
       turnId: `${commandId}:turn`,
-      failureCode: failure.code,
+      // Persist ONLY the stable code: the thrown error's own `code` (e.g.
+      // LEAK_GUARD_TRIGGERED) is an internal failure-mode side-channel that
+      // must never be projected to the learner.
+      failureCode: EVIDENCE_EXTRACTION_FAILED,
     };
     await appendEvents(runId, [questionEvent, replyEvent, pendingEvent], store);
     return {

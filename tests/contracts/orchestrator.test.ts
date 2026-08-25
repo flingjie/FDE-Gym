@@ -232,6 +232,60 @@ describe("discovery turn pipeline", () => {
     expect(pendingRecord).not.toHaveProperty("error");
   });
 
+  it("persists the stable code even when the tracker fails with a distinct internal code", async () => {
+    const baseDir = makeStore();
+    // A schema-valid tracker output that still trips the leak guard by
+    // embedding the hidden canary inside a claim value. `extractEvidence`
+    // surfaces this as `LEAK_GUARD_TRIGGERED` — a distinct internal code that
+    // must NOT leak into the persisted failure event.
+    const runtime = new FixtureAgentRuntime({
+      fixtures: {
+        "customer:cmd-1:customer": customerOutput(),
+        "evidence_tracker:cmd-1:evidence": {
+          patch: {
+            patchId: "p1",
+            expectedVersion: 0,
+            addNodes: [
+              {
+                id: "ev-a",
+                kind: "fact",
+                claim: text(`泄漏 ${CANARY}`, `leak ${CANARY}`),
+                status: "active",
+                sourceTranscriptIds: ["cmd-1:turn"],
+                weight: 1,
+                version: 0,
+              },
+            ],
+            addEdges: [],
+            invalidateNodeIds: [],
+          },
+          questionAssessment: {
+            intentCount: 1,
+            atomicity: 1,
+            neutrality: 1,
+            relevance: 1,
+            redundancy: 0,
+          },
+        },
+      },
+    });
+
+    await runDiscoveryTurn(runInput({ runtime, store: { baseDir } }));
+
+    const recorded = await loadEvents("run-1", { baseDir });
+    const pendingRecord = recorded.find((event) => event.type === "evidence.pending");
+    expect(pendingRecord).toBeDefined();
+    // The distinct internal code (LEAK_GUARD_TRIGGERED) must NOT be persisted.
+    expect(pendingRecord).toHaveProperty("failureCode", "EVIDENCE_EXTRACTION_FAILED");
+    expect(pendingRecord).not.toHaveProperty("failureCode", "LEAK_GUARD_TRIGGERED");
+
+    const folded = foldRunAggregate(recorded, "scn-1", "zh-CN");
+    expect(folded.pendingEvidence).toEqual({
+      turnId: "cmd-1:turn",
+      code: "EVIDENCE_EXTRACTION_FAILED",
+    });
+  });
+
   it("clears EVIDENCE_PENDING on a successful repair", async () => {
     const baseDir = makeStore();
     const fixtures: Record<string, unknown> = {
