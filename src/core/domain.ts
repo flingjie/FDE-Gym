@@ -839,6 +839,19 @@ export const RetryStartedEventSchema = z
   })
   .strict();
 
+/**
+ * The retry focus summaries carried into a child run. Committed to the CHILD's
+ * event log so `foldRunAggregate` can reconstruct `previousAttemptReview` after
+ * a process restart without re-invoking the parent's review model.
+ */
+export const RetryFocusEventSchema = z
+  .object({
+    type: z.literal("retry.focus"),
+    ...EVENT_BASE,
+    focusSummaries: z.array(LocalizedTextSchema),
+  })
+  .strict();
+
 export const RunCompletedEventSchema = z
   .object({
     type: z.literal("run.completed"),
@@ -873,6 +886,7 @@ export const RunEventSchema = z.discriminatedUnion("type", [
   ReviewCompletedEventSchema,
   ScoreComputedEventSchema,
   RetryStartedEventSchema,
+  RetryFocusEventSchema,
   RunCompletedEventSchema,
   RunAbortedEventSchema,
 ]);

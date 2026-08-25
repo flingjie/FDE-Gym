@@ -4,8 +4,15 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { UNSUPPORTED_SCHEMA_VERSION } from "../../src/core/errors";
-import { createEmptyProfile } from "../../src/profile/learner-profile";
-import { loadLearnerProfile, saveLearnerProfile } from "../../src/storage/fs-store";
+import {
+  createEmptyProfile,
+  type AttemptReview,
+} from "../../src/profile/learner-profile";
+import {
+  applyProfileAttemptEffect,
+  loadLearnerProfile,
+  saveLearnerProfile,
+} from "../../src/storage/fs-store";
 
 /**
  * Task 14 — learner-profile schema freeze.
@@ -36,6 +43,24 @@ async function codeOf(promise: Promise<unknown>): Promise<unknown> {
     return (error as { code?: unknown }).code;
   }
   return undefined;
+}
+
+function review(): AttemptReview {
+  return {
+    competencies: {
+      discovery: 60,
+      problemFraming: 55,
+      evidenceReasoning: 50,
+      solutionDesign: 50,
+      adaptability: 50,
+      pitching: 50,
+    },
+    hintReliance: 0,
+    repeatedQuestionRate: 0,
+    unsupportedClaimRate: 0,
+    contradictionHandling: 0,
+    retryFocuses: [],
+  };
 }
 
 describe("learner profile store (schema freeze)", () => {
@@ -76,6 +101,42 @@ describe("learner profile store (schema freeze)", () => {
 
     expect(readFileSync(profileFile(), "utf8")).toBe(before);
     const loaded = await loadLearnerProfile({ baseDir });
+    expect(loaded!.attempts).toBe(0);
+  });
+});
+
+describe("applyProfileAttemptEffect (exactly-once profile projection)", () => {
+  it("applies a review once and records the effect and run ids", async () => {
+    const updated = await applyProfileAttemptEffect("e1", "r1", review(), { baseDir });
+
+    expect(updated.attempts).toBe(1);
+    expect(updated.appliedEffectIds).toEqual(["e1"]);
+    expect(updated.appliedRunIds).toEqual(["r1"]);
+
+    const persisted = await loadLearnerProfile({ baseDir });
+    expect(persisted!.attempts).toBe(1);
+    expect(persisted!.appliedEffectIds).toEqual(["e1"]);
+    expect(persisted!.appliedRunIds).toEqual(["r1"]);
+  });
+
+  it("is idempotent for the same effect id", async () => {
+    await applyProfileAttemptEffect("e1", "r1", review(), { baseDir });
+    const again = await applyProfileAttemptEffect("e1", "r1", review(), { baseDir });
+
+    expect(again.attempts).toBe(1);
+    expect(again.appliedEffectIds).toEqual(["e1"]);
+    expect(again.appliedRunIds).toEqual(["r1"]);
+  });
+
+  it("upcasts an old v1 profile missing the applied-id arrays to empty arrays", async () => {
+    const old = { ...createEmptyProfile() } as Record<string, unknown>;
+    delete old.appliedEffectIds;
+    delete old.appliedRunIds;
+    writeFileSync(profileFile(), JSON.stringify(old), "utf8");
+
+    const loaded = await loadLearnerProfile({ baseDir });
+    expect(loaded!.appliedEffectIds).toEqual([]);
+    expect(loaded!.appliedRunIds).toEqual([]);
     expect(loaded!.attempts).toBe(0);
   });
 });

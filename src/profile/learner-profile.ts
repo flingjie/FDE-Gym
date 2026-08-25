@@ -82,6 +82,10 @@ export interface LearnerProfile {
   weakestCompetency: CompetencyKey | null;
   /** Latest three retry focuses, NEWEST first. */
   retryFocuses: LocalizedText[];
+  /** Effect ids already folded into this profile (exactly-once guard). */
+  appliedEffectIds: string[];
+  /** Run ids whose review has been folded into this profile. */
+  appliedRunIds: string[];
 }
 
 export const LearnerProfileSchema = z
@@ -96,6 +100,8 @@ export const LearnerProfileSchema = z
     strongestCompetency: z.enum(COMPETENCY_KEYS).nullable(),
     weakestCompetency: z.enum(COMPETENCY_KEYS).nullable(),
     retryFocuses: z.array(LocalizedTextSchema),
+    appliedEffectIds: z.array(z.string().min(1)),
+    appliedRunIds: z.array(z.string().min(1)),
   })
   .strict();
 
@@ -127,6 +133,8 @@ export function createEmptyProfile(): LearnerProfile {
     strongestCompetency: null,
     weakestCompetency: null,
     retryFocuses: [],
+    appliedEffectIds: [],
+    appliedRunIds: [],
   };
 }
 
@@ -173,5 +181,7 @@ export function updateLearnerProfile(
     strongestCompetency,
     weakestCompetency,
     retryFocuses,
+    appliedEffectIds: profile.appliedEffectIds,
+    appliedRunIds: profile.appliedRunIds,
   };
 }

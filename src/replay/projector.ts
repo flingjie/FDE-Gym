@@ -263,6 +263,10 @@ export function foldRunAggregate(
         agg.pitch = event.pitch;
         break;
       }
+      case "retry.focus": {
+        agg.previousAttemptReview = { focusSummaries: event.focusSummaries };
+        break;
+      }
       // Not part of the aggregate: brief.validated, challenge.injected,
       // review.completed, score.computed, retry.started, run.completed,
       // run.aborted.

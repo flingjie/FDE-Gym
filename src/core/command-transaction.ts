@@ -4,11 +4,11 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 
 import { collectProhibitedKeyPaths } from "../agents/contracts.js";
-import { createEmptyProfile, updateLearnerProfile, type AttemptReview } from "../profile/learner-profile.js";
+import type { AttemptReview } from "../profile/learner-profile.js";
 import { containsCanary } from "../security/sanitizer.js";
 import { atomicWriteFile } from "../storage/atomic-file.js";
-import { loadLearnerProfile, saveLearnerProfile } from "../storage/fs-store.js";
-import { withRunLock } from "../storage/run-lock.js";
+import { applyProfileAttemptEffect } from "../storage/fs-store.js";
+import { withRunLock, withSortedRunLocks, type RunLock } from "../storage/run-lock.js";
 import { RunEventSchema, type RunEvent } from "./domain.js";
 import { CommandIdConflictError, JournalCanaryLeakError } from "./errors.js";
 import {
@@ -196,27 +196,47 @@ async function writeJournal(
 }
 
 /**
- * Apply one journaled effect. `retry.ensure-child` is idempotent by the child
- * run's command-id dedup in `appendEvents`; `profile.apply-attempt` is applied
- * exactly-once semantics are reconciled with the profile store in Task 6.
+ * Apply one journaled effect.
+ *
+ * `profile.apply-attempt` is exactly-once via the profile's `appliedEffectIds`
+ * guard (`applyProfileAttemptEffect`). `retry.ensure-child` is idempotent by the
+ * child run's command-id dedup in `appendEvents`; both the parent and child
+ * locks are acquired in lexicographic order to prevent deadlock across two
+ * retries that would otherwise grab the same two locks in opposite orders.
  */
-async function applyEffect(effect: CommandEffect, baseDir: string): Promise<void> {
+async function applyEffect(
+  effect: CommandEffect,
+  baseDir: string,
+  lock: RunLock,
+): Promise<void> {
   switch (effect.type) {
-    case "retry.ensure-child":
-      await appendEvents(effect.childRunId, effect.events, { baseDir });
+    case "retry.ensure-child": {
+      await withSortedRunLocks(
+        [effect.parentRunId, effect.childRunId],
+        { baseDir, lock },
+        async (held) => {
+          await appendEvents(effect.childRunId, effect.events, {
+            baseDir,
+            lock: held.get(effect.childRunId),
+          });
+        },
+      );
       return;
+    }
     case "profile.apply-attempt": {
-      const base = (await loadLearnerProfile({ baseDir })) ?? createEmptyProfile();
-      const updated = updateLearnerProfile(base, effect.review);
-      await saveLearnerProfile(updated, { baseDir });
+      await applyProfileAttemptEffect(effect.effectId, effect.runId, effect.review, { baseDir });
       return;
     }
   }
 }
 
-async function applyEffects(effects: CommandEffect[], baseDir: string): Promise<void> {
+async function applyEffects(
+  effects: CommandEffect[],
+  baseDir: string,
+  lock: RunLock,
+): Promise<void> {
   for (const effect of effects) {
-    await applyEffect(effect, baseDir);
+    await applyEffect(effect, baseDir, lock);
   }
 }
 
@@ -267,7 +287,7 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
       // Finish a prepared (interrupted) command: append is idempotent by
       // commandId; effects are applied once more (idempotent per effect).
       await appendEvents(runId, existing.events, store);
-      await applyEffects(existing.effects, baseDir);
+      await applyEffects(existing.effects, baseDir, lock);
       await writeJournal(path, { ...existing, status: "committed" }, canaries);
       return existing.result as T;
     }
@@ -290,7 +310,7 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
     };
     await writeJournal(path, prepared, canaries);
     await appendEvents(runId, events, store);
-    await applyEffects(effects, baseDir);
+    await applyEffects(effects, baseDir, lock);
     await writeJournal(path, { ...prepared, status: "committed" }, canaries);
     return result as T;
   });

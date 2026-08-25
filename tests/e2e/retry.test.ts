@@ -1,13 +1,21 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
   createRetry,
   INVALID_RETRY_FOCUS,
+  prepareRetry,
 } from "../../src/core/orchestrator";
-import { appendEvents, loadRun } from "../../src/core/event-store";
+import { appendEvents, canonicalJson, loadEvents, loadRun } from "../../src/core/event-store";
+import {
+  executeCommandTransaction,
+  type JsonValue,
+} from "../../src/core/command-transaction";
+import { COMMAND_ID_CONFLICT } from "../../src/core/errors";
+import { foldRunAggregate } from "../../src/replay/projector";
 import {
   ContextFirewallError,
   FIREWALL_INVALID_STATE,
@@ -139,7 +147,7 @@ describe("retry: clean second attempt", () => {
     expect(result.seed).toBe(7);
 
     // New run starts in DISCOVERY.
-    expect(result.state).toEqual({ runId: "run-child", phase: "DISCOVERY", seq: 3 });
+    expect(result.state).toEqual({ runId: "run-child", phase: "DISCOVERY", seq: 4 });
 
     // Cleared graph / ledger / transcript / hints / artifacts.
     expect(result.aggregate.graph).toEqual({ version: 0, nodes: [], edges: [] });
@@ -168,7 +176,7 @@ describe("retry: clean second attempt", () => {
 
     const childLoaded = await loadRun("run-child", store);
     expect(childLoaded.phase).toBe("DISCOVERY");
-    expect(childLoaded.seq).toBe(3);
+    expect(childLoaded.seq).toBe(4);
   });
 
   it("gives Customer and Evidence Tracker no previous transcript", async () => {
@@ -275,5 +283,181 @@ describe("retry: clean second attempt", () => {
     expect(repeated.questions[0].efficiency).toBe(0);
     expect(repeated.questions[0].efficiency).toBeLessThan(fresh.questions[0].efficiency);
     expect(fresh.questions[0].efficiency).toBe(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Recoverable retry child creation (Task 6)
+// ---------------------------------------------------------------------------
+
+function requestHash(request: JsonValue): string {
+  return createHash("sha256").update(canonicalJson(request), "utf8").digest("hex");
+}
+
+function writePreparedRetry(
+  baseDir: string,
+  runId: string,
+  commandId: string,
+  request: JsonValue,
+  prepared: {
+    parentRunId: string;
+    runId: string;
+    scenarioId: string;
+    locale: string;
+    focusSummaries: { "zh-CN": string; "en-US": string }[];
+    parentEvents: RunEvent[];
+    newRunEvents: RunEvent[];
+  },
+): void {
+  const dir = join(baseDir, "runs", runId, "commands");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, `${commandId}.json`),
+    JSON.stringify({
+      journalVersion: 1,
+      runId,
+      commandId,
+      requestHash: requestHash(request),
+      status: "prepared",
+      events: prepared.parentEvents,
+      result: {
+        runId: prepared.runId,
+        parentRunId: prepared.parentRunId,
+        scenarioId: prepared.scenarioId,
+        locale: prepared.locale,
+        phase: "DISCOVERY",
+        focusSummaries: prepared.focusSummaries,
+      },
+      effects: [
+        {
+          type: "retry.ensure-child",
+          effectId: `${prepared.parentRunId}:${commandId}:child`,
+          parentRunId: prepared.parentRunId,
+          childRunId: prepared.runId,
+          events: prepared.newRunEvents,
+        },
+      ],
+    }) + "\n",
+    "utf8",
+  );
+}
+
+describe("retry: recoverable child creation and conflict", () => {
+  it("reconstructs previousAttemptReview from the child's committed events", async () => {
+    const baseDir = makeStore();
+    const store = { baseDir };
+    await seedParent(store);
+
+    await createRetry(parentAggregate(), {
+      newRunId: "run-child",
+      commandId: "cmd-retry",
+      focusSummaries: FOCUS,
+      store,
+    });
+
+    const childEvents = await loadEvents("run-child", store);
+    const folded = foldRunAggregate(childEvents, "scn-1", "zh-CN");
+    expect(folded.previousAttemptReview).toEqual({ focusSummaries: FOCUS });
+  });
+
+  it("recovers an interrupted retry child creation exactly once (parent committed, child pending)", async () => {
+    const baseDir = makeStore();
+    const store = { baseDir };
+    await seedParent(store);
+
+    const prepared = await prepareRetry(parentAggregate(), {
+      newRunId: "run-child",
+      commandId: "cmd-retry-recover",
+      focusSummaries: FOCUS,
+    });
+    const request = { type: "retry", newRunId: "run-child", seed: null, focusSummaries: FOCUS };
+
+    // Simulate the crash: the parent `retry.started` is already committed, but the
+    // process died before the child was created / the journal was marked committed.
+    await appendEvents("run-parent", prepared.parentEvents, store);
+    writePreparedRetry(baseDir, "run-parent", "cmd-retry-recover", request, prepared);
+
+    const out = await executeCommandTransaction<{ runId: string }>({
+      runId: "run-parent",
+      commandId: "cmd-retry-recover",
+      request,
+      store,
+      prepare: async () => {
+        throw new Error("prepare must not be re-invoked during recovery");
+      },
+    });
+
+    expect(out.runId).toBe("run-child");
+
+    // The child's committed events reconstruct previousAttemptReview.
+    const childEvents = await loadEvents("run-child", store);
+    expect(childEvents.map((event) => event.type)).toEqual([
+      "run.started",
+      "phase.changed",
+      "retry.focus",
+      "phase.changed",
+    ]);
+    expect(foldRunAggregate(childEvents, "scn-1", "zh-CN").previousAttemptReview).toEqual({
+      focusSummaries: FOCUS,
+    });
+
+    // A second recovery (now committed) must not re-append the child batch.
+    await executeCommandTransaction<{ runId: string }>({
+      runId: "run-parent",
+      commandId: "cmd-retry-recover",
+      request,
+      store,
+      prepare: async () => {
+        throw new Error("prepare must not be re-invoked for a committed journal");
+      },
+    });
+    expect(await loadEvents("run-child", store)).toHaveLength(4);
+  });
+
+  it("returns COMMAND_ID_CONFLICT for the same retry command with a different newRunId", async () => {
+    const baseDir = makeStore();
+    const store = { baseDir };
+    await seedParent(store);
+
+    const commandId = "cmd-retry-conflict";
+    const first = await executeCommandTransaction<{ runId: string }>({
+      runId: "run-parent",
+      commandId,
+      request: { type: "retry", newRunId: "run-child-a", seed: null, focusSummaries: FOCUS },
+      store,
+      prepare: async () => {
+        const prepared = await prepareRetry(parentAggregate(), {
+          newRunId: "run-child-a",
+          commandId,
+          focusSummaries: FOCUS,
+        });
+        return {
+          events: prepared.parentEvents,
+          effects: [
+            {
+              type: "retry.ensure-child",
+              effectId: `${prepared.parentRunId}:${commandId}:child`,
+              parentRunId: prepared.parentRunId,
+              childRunId: prepared.runId,
+              events: prepared.newRunEvents,
+            },
+          ],
+          result: { runId: prepared.runId },
+        };
+      },
+    });
+    expect(first.runId).toBe("run-child-a");
+
+    await expect(
+      executeCommandTransaction<{ runId: string }>({
+        runId: "run-parent",
+        commandId,
+        request: { type: "retry", newRunId: "run-child-b", seed: null, focusSummaries: FOCUS },
+        store,
+        prepare: async () => {
+          throw new Error("prepare must not run for a conflicting command id");
+        },
+      }),
+    ).rejects.toMatchObject({ code: COMMAND_ID_CONFLICT });
   });
 });

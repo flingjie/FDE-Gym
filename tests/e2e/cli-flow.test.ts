@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -26,7 +27,14 @@ import {
   submitPitchCommand,
   type CommandContext,
 } from "../../src/cli/commands.js";
-import { loadEvents } from "../../src/core/event-store.js";
+import {
+  executeCommandTransaction,
+  type CommandEffect,
+  type JsonValue,
+} from "../../src/core/command-transaction.js";
+import { appendEvents, canonicalJson, loadEvents } from "../../src/core/event-store.js";
+import { loadLearnerProfile } from "../../src/storage/fs-store.js";
+import type { AttemptReview } from "../../src/profile/learner-profile.js";
 import type { CliResult } from "../../src/cli/render.js";
 import type { LearnerReplay } from "../../src/replay/projector.js";
 import type {
@@ -34,6 +42,7 @@ import type {
   Locale,
   PitchArtifact,
   ProblemBrief,
+  RunEvent,
   SolutionProposal,
   AgentRole,
 } from "../../src/core/domain.js";
@@ -640,5 +649,192 @@ describe("command transaction idempotency through the CLI", () => {
     const started = recorded.filter((event) => event.type === "run.started");
     expect(started).toHaveLength(1);
     expect(started[0]).toMatchObject({ scenarioId: "scn-1" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Exactly-once profile projection (Task 6)
+// ---------------------------------------------------------------------------
+
+function attemptReview(): AttemptReview {
+  return {
+    competencies: {
+      discovery: 60,
+      problemFraming: 55,
+      evidenceReasoning: 50,
+      solutionDesign: 50,
+      adaptability: 50,
+      pitching: 50,
+    },
+    hintReliance: 0,
+    repeatedQuestionRate: 0,
+    unsupportedClaimRate: 0,
+    contradictionHandling: 0,
+    retryFocuses: [],
+  };
+}
+
+function requestHash(request: JsonValue): string {
+  return createHash("sha256").update(canonicalJson(request), "utf8").digest("hex");
+}
+
+function writePreparedReview(
+  baseDir: string,
+  runId: string,
+  commandId: string,
+  request: JsonValue,
+  journal: { events: RunEvent[]; effect: CommandEffect },
+): void {
+  const dir = join(baseDir, "runs", runId, "commands");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, `${commandId}.json`),
+    JSON.stringify({
+      journalVersion: 1,
+      runId,
+      commandId,
+      requestHash: requestHash(request),
+      status: "prepared",
+      events: journal.events,
+      result: { review: null, score: null },
+      effects: [journal.effect],
+    }) + "\n",
+    "utf8",
+  );
+}
+
+describe("profile effect exactly-once through the transaction", () => {
+  it("applies a profile effect once when review events are committed but the effect was interrupted", async () => {
+    const baseDir = makeStore();
+    const runId = "run-profile-crash";
+    const commandId = "cmd-review-crash";
+
+    const reviewEvent: RunEvent = {
+      type: "review.completed",
+      runId,
+      commandId,
+      review: {
+        verdict: "pass",
+        strengths: [],
+        weaknesses: [],
+        missedOpportunities: [],
+        decisionDivergencePoints: [],
+        nextFocus: [],
+      },
+    };
+    const scoreEvent: RunEvent = {
+      type: "score.computed",
+      runId,
+      commandId,
+      score: {
+        coverage: 0,
+        coveragePercent: 0,
+        averageForm: 0,
+        budgetFactor: 0,
+        questionEfficiency: 0,
+        discovery: 50,
+        framing: 50,
+        solution: 50,
+        challenge: 50,
+        pitch: 50,
+        process: 50,
+        raw: 50,
+        hintPenalty: 0,
+        integrity: 0,
+        final: 50,
+        questions: [],
+        passes: {
+          finalScore: true,
+          briefSupport: true,
+          noUnacknowledgedCriticalContradiction: true,
+          pitchExplicitAsk: true,
+          noLeakGuardViolation: true,
+        },
+      },
+    };
+    const events = [reviewEvent, scoreEvent];
+    const effect: CommandEffect = {
+      type: "profile.apply-attempt",
+      effectId: `${runId}:${commandId}:profile`,
+      runId,
+      review: attemptReview(),
+    };
+
+    // Simulate the crash: the review/score events are ALREADY committed, but the
+    // profile effect was interrupted before it applied / the journal was marked
+    // committed. This genuinely pre-appends the events, unlike a journal-only
+    // fixture.
+    await appendEvents(runId, events, { baseDir });
+    const request = { type: "review" };
+    writePreparedReview(baseDir, runId, commandId, request, { events, effect });
+
+    const out = await executeCommandTransaction<{ review: null; score: null }>({
+      runId,
+      commandId,
+      request,
+      store: { baseDir },
+      prepare: async () => {
+        throw new Error("prepare must not re-run during recovery");
+      },
+    });
+    expect(out).toEqual({ review: null, score: null });
+
+    const profile = await loadLearnerProfile({ baseDir });
+    expect(profile!.attempts).toBe(1);
+    expect(profile!.appliedEffectIds).toEqual([`${runId}:${commandId}:profile`]);
+    expect(profile!.appliedRunIds).toEqual([runId]);
+
+    // A second run (now committed) must not re-apply the profile effect.
+    await executeCommandTransaction<{ review: null; score: null }>({
+      runId,
+      commandId,
+      request,
+      store: { baseDir },
+      prepare: async () => {
+        throw new Error("prepare must not re-run for a committed journal");
+      },
+    });
+    const again = await loadLearnerProfile({ baseDir });
+    expect(again!.attempts).toBe(1);
+    expect(again!.appliedEffectIds).toEqual([`${runId}:${commandId}:profile`]);
+    expect(again!.appliedRunIds).toEqual([runId]);
+  });
+
+  it("does not increment attempts twice for a duplicate review command", async () => {
+    const baseDir = makeStore();
+    const inner = new FixtureAgentRuntime({ fixtures: fixtures() });
+    const runtime = new CountingRuntime(inner);
+    const ctx: CommandContext = { runtime, baseDir, scenario: scenario() };
+    const runId = "run-dup-review";
+
+    // Drive the full journey to REVIEW.
+    mustOk(await startCommand(ctx, { runId, scenarioId: "scn-1", locale: "zh-CN", commandId: "cmd-start" }));
+    mustOk(await askCommand(ctx, { runId, question: "每天产生多少条告警？", stakeholderId: "vp-operations", commandId: "cmd-ask-1" }));
+    mustOk(await askCommand(ctx, { runId, question: "告警有优先级吗？", stakeholderId: "technical-lead", commandId: "cmd-ask-2" }));
+    mustOk(await hintCommand(ctx, { runId, topic: "workflow", level: 1, commandId: "cmd-hint-1" }));
+    mustOk(await frameCommand(ctx, { runId, commandId: "cmd-frame-1" }));
+    const failedBrief = mustOk(await submitBriefCommand(ctx, { runId, brief: brief1(), commandId: "cmd-brief-1" }));
+    expect(failedBrief.passed).toBe(false);
+    mustOk(await clarifyCommand(ctx, { runId, commandId: "cmd-clarify-1" }));
+    mustOk(await askCommand(ctx, { runId, question: "工程师的时间花在哪里？", stakeholderId: "technical-lead", commandId: "cmd-ask-3" }));
+    mustOk(await frameCommand(ctx, { runId, commandId: "cmd-frame-2" }));
+    const passedBrief = mustOk(await submitBriefCommand(ctx, { runId, brief: brief2(), commandId: "cmd-brief-2" }));
+    expect(passedBrief.passed).toBe(true);
+    mustOk(await submitDesignCommand(ctx, { runId, proposal: proposal(), commandId: "cmd-design-1", seed: 20260823 }));
+    mustOk(await respondChallengeCommand(ctx, { runId, response: response(), commandId: "cmd-resp-1" }));
+    mustOk(await submitPitchCommand(ctx, { runId, pitch: pitch(), commandId: "cmd-pitch-1" }));
+
+    const first = mustOk(await reviewCommand(ctx, { runId, commandId: "cmd-review-1" }));
+    const invocationsAfterFirst = runtime.invoked.length;
+    const second = mustOk(await reviewCommand(ctx, { runId, commandId: "cmd-review-1" }));
+
+    // Identical result; the model is never re-invoked; the profile folds once.
+    expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+    expect(runtime.invoked.length).toBe(invocationsAfterFirst);
+
+    const profile = await loadLearnerProfile({ baseDir });
+    expect(profile!.attempts).toBe(1);
+    expect(profile!.appliedEffectIds).toEqual([`${runId}:cmd-review-1:profile`]);
+    expect(profile!.appliedRunIds).toEqual([runId]);
   });
 });

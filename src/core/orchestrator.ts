@@ -1010,7 +1010,16 @@ export async function prepareRetry(
     { runId: newRunId, phase: "SCENARIO", seq: startEvents.length },
     { type: "accept", commandId: `${commandId}:accept` },
   );
-  const newRunEvents: RunEvent[] = [...startEvents, ...acceptEvents];
+  // The retry focus summaries are committed to the CHILD so a process restart
+  // can fold `previousAttemptReview` without re-invoking the parent's review
+  // model. Grouped with the start command for idempotency.
+  const focusEvent: RunEvent = {
+    type: "retry.focus",
+    runId: newRunId,
+    commandId,
+    focusSummaries: options.focusSummaries,
+  };
+  const newRunEvents: RunEvent[] = [...startEvents, focusEvent, ...acceptEvents];
 
   // Fresh aggregate: graph/ledger/transcript/sessions cleared.
   const aggregate: RunAggregate = {

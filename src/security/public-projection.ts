@@ -152,6 +152,11 @@ export function projectPublic(event: RunEvent): PublicEvent | null {
       return { type: "score.computed", runId: event.runId, score: event.score };
     case "retry.started":
       return { type: "retry.started", runId: event.runId, newRunId: event.newRunId };
+    case "retry.focus":
+      // Internal reconstruction marker (previous attempt focus for a resumed
+      // child run). The focus summaries are already learner-visible through the
+      // parent's `review.completed`; this event is never projected.
+      return null;
     case "run.completed":
       return { type: "run.completed", runId: event.runId };
     case "run.aborted":

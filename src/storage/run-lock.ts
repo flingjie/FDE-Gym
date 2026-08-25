@@ -65,6 +65,57 @@ export async function withRunLock<T>(
 }
 
 /**
+ * Acquire a set of run locks in a single, globally-consistent (lexicographic)
+ * order and run `work` with the held locks. Acquiring every multi-lock site in
+ * the same order prevents two writers from deadlocking when they need the same
+ * two run locks in opposite orders.
+ *
+ * An already-held lock supplied via `options.lock` is reused verbatim and is
+ * NEVER released here (its owner releases it); only the freshly acquired locks
+ * are released in reverse acquisition order.
+ */
+export async function withSortedRunLocks<T>(
+  runIds: readonly string[],
+  options: StoreOptions,
+  work: (locks: Map<string, RunLock>) => Promise<T>,
+): Promise<T> {
+  const sorted = [...new Set(runIds)].sort();
+  for (const runId of sorted) {
+    if (!SAFE_RESOURCE_ID.test(runId)) {
+      throw new InvalidResourceIdError("run", runId);
+    }
+  }
+
+  const baseDir = options.baseDir ?? resolveBaseDir();
+  const provided = options.lock;
+  const held = new Map<string, RunLock>();
+
+  try {
+    for (const runId of sorted) {
+      if (provided !== undefined && provided.runId === runId) {
+        held.set(runId, provided);
+        continue;
+      }
+      const lock: RunLock = {
+        runId,
+        token: randomUUID(),
+        lockPath: join(baseDir, "runs", ".locks", `${runId}.lock`),
+      };
+      await acquire(lock);
+      held.set(runId, lock);
+    }
+    return await work(held);
+  } finally {
+    for (const runId of [...sorted].reverse()) {
+      const lock = held.get(runId);
+      if (lock !== undefined && lock !== provided) {
+        await release(lock);
+      }
+    }
+  }
+}
+
+/**
  * Acquire with `open(path, "wx")`. On `EEXIST`, if the existing owner is on this
  * host and its PID is dead (`ESRCH`), remove the stale lock and retry ONCE. A
  * live owner (or an owner on another host) fails closed with `RUN_LOCKED` and is

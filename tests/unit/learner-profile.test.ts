@@ -196,4 +196,23 @@ describe("LearnerProfile: createEmptyProfile", () => {
       expect(p.competencies[key]).toBe(50);
     }
   });
+
+  it("starts with no applied effect or run ids", () => {
+    const p = createEmptyProfile();
+    expect(p.appliedEffectIds).toEqual([]);
+    expect(p.appliedRunIds).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applied-id bookkeeping
+// ---------------------------------------------------------------------------
+
+describe("updateLearnerProfile: applied-id bookkeeping", () => {
+  it("carries applied effect and run ids forward unchanged", () => {
+    const before = profile({ appliedEffectIds: ["e1"], appliedRunIds: ["r1"] });
+    const next = updateLearnerProfile(before, review());
+    expect(next.appliedEffectIds).toEqual(["e1"]);
+    expect(next.appliedRunIds).toEqual(["r1"]);
+  });
 });
