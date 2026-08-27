@@ -97,7 +97,7 @@ files (see `skills/fde-gym/references/security-boundaries.md`).
 This is a **local training product**, not a remote proctored exam:
 
 - All scenario partitions, run events, and the learner profile live in
-  **plain files** on the learner's own machine (`$FDE_GYM_HOME` / `~/.fde-gym`,
+  **plain files** on the learner's own machine (`$FDE_GYM_HOME` / `<repo>/.fde-gym`,
   `scenarios/compiled/`, `scenarios/source/`).
 - A learner who can read their own disk — or attach a debugger, or set
   `FDE_GYM_HOME` to a directory they control — can see every hidden fact,

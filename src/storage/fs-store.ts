@@ -21,7 +21,7 @@ import {
  */
 
 export interface ProfileStoreOptions {
-  /** Overrides `$FDE_GYM_HOME`/`~/.fde-gym` — used by tests. */
+  /** Overrides `$FDE_GYM_HOME` and the project-local `.fde-gym` default. */
   baseDir?: string;
 }
 

@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { access, mkdir, readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
+import { resolveBaseDir } from "../base-dir.js";
 import { RunEventSchema, SAFE_RESOURCE_ID, type RecordedEvent, type RunEvent } from "./domain.js";
 import {
   RUN_FORMAT_VERSION,
@@ -22,7 +22,9 @@ import { atomicWriteFile } from "../storage/atomic-file.js";
 import { withRunLock, type RunLock } from "../storage/run-lock.js";
 
 /**
- * Append-only, hash-chained JSONL event store under `${FDE_GYM_HOME}/runs/<run-id>/events.jsonl`.
+ * Append-only, hash-chained JSONL event store under
+ * `${FDE_GYM_HOME}/runs/<run-id>/events.jsonl` (default `${FDE_GYM_HOME}` is the
+ * project-local `.fde-gym` directory).
  * The domain event payload is written verbatim; the envelope (`seq`,
  * `logicalTime`, `previousHash`, `hash`) is layered on top here so `decide()`
  * and `reduce()` stay pure of wall-clock and hashing.
@@ -32,16 +34,13 @@ const FIRST_PREVIOUS_HASH = "";
 const SHA256_HEX_LENGTH = 64;
 
 export interface StoreOptions {
-  /** Overrides `$FDE_GYM_HOME`/`~/.fde-gym` — used by tests to point at a temp dir. */
+  /** Overrides `$FDE_GYM_HOME` and the project-local `.fde-gym` default. */
   baseDir?: string;
   /** A run lock already held by the caller; reused instead of re-acquiring. */
   lock?: RunLock;
 }
 
-/** Resolve the store root: `$FDE_GYM_HOME` when set (non-empty), else `~/.fde-gym`. */
-export function resolveBaseDir(): string {
-  return process.env.FDE_GYM_HOME || join(homedir(), ".fde-gym");
-}
+export { resolveBaseDir };
 
 /**
  * Reject any resource id that is unsafe as a filename component BEFORE it can

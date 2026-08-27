@@ -110,13 +110,14 @@ to switch every learner-safe message to English.
 
 ## Storage
 
-State lives under `$FDE_GYM_HOME` when set, otherwise `~/.fde-gym`:
+State lives under `$FDE_GYM_HOME` when set, otherwise the project-local
+`.fde-gym/` directory (git-ignored):
 
 - `runs/<run-id>/manifest.json` — `{ "schemaVersion": 1 }`.
 - `runs/<run-id>/events.jsonl` — the append-only, SHA-256 hash-chained event log.
 - `profile.json` — the learner profile (six-competency EMA).
 
-Override with `--base-dir <dir>` for testing/scripts.
+Override with `FDE_GYM_HOME` or `--base-dir <dir>` for testing/scripts.
 
 ## Troubleshooting (error codes)
 

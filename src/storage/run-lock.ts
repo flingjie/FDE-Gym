@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, rm } from "node:fs/promises";
-import { hostname, homedir } from "node:os";
+import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 
+import { resolveBaseDir } from "../base-dir.js";
 import { SAFE_RESOURCE_ID } from "../core/domain.js";
 import { InvalidResourceIdError, RunLockedError } from "../core/errors.js";
 import type { StoreOptions } from "../core/event-store.js";
@@ -25,11 +26,6 @@ interface LockOwner {
   pid: number;
   hostname: string;
   token: string;
-}
-
-/** Mirrors `core/event-store.ts:resolveBaseDir` (kept local to avoid a runtime import cycle). */
-function resolveBaseDir(): string {
-  return process.env.FDE_GYM_HOME || join(homedir(), ".fde-gym");
 }
 
 /**
