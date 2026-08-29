@@ -19,12 +19,14 @@ import {
   type CodexInvocationResult,
   type CodexRunOptions,
 } from "./codex-process.js";
+import { sanitizeChildEnv } from "./strict-policy.js";
 
 export {
   extractAgentMessage,
   extractThreadId,
   parseJsonlEvents,
   runCodex,
+  sanitizeChildEnv,
 };
 export type {
   CodexEvent,
@@ -76,39 +78,6 @@ export interface CodexProbeConfig {
   schemaFile?: string;
   /** Delete the workRoot after probing. Default true. */
   cleanup?: boolean;
-}
-
-/** Minimal child-environment allowlist: the child never inherits arbitrary parent state. */
-const BASE_ENV_KEYS = [
-  "PATH",
-  "HOME",
-  "USER",
-  "LOGNAME",
-  "SHELL",
-  "LANG",
-  "LC_ALL",
-  "LC_CTYPE",
-  "TERM",
-  "TMPDIR",
-  "CODEX_HOME",
-];
-
-/**
- * Build the environment handed to a child Codex invocation. Only an explicit
- * allowlist is inherited, so secrets held by the parent process (such as the
- * parent canary) are structurally incapable of leaking to the child.
- */
-export function sanitizeChildEnv(
-  source: NodeJS.ProcessEnv,
-  extraAllow: string[] = [],
-): NodeJS.ProcessEnv {
-  const allowed = new Set([...BASE_ENV_KEYS, ...extraAllow]);
-  const env: NodeJS.ProcessEnv = {};
-  for (const key of allowed) {
-    const value = source[key];
-    if (value !== undefined) env[key] = value;
-  }
-  return env;
 }
 
 export function detectSkillDiscovery(homeOverride?: string): SkillDiscovery {

@@ -29,7 +29,43 @@ process.stdin.on("end", () => {
   main();
 });
 
+function isMcpList() {
+  return argv[0] === "mcp" && argv[1] === "list" && argv.includes("--json");
+}
+
+function respondMcpList() {
+  const mode = process.env.FAKE_MCP_MODE ?? "empty";
+  if (mode === "timeout") {
+    setTimeout(() => {
+      process.stdout.write("[]\n");
+      process.exit(0);
+    }, 60_000);
+    return;
+  }
+  if (mode === "exit") {
+    process.stderr.write("fake-codex: MCP inventory failed\n");
+    process.exit(7);
+  }
+  if (mode === "invalid") {
+    process.stdout.write("not-json\n");
+    process.exit(0);
+  }
+  const inventory =
+    mode === "enabled"
+      ? [{ name: "fake-filesystem", enabled: true }]
+      : mode === "disabled"
+        ? [{ name: "fake-disabled", enabled: false }]
+        : [];
+  process.stdout.write(JSON.stringify(inventory) + "\n");
+  process.exit(0);
+}
+
 function main() {
+  if (isMcpList()) {
+    respondMcpList();
+    return;
+  }
+
   if (hasFlag("--version")) {
     process.stdout.write("codex-cli 0.149.0\n");
     process.exit(Number(process.env.FAKE_EXIT_CODE ?? 0));
