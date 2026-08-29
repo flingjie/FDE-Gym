@@ -43,3 +43,18 @@ export interface AgentRuntime {
     options: AgentInvokeOptions<TOutput>,
   ): Promise<AgentInvocationResult<TOutput>>;
 }
+
+/**
+ * Stable runtime error shared by every `AgentRuntime` implementation
+ * (`CodexAgentRuntime`, `DirectModelRuntime`, `FixtureAgentRuntime`). Carries a
+ * machine-readable `code` (see `src/security/sanitizer.ts`) and never embeds
+ * payload, prompt, or canary text.
+ */
+export class AgentRuntimeError extends Error {
+  readonly code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "AgentRuntimeError";
+    this.code = code;
+  }
+}

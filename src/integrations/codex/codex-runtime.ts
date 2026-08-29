@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import type { AgentRole } from "../../core/domain.js";
-import type { AgentInvocationResult, AgentInvokeOptions, AgentRuntime } from "../../agents/agent-runtime.js";
+import {
+  AgentRuntimeError,
+  type AgentInvocationResult,
+  type AgentInvokeOptions,
+  type AgentRuntime,
+} from "../../agents/agent-runtime.js";
 import { roleInputSchema } from "../../security/context-firewall.js";
 import {
   AGENT_INPUT_INVALID,
@@ -60,15 +65,6 @@ export interface CodexAgentRuntimeConfig {
   canaries?: readonly string[];
   /** Extra env keys passed through the child-env sanitizer (test control only). */
   envExtraAllow?: string[];
-}
-
-export class AgentRuntimeError extends Error {
-  readonly code: string;
-  constructor(code: string, message: string) {
-    super(message);
-    this.name = "AgentRuntimeError";
-    this.code = code;
-  }
 }
 
 type AttemptResult<TOutput> =
