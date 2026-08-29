@@ -15,7 +15,8 @@ import {
   containsCanary,
   sanitizeAgentResult,
 } from "../../security/sanitizer.js";
-import { runCodex, sanitizeChildEnv } from "./capability-probe.js";
+import { runCodex } from "./codex-process.js";
+import { sanitizeChildEnv } from "./capability-probe.js";
 
 /**
  * FDE Gym — real Codex agent runtime.

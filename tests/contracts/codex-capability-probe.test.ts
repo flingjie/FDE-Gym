@@ -4,12 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// NOTE: this import is intentionally unresolved until Step 3 implements the probe.
-// The first run of this test file must FAIL (RED) with a module-not-found error.
 import {
   parseJsonlEvents,
   extractThreadId,
   extractAgentMessage,
+} from "../../src/integrations/codex/codex-process";
+import {
   sanitizeChildEnv,
   probeCodexCapabilities,
 } from "../../src/integrations/codex/capability-probe";
