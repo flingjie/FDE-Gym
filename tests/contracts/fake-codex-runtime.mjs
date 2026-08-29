@@ -85,6 +85,8 @@ function main() {
   // Capture the rendered prompt and the complete output schema the runtime
   // handed to this child, so contract tests can assert on both.
   capture("FAKE_RUNTIME_PROMPT_FILE", stdin);
+  capture("FAKE_RUNTIME_ARGS_FILE", JSON.stringify(argv));
+  capture("FAKE_RUNTIME_HOME_FILE", process.env.CODEX_HOME ?? "");
   const schemaFile = flagValue("--output-schema");
   if (schemaFile) {
     try {
@@ -102,6 +104,11 @@ function main() {
 function respond() {
   const mode = process.env.FAKE_RUNTIME_MODE ?? "valid";
   const canary = process.env.FAKE_RUNTIME_CANARY ?? "FAKE_CANARY";
+
+  if (mode === "exit") {
+    process.stderr.write("fake-codex: role process failed\n");
+    process.exit(Number(process.env.FAKE_RUNTIME_EXIT_CODE ?? 7));
+  }
 
   const valid = JSON.stringify({
     reply: { "zh-CN": "好的", "en-US": "ok" },

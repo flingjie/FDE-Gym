@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -109,6 +109,10 @@ const FAKE_KEYS = [
   "FAKE_RUNTIME_SLEEP_MS",
   "FAKE_RUNTIME_PROMPT_FILE",
   "FAKE_RUNTIME_SCHEMA_FILE",
+  "FAKE_RUNTIME_ARGS_FILE",
+  "FAKE_RUNTIME_HOME_FILE",
+  "FAKE_RUNTIME_EXIT_CODE",
+  "FAKE_MCP_MODE",
 ];
 
 let tempRoots: string[] = [];
@@ -126,15 +130,23 @@ function makeRuntime(
   const countFile = join(workRoot, "count.txt");
   const promptFile = join(workRoot, "captured-prompt.txt");
   const schemaFile = join(workRoot, "captured-schema.json");
+  const argsFile = join(workRoot, "captured-args.json");
+  const homeFile = join(workRoot, "captured-home.txt");
+  const strictHome = join(workRoot, "strict-home");
+  mkdirSync(strictHome, { recursive: true });
   const fakeCanary = extra.fakeCanary ?? "CUSTOMER_CANARY_7f3a9c1e2b4d";
   tempRoots.push(workRoot);
 
+  process.env.FDE_GYM_CODEX_HOME = strictHome;
   process.env.FAKE_RUNTIME_MODE = mode;
   process.env.FAKE_RUNTIME_CANARY = fakeCanary;
   process.env.FAKE_RUNTIME_COUNT_FILE = countFile;
   process.env.FAKE_RUNTIME_SLEEP_MS = String(extra.sleepMs ?? 0);
   process.env.FAKE_RUNTIME_PROMPT_FILE = promptFile;
   process.env.FAKE_RUNTIME_SCHEMA_FILE = schemaFile;
+  process.env.FAKE_RUNTIME_ARGS_FILE = argsFile;
+  process.env.FAKE_RUNTIME_HOME_FILE = homeFile;
+  process.env.FAKE_MCP_MODE = "empty";
 
   const rt = new CodexAgentRuntime({
     executable: fakeCodexRuntime,
@@ -143,7 +155,17 @@ function makeRuntime(
     canaries: extra.canaries ?? [fakeCanary],
     envExtraAllow: FAKE_KEYS,
   });
-  return { rt, workRoot, countFile, canary: fakeCanary, promptFile, schemaFile };
+  return {
+    rt,
+    workRoot,
+    countFile,
+    canary: fakeCanary,
+    promptFile,
+    schemaFile,
+    argsFile,
+    homeFile,
+    strictHome,
+  };
 }
 
 function readCount(countFile: string): number {
@@ -156,6 +178,7 @@ function readCount(countFile: string): number {
 
 afterEach(() => {
   for (const key of FAKE_KEYS) delete process.env[key];
+  delete process.env.FDE_GYM_CODEX_HOME;
   for (const dir of tempRoots) {
     try {
       rmSync(dir, { recursive: true, force: true });
@@ -271,6 +294,41 @@ describe("CodexAgentRuntime — contract (fake executable)", () => {
     ).rejects.toMatchObject({ code: AGENT_INPUT_INVALID });
     expect(readCount(countFile)).toBe(0);
   });
+
+  it("rejects an enabled MCP before spawning the role model", async () => {
+    const { rt, countFile } = makeRuntime("valid");
+    process.env.FAKE_MCP_MODE = "enabled";
+    await expect(rt.invoke("customer", customerInput(), invokeOptions())).rejects.toMatchObject({
+      code: "CODEX_STRICT_MODE_UNSAFE",
+    });
+    expect(readCount(countFile)).toBe(0);
+  });
+
+  it("uses the shared strict args and dedicated CODEX_HOME", async () => {
+    const { rt, argsFile, homeFile, strictHome } = makeRuntime("valid");
+    await rt.invoke("customer", customerInput(), invokeOptions());
+    const args = JSON.parse(readFileSync(argsFile, "utf8")) as string[];
+    expect(args).toContain("--ignore-rules");
+    expect(args).not.toContain("mcp_servers.node_repl.enabled=false");
+    expect(readFileSync(homeFile, "utf8")).toBe(strictHome);
+  });
+
+  it("treats a nonzero Codex exit as a terminal process error", async () => {
+    const { rt, countFile } = makeRuntime("exit");
+    await expect(rt.invoke("customer", customerInput(), invokeOptions())).rejects.toMatchObject({
+      code: "AGENT_PROCESS_ERROR",
+    });
+    expect(readCount(countFile)).toBe(1);
+  });
+
+  it("enforces the runtime timeout as a hard ceiling", async () => {
+    const { rt } = makeRuntime("valid", { sleepMs: 60_000, timeoutMs: 300 });
+    const started = Date.now();
+    await expect(rt.invoke("customer", customerInput(), invokeOptions())).rejects.toMatchObject({
+      code: AGENT_TIMEOUT,
+    });
+    expect(Date.now() - started).toBeLessThan(2_000);
+  }, 10_000);
 });
 
 describe("FixtureAgentRuntime", () => {

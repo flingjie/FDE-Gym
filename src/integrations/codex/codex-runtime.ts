@@ -9,6 +9,7 @@ import { roleInputSchema } from "../../security/context-firewall.js";
 import {
   AGENT_INPUT_INVALID,
   AGENT_OUTPUT_MALFORMED,
+  AGENT_PROCESS_ERROR,
   AGENT_SPAWN_ERROR,
   AGENT_TIMEOUT,
   LEAK_GUARD_TRIGGERED,
@@ -16,7 +17,12 @@ import {
   sanitizeAgentResult,
 } from "../../security/sanitizer.js";
 import { runCodex } from "./codex-process.js";
-import { sanitizeChildEnv } from "./capability-probe.js";
+import {
+  buildStrictChildEnv,
+  buildStrictExecArgs,
+  inspectStrictMcpInventory,
+  resolveStrictCodexHome,
+} from "./strict-policy.js";
 
 /**
  * FDE Gym — real Codex agent runtime.
@@ -71,8 +77,6 @@ type AttemptResult<TOutput> =
   | { outcome: "leak" }
   | { outcome: "terminal"; error: AgentRuntimeError };
 
-const DISABLE_TOOLS = ["--disable", "shell_tool", "--disable", "unified_exec"];
-
 export class CodexAgentRuntime implements AgentRuntime {
   private readonly executable: string;
   private readonly workRoot: string;
@@ -106,11 +110,34 @@ export class CodexAgentRuntime implements AgentRuntime {
       throw new AgentRuntimeError(AGENT_INPUT_INVALID, `invalid ${role} input`);
     }
 
-    const first = await this.runOnce(role, options, false);
+    // Strict-mode preflight: resolve the dedicated home and reject any enabled
+    // MCP server before the first model attempt.
+    const effectiveTimeoutMs = Math.min(this.timeoutMs, options.timeoutMs);
+    const strictHome = resolveStrictCodexHome(process.env);
+    const childEnv = buildStrictChildEnv(process.env, strictHome, this.envExtraAllow);
+    const inventory = await inspectStrictMcpInventory({
+      executable: this.executable,
+      env: childEnv,
+      timeoutMs: effectiveTimeoutMs,
+    });
+    if (!inventory.safe) {
+      throw new AgentRuntimeError(
+        "CODEX_STRICT_MODE_UNSAFE",
+        "Codex strict-mode policy is unsafe",
+      );
+    }
+
+    const first = await this.runOnce(role, options, false, childEnv, effectiveTimeoutMs);
     if (first.outcome === "ok") return first.result;
     if (first.outcome === "terminal") throw first.error;
 
-    const second = await this.runOnce(role, options, first.outcome === "malformed");
+    const second = await this.runOnce(
+      role,
+      options,
+      first.outcome === "malformed",
+      childEnv,
+      effectiveTimeoutMs,
+    );
     if (second.outcome === "ok") return second.result;
     if (second.outcome === "terminal") throw second.error;
     if (second.outcome === "leak") {
@@ -129,6 +156,8 @@ export class CodexAgentRuntime implements AgentRuntime {
     role: AgentRole,
     options: AgentInvokeOptions<TOutput>,
     repair: boolean,
+    childEnv: NodeJS.ProcessEnv,
+    effectiveTimeoutMs: number,
   ): Promise<AttemptResult<TOutput>> {
     const workdir = join(this.workRoot, `${role}-${randomUUID()}`);
     mkdirSync(workdir, { recursive: true });
@@ -141,25 +170,10 @@ export class CodexAgentRuntime implements AgentRuntime {
       const jsonSchema = z.toJSONSchema(options.outputSchema);
       writeFileSync(schemaFile, JSON.stringify(jsonSchema), "utf8");
 
-      const args = [
-        "exec",
-        "--json",
-        "--ephemeral",
-        "--skip-git-repo-check",
-        "--sandbox",
-        "read-only",
-        "--color",
-        "never",
-        "-C",
-        workdir,
-        ...DISABLE_TOOLS,
-        "--output-schema",
-        schemaFile,
-        "-o",
-        outFile,
-        ...(this.model ? ["-m", this.model] : []),
-        "-",
-      ];
+      const args = buildStrictExecArgs(workdir, {
+        model: this.model,
+        extra: ["--output-schema", schemaFile, "-o", outFile],
+      });
 
       // The rendered role prompt is the prompt; a structural repair suffix is
       // added only on the second attempt.
@@ -171,8 +185,8 @@ export class CodexAgentRuntime implements AgentRuntime {
         args,
         stdin: prompt,
         cwd: workdir,
-        env: sanitizeChildEnv(process.env, this.envExtraAllow),
-        timeoutMs: options.timeoutMs,
+        env: childEnv,
+        timeoutMs: effectiveTimeoutMs,
       });
 
       if (run.timedOut) {
@@ -185,6 +199,12 @@ export class CodexAgentRuntime implements AgentRuntime {
         return {
           outcome: "terminal",
           error: new AgentRuntimeError(AGENT_SPAWN_ERROR, `failed to spawn Codex for ${role}`),
+        };
+      }
+      if (run.exitCode !== 0) {
+        return {
+          outcome: "terminal",
+          error: new AgentRuntimeError(AGENT_PROCESS_ERROR, `${role} invocation failed`),
         };
       }
 
