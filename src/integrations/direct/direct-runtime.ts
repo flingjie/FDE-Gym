@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { AgentRole } from "../../core/domain.js";
 import {
   AgentRuntimeError,
@@ -116,6 +117,11 @@ export class DirectModelRuntime implements AgentRuntime {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
+    // `json_object` only guarantees valid JSON, not the exact shape. The Codex
+    // path enforces the shape with `--output-schema`; the direct path has no
+    // such flag, so it must hand the model the schema in a system message.
+    const jsonSchema = z.toJSONSchema(options.outputSchema);
+
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -126,7 +132,15 @@ export class DirectModelRuntime implements AgentRuntime {
         },
         body: JSON.stringify({
           model: this.model,
-          messages: [{ role: "user", content: options.prompt }],
+          messages: [
+            {
+              role: "system",
+              content:
+                "Respond with a single JSON object that matches this JSON Schema (no prose, no markdown fences):\n" +
+                JSON.stringify(jsonSchema),
+            },
+            { role: "user", content: options.prompt },
+          ],
           response_format: { type: "json_object" },
         }),
         signal: controller.signal,

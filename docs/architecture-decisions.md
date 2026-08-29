@@ -71,9 +71,11 @@ already does) is sufficient for structured output.
 **Negative / trade-offs**
 
 - **No strict `json_schema` upstream.** Schema validation must stay client-side
-  (Zod), which it already does. The model can still emit extra keys or prose; the
-  sanitizer/`tryExtractJson` handles that, but it is not a hard server-side
-  guarantee.
+  (Zod), which it already does. The direct runtime therefore injects the output
+  JSON Schema into a system message (the analog of `--output-schema`); without
+  it the model omits required fields, since `json_object` only guarantees valid
+  JSON, not the shape. Extra keys/prose are still handled by `tryExtractJson` +
+  the sanitizer, but it is not a hard server-side guarantee.
 - **Auth/config.** A direct call needs the model endpoint + any token. The local
   cc-switch proxy needs none today, but a different deployment would need the
   operator to supply `baseUrl`/`model`/`apiKey`. This is the one item that
@@ -88,9 +90,11 @@ already does) is sufficient for structured output.
 
 1. (Done) `DirectModelRuntime` in `src/integrations/direct/direct-runtime.ts`.
 2. (Done) Contract test in `tests/contracts/direct-runtime.test.ts`.
-3. (Pending) Select the runtime at the CLI (`src/cli/main.ts:167`) via an
-   env/flag — e.g. `FDE_GYM_MODEL_BASE_URL`/`FDE_GYM_MODEL` opting into the direct
-   route, with `CodexAgentRuntime` as the fallback when unset.
+3. (Done) `resolveDefaultRuntime` in `src/cli/main.ts` now prefers the direct
+   route: it reads `FDE_GYM_MODEL_BASE_URL`/`FDE_GYM_MODEL` (env) or the
+   `~/.codex/config.toml` `model` + the custom provider's `base_url`, and falls
+   back to `CodexAgentRuntime` only when neither yields an endpoint. Config
+   resolution is in `src/integrations/direct/config.ts`.
 4. (Pending) A full-flow test driving `ask`/`frame`/`review` with the fake
    chat-completions server, complementing the existing `FixtureAgentRuntime`
    journey in `tests/e2e/cli-flow.test.ts`.

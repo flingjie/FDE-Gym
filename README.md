@@ -44,6 +44,17 @@ npm ci          # or `npm install` to (re)build the lockfile
 npm run build
 ```
 
+## Runtime route (direct by default)
+
+Role execution (Customer / Evidence Tracker / Coach) uses a **direct
+chat-completions call** to the model endpoint by default, not the Codex CLI. The
+endpoint is resolved from `FDE_GYM_MODEL_BASE_URL` + `FDE_GYM_MODEL`, or
+otherwise read from `~/.codex/config.toml` (`model` + the custom provider's
+`base_url`). When no endpoint is discoverable, FDE Gym falls back to the Codex
+CLI (`codex exec`, gated by `doctor`). The Codex CLI remains the learner-facing
+front end (the repo-local Skill) and the target of `doctor`. See
+`docs/architecture-decisions.md` (ADR-0001).
+
 ## Install the Codex Skill (repo-local)
 
 ```bash

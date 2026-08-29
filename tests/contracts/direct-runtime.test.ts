@@ -171,7 +171,7 @@ describe("DirectModelRuntime — contract (fake chat-completions endpoint)", () 
     expect(res.modelId).toBe("deepseek-v4-pro");
   });
 
-  it("sends json_object response_format and the role prompt as a user message", async () => {
+  it("sends json_object response_format, the output schema, and the role prompt", async () => {
     const server = await startServer(() => ({ content: VALID_CUSTOMER }));
     servers.push(server);
     const rt = makeRuntime(server);
@@ -179,9 +179,12 @@ describe("DirectModelRuntime — contract (fake chat-completions endpoint)", () 
     const body = server.lastBody();
     expect(body?.response_format).toEqual({ type: "json_object" });
     const messages = body?.messages as Array<{ role: string; content: string }>;
-    expect(messages[0].role).toBe("user");
-    expect(messages[0].content).toContain("CUSTOMER ROLE");
-    expect(messages[0].content).toContain("<UNTRUSTED_LEARNER_INPUT>");
+    expect(messages[0].role).toBe("system");
+    expect(messages[0].content).toContain("JSON Schema");
+    expect(messages[0].content).toContain("stakeholderId");
+    expect(messages[1].role).toBe("user");
+    expect(messages[1].content).toContain("CUSTOMER ROLE");
+    expect(messages[1].content).toContain("<UNTRUSTED_LEARNER_INPUT>");
   });
 
   it("triggers the leak guard on a canary in the raw content (no canary in error)", async () => {

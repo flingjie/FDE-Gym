@@ -6,6 +6,9 @@ import { parseArgs } from "node:util";
 
 import { CodexAgentRuntime } from "../integrations/codex/codex-runtime.js";
 import { installSkillCommand } from "../integrations/codex/install-skill.js";
+import { DirectModelRuntime } from "../integrations/direct/direct-runtime.js";
+import { resolveDirectModelConfig } from "../integrations/direct/config.js";
+import type { AgentRuntime } from "../agents/agent-runtime.js";
 import { LocaleSchema, type Locale } from "../core/domain.js";
 import {
   askCommand,
@@ -73,6 +76,18 @@ function resolveDefaultCodex(): string {
     if (candidate && candidate.length > 0) return candidate;
   }
   return "codex";
+}
+
+/**
+ * Prefer the direct chat-completions runtime (the "model-as-a-function" path),
+ * falling back to the Codex CLI only when no model endpoint is discoverable
+ * (see ADR-0001). The `doctor` command still probes Codex directly and is
+ * unaffected by this choice.
+ */
+function resolveDefaultRuntime(): AgentRuntime {
+  const direct = resolveDirectModelConfig();
+  if (direct) return new DirectModelRuntime(direct);
+  return new CodexAgentRuntime({ executable: resolveDefaultCodex() });
 }
 
 function readStdinJson(): unknown {
@@ -164,7 +179,7 @@ async function main(): Promise<void> {
   const flags = parsed.values as Record<string, string | boolean | undefined>;
 
   const locale = parseLocale(flags.locale);
-  const runtime = new CodexAgentRuntime({ executable: resolveDefaultCodex() });
+  const runtime = resolveDefaultRuntime();
   const ctx: CommandContext = {
     runtime,
     baseDir: typeof flags["base-dir"] === "string" ? flags["base-dir"] : undefined,
