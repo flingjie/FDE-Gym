@@ -92,6 +92,28 @@ the aggregate or a capsule. Three properties make it fail-closed:
 against the role's strict output schema after stripping prohibited keys and
 scanning for canaries (see `docs/security-model.md`).
 
+## The dedicated strict home + per-invocation preflight
+
+Strict role execution does **not** run against the user's normal `~/.codex`
+home. Both the runtime and the `doctor` probe resolve a dedicated
+`FDE_GYM_CODEX_HOME` (absolute, existing, readable) through the shared
+`src/integrations/codex/strict-policy.ts` and:
+
+1. build the child environment from that dedicated home (`CODEX_HOME` is
+   overridden to the strict home, while parent secrets are still dropped by the
+   allowlist sanitizer);
+2. inspect the complete MCP inventory (`codex mcp list --json`) **before** the
+   first model invocation, and fail closed (`MCP_SERVERS_ENABLED` /
+   `MCP_INVENTORY_FAILED`) if any server is enabled;
+3. run every model invocation through one shared argument policy —
+   `exec --json --ephemeral --skip-git-repo-check --sandbox read-only --color
+   never --ignore-rules -C <workdir> --disable shell_tool --disable unified_exec
+   -m <model> -` — so the runtime and the probe never drift apart.
+
+The dedicated home exists only to carry the minimum provider/auth configuration.
+FDE Gym never copies, prints, or migrates provider credentials or the user's
+normal home, and it never names or disables a specific MCP server.
+
 ## The event-sourced store (hash chain + determinism)
 
 `src/core/event-store.ts` persists runs as an append-only JSONL

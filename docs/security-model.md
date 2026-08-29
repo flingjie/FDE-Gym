@@ -77,12 +77,18 @@ surfacing. `projectReplay` reuses the same discipline for the learner replay.
 
 The compiler injects a deterministic, content-independent canary (SHA-256 of a
 seed + role tag) into each hidden capsule. The Codex runtime runs every role
-invocation with `--ephemeral` and tools disabled (`--disable shell_tool
---disable unified_exec`), in a fresh role-scoped `-C` workdir, with a
-sanitized child environment (explicit allowlist — the parent's environment
-secrets are structurally excluded). The `doctor` probe verifies, against the
-real Codex client, that a role cannot read files or reveal environment
-canaries (`toolsDisabled`, `parentCanaryIsolated`, `childCanaryContained`).
+invocation with `--ephemeral`, `--ignore-rules`, and tools disabled
+(`--disable shell_tool --disable unified_exec`), in a fresh role-scoped `-C`
+workdir, with a sanitized child environment (explicit allowlist — the parent's
+environment secrets are structurally excluded). It runs against a **dedicated
+strict home** (`FDE_GYM_CODEX_HOME`), never the user's normal `~/.codex`, and it
+inspects the MCP inventory (`codex mcp list --json`) **before** each invocation,
+refusing to run if any MCP server is enabled. The `doctor` probe verifies,
+against the real Codex client, that a role cannot read files or reveal
+environment canaries (`toolsDisabled`, `parentCanaryIsolated`,
+`childCanaryContained`), and it treats a probe invocation that fails to complete
+(non-zero exit, timeout, spawn error) as unsafe — an absence of canary data is
+meaningful only when the invocation itself succeeded.
 
 ## Skill boundary (repo-local)
 

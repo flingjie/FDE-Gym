@@ -185,3 +185,22 @@ nested `item.type === "reasoning"` events, and `extractAgentMessage` only reads
 arg), separate stdout/stderr capture, per-invocation timeout + `SIGKILL` abort,
 sanitized child env. No shell interpolation anywhere. This exact contract is
 reused by the real `CodexAgentRuntime` in Task 6.
+
+## 11. Fail-closed probe failures (stable codes)
+
+The probe fails closed: a gate boolean is `true` only when its invocation
+completed successfully (`spawnError === null`, not timed out, `exitCode === 0`).
+The stable `failures` codes are:
+
+| Code | Meaning |
+|---|---|
+| `STRICT_HOME_REQUIRED` / `STRICT_HOME_INVALID` | `FDE_GYM_CODEX_HOME` is unset, or not an absolute, existing, readable directory. |
+| `MCP_SERVERS_ENABLED` / `MCP_INVENTORY_FAILED` | the strict home has an enabled MCP server, or its inventory could not be read. |
+| `ROLE_INVOCATION_FAILED` | a role invocation did not complete. |
+| `ENVIRONMENT_PROBE_FAILED` | the environment-reveal invocation did not complete. |
+| `STRUCTURED_OUTPUT_INVOCATION_FAILED` / `STRUCTURED_OUTPUT_INVALID` | the structured invocation did not complete, or completed but produced invalid output. |
+| `TOOL_ISOLATION_PROBE_FAILED` | the tool-isolation invocation did not complete. |
+
+The rule: an absence of canary data is meaningful only when the gate invocation
+itself completed successfully. A failed or timed-out probe is recorded as a
+failure code and treated as unsafe — never as evidence of isolation.

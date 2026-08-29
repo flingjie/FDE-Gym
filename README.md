@@ -16,6 +16,26 @@ learner boundaries.
 - **Node.js ≥ 22** (`engines.node` is `>=22`).
 - The **`codex` CLI** on `PATH`, at `~/.local/bin/codex`, or via `$CODEX_BIN`.
   Verify with `fde-gym doctor` (below).
+- A **dedicated strict home** (`FDE_GYM_CODEX_HOME`) for strict role execution
+  (see below).
+
+### Dedicated strict home (`FDE_GYM_CODEX_HOME`)
+
+Strict role execution requires a dedicated, **absolute** Codex home that holds
+the provider/auth configuration but **no enabled MCP server**. Provision it once:
+
+```bash
+export FDE_GYM_CODEX_HOME="$HOME/.codex-fde-gym"
+mkdir -p "$FDE_GYM_CODEX_HOME"
+CODEX_HOME="$FDE_GYM_CODEX_HOME" codex login
+CODEX_HOME="$FDE_GYM_CODEX_HOME" codex mcp list --json
+fde-gym doctor --require-safe
+```
+
+FDE Gym never copies, prints, or migrates your provider credentials or your
+normal `~/.codex`; you place only the minimum provider/auth configuration in
+the dedicated home yourself. Any **enabled** MCP entry in that home makes strict
+mode unsafe, so leave it free of MCP servers.
 
 ## Install
 
@@ -47,12 +67,16 @@ npm run release:gate              # npm ci → typecheck → build → test → 
 `doctor` probes the real Codex CLI and reports a `safeForStrictMode` boolean
 plus seven gate booleans (`localCommandExecution`, `freshContext`,
 `distinctRoleSessions`, `structuredOutput`, `toolsDisabled`,
-`parentCanaryIsolated`, `childCanaryContained`). A strict run must only start
-when `safeForStrictMode` is `true`; `doctor --require-safe` (and the
-`doctor:strict` npm script) turns that requirement into an executable gate that
-exits non-zero with the stable code `CODEX_STRICT_MODE_UNSAFE` when the probe
-does not pass. `npm run release:gate` runs the full chain and stops at the
-first failure — a failing live doctor is a failed release, never a warning.
+`parentCanaryIsolated`, `childCanaryContained`). The probe first verifies the
+dedicated strict home and its MCP inventory — an unset/invalid
+`FDE_GYM_CODEX_HOME` or any enabled MCP server reports `STRICT_HOME_REQUIRED`,
+`STRICT_HOME_INVALID`, `MCP_SERVERS_ENABLED`, or `MCP_INVENTORY_FAILED` and
+fails the gate before any model invocation. A strict run must only start when
+`safeForStrictMode` is `true`; `doctor --require-safe` (and the `doctor:strict`
+npm script) turns that requirement into an executable gate that exits non-zero
+with the stable code `CODEX_STRICT_MODE_UNSAFE` when the probe does not pass.
+`npm run release:gate` runs the full chain and stops at the first failure — a
+failing live doctor is a failed release, never a warning.
 
 ## Determinism and release status
 
@@ -135,10 +159,10 @@ Failures return `{ ok: false, code, message, nextActions }`. Common codes:
 | `INVALID_RETRY_FOCUS` | retry needs 2–3 focus summaries. |
 | `HINT_UNKNOWN_TOPIC` / `HINT_NO_DOWNGRADE` / `HINT_EXHAUSTED` | hint-ladder misuse. |
 | `LEAK_GUARD_TRIGGERED` | a role output failed the leak guard. |
-| `AGENT_TIMEOUT` / `AGENT_SPAWN_ERROR` / `AGENT_OUTPUT_*` / `AGENT_INPUT_INVALID` | role-runtime failures. |
+| `AGENT_TIMEOUT` / `AGENT_SPAWN_ERROR` / `AGENT_PROCESS_ERROR` / `AGENT_OUTPUT_*` / `AGENT_INPUT_INVALID` | role-runtime failures. |
 | `SCENARIO_NOT_FOUND` | unknown scenario id. |
 | `SKILL_SOURCE_MISSING` / `SKILL_EXISTS_UNRELATED` | Skill install problems. |
-| `CODEX_STRICT_MODE_UNSAFE` | `doctor --require-safe`: the live Codex probe did not return `safeForStrictMode: true`. |
+| `CODEX_STRICT_MODE_UNSAFE` | `doctor --require-safe`: the live Codex probe did not return `safeForStrictMode: true` (missing/invalid strict home, or an enabled MCP server). |
 
 ## Security boundary (read this)
 

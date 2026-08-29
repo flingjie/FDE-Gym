@@ -202,6 +202,12 @@ describe("Codex Skill smoke", () => {
     expect(localize("MISSING_ARGUMENT", "zh-CN").message).not.toBe(
       localize("MISSING_ARGUMENT", "en-US").message,
     );
+    expect(localize("AGENT_PROCESS_ERROR", "zh-CN").message).not.toBe(
+      localize("AGENT_PROCESS_ERROR", "en-US").message,
+    );
+    expect(localize("CODEX_STRICT_MODE_UNSAFE", "en-US").nextActions.join(" ")).toContain(
+      "FDE_GYM_CODEX_HOME",
+    );
   });
 
   it("produces locale-correct envelopes through the command layer (FixtureAgentRuntime)", async () => {

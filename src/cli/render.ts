@@ -298,6 +298,17 @@ const ERROR_TABLE: LocalizedError[] = [
     },
   },
   {
+    code: "AGENT_PROCESS_ERROR",
+    "zh-CN": {
+      message: "角色运行进程失败。",
+      nextActions: ["运行 `fde-gym doctor` 检查 Codex 严格模式配置。"],
+    },
+    "en-US": {
+      message: "The role runtime process failed.",
+      nextActions: ["Run `fde-gym doctor` to check the Codex strict-mode configuration."],
+    },
+  },
+  {
     code: "AGENT_OUTPUT_INVALID",
     "zh-CN": {
       message: "角色输出未通过结构校验。",
@@ -389,11 +400,19 @@ const ERROR_TABLE: LocalizedError[] = [
     code: "CODEX_STRICT_MODE_UNSAFE",
     "zh-CN": {
       message: "当前 Codex 客户端未通过严格模式安全探测。",
-      nextActions: ["运行 `fde-gym doctor` 查看完整探测报告。", "更换或修复 Codex 客户端后重试。"],
+      nextActions: [
+        "设置绝对路径的 `FDE_GYM_CODEX_HOME` 指向专用 Codex 主目录。",
+        "在该专用主目录中移除所有已启用的 MCP 服务器。",
+        "运行 `fde-gym doctor` 查看完整探测报告。",
+      ],
     },
     "en-US": {
       message: "The Codex client did not pass the strict-mode safety probe.",
-      nextActions: ["Run `fde-gym doctor` to inspect the full probe report.", "Replace or repair the Codex client and retry."],
+      nextActions: [
+        "Set an absolute `FDE_GYM_CODEX_HOME` pointing at a dedicated Codex home.",
+        "Remove every enabled MCP server from that dedicated home.",
+        "Run `fde-gym doctor` to inspect the full probe report.",
+      ],
     },
   },
 ];
