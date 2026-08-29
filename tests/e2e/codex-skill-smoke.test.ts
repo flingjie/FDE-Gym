@@ -252,7 +252,9 @@ describe("Codex Skill smoke", () => {
 
   it.skipIf(!hasDist)("real CLI: doctor --require-safe gates the release exit code (built binary)", () => {
     const home = tmp();
-    const env = { ...process.env, FDE_GYM_HOME: join(home, "store") };
+    const strictHome = join(home, "strict-home");
+    mkdirSync(strictHome, { recursive: true });
+    const env = { ...process.env, FDE_GYM_HOME: join(home, "store"), FDE_GYM_CODEX_HOME: strictHome };
     const missingCodex = join(home, "no-such-codex");
 
     // A safe probe: both diagnostic and strict modes exit 0.

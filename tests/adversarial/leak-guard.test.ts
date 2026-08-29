@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -238,7 +238,10 @@ describe("leak guard — CodexAgentRuntime stdout/stderr scan", () => {
   function makeRuntime(mode: string) {
     const workRoot = mkdtempSync(join(tmpdir(), "fde-leak-rt-"));
     const countFile = join(workRoot, "count.txt");
+    const strictHome = join(workRoot, "strict-home");
+    mkdirSync(strictHome, { recursive: true });
     tempRoots.push(workRoot);
+    process.env.FDE_GYM_CODEX_HOME = strictHome;
     process.env.FAKE_RUNTIME_MODE = mode;
     process.env.FAKE_RUNTIME_CANARY = CUSTOMER_CANARY;
     process.env.FAKE_RUNTIME_COUNT_FILE = countFile;
@@ -255,6 +258,7 @@ describe("leak guard — CodexAgentRuntime stdout/stderr scan", () => {
 
   afterEach(() => {
     for (const key of FAKE_KEYS) delete process.env[key];
+    delete process.env.FDE_GYM_CODEX_HOME;
     for (const dir of tempRoots) {
       try {
         rmSync(dir, { recursive: true, force: true });
