@@ -17,9 +17,12 @@ Exactly three logical model roles exist (`AGENT_ROLES`):
 | `coach_evaluator` | `locale`, the public brief/proposal/pitch/challenge responses/graph/transcript/hint ledger, plus the **evaluator capsule** (for the active task: `hint` → hint ladders; `brief-validation` → brief+graph+transcript; `final-review` → brief+proposal+pitch+responses+graph+transcript+hint ledger). | The customer capsule (hidden facts, stakeholders, disclosure units), the learner's score/profile, ground truth. |
 
 Each role runs through the same `AgentRuntime` interface
-(`invoke(role, input, { freshContext, tools: "disabled", outputSchema })`), with
-a fresh, ephemeral, non-resumed session per invocation and tools disabled
-(`--disable shell_tool --disable unified_exec`).
+(`invoke(role, input, { freshContext, tools: "disabled", outputSchema })`). Two
+implementations exist: `DirectModelRuntime` (the default — one structured
+chat-completions call with **no tools at all**) and `CodexAgentRuntime` (the
+fallback — a fresh, ephemeral, non-resumed `codex exec` session with tools
+disabled via `--disable shell_tool --disable unified_exec`). See
+`docs/architecture-decisions.md` (ADR-0001).
 
 ## The three scenario partitions
 
@@ -92,10 +95,10 @@ the aggregate or a capsule. Three properties make it fail-closed:
 against the role's strict output schema after stripping prohibited keys and
 scanning for canaries (see `docs/security-model.md`).
 
-## The dedicated strict home + per-invocation preflight
+## The dedicated strict home + per-invocation preflight (Codex fallback)
 
-Strict role execution does **not** run against the user's normal `~/.codex`
-home. Both the runtime and the `doctor` probe resolve a dedicated
+The **Codex fallback runtime** does **not** run against the user's normal
+`~/.codex` home. Both it and the `doctor` probe resolve a dedicated
 `FDE_GYM_CODEX_HOME` (absolute, existing, readable) through the shared
 `src/integrations/codex/strict-policy.ts` and:
 

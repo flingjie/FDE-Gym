@@ -76,7 +76,10 @@ surfacing. `projectReplay` reuses the same discipline for the learner replay.
 ## Canary isolation
 
 The compiler injects a deterministic, content-independent canary (SHA-256 of a
-seed + role tag) into each hidden capsule. The Codex runtime runs every role
+seed + role tag) into each hidden capsule. By default roles run through
+`DirectModelRuntime` — a single structured chat-completions call with **no
+tools, no MCP, and no session** — so there is no filesystem/shell surface for a
+canary to leak through. The **Codex fallback runtime** runs every role
 invocation with `--ephemeral`, `--ignore-rules`, and tools disabled
 (`--disable shell_tool --disable unified_exec`), in a fresh role-scoped `-C`
 workdir, with a sanitized child environment (explicit allowlist — the parent's

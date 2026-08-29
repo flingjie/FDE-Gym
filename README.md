@@ -1,7 +1,7 @@
 # FDE Gym
 
 A bilingual (**zh-CN default**, **en-US** selectable) Forward-Deployed Engineering
-(FDE) capability-training product driven through the ChatGPT **Codex CLI**.
+(FDE) capability-training product with a **Codex Skill front end**.
 
 FDE Gym runs three isolated model roles — a **Customer**, an **Evidence
 Tracker**, and a **Coach/Evaluator** — behind a strict context firewall, and
@@ -14,15 +14,17 @@ learner boundaries.
 ## Prerequisites
 
 - **Node.js ≥ 22** (`engines.node` is `>=22`).
-- The **`codex` CLI** on `PATH`, at `~/.local/bin/codex`, or via `$CODEX_BIN`.
-  Verify with `fde-gym doctor` (below).
-- A **dedicated strict home** (`FDE_GYM_CODEX_HOME`) for strict role execution
-  (see below).
+- A **model endpoint** for the direct runtime: either set `FDE_GYM_MODEL_BASE_URL`
+  + `FDE_GYM_MODEL`, or rely on `~/.codex/config.toml` (see "Runtime route" below).
+- The **`codex` CLI** — for the learner-facing Skill, `doctor`, and the fallback
+  runtime — on `PATH`, at `~/.local/bin/codex`, or via `$CODEX_BIN`.
 
-### Dedicated strict home (`FDE_GYM_CODEX_HOME`)
+### Dedicated strict home (`FDE_GYM_CODEX_HOME`) — fallback only
 
-Strict role execution requires a dedicated, **absolute** Codex home that holds
-the provider/auth configuration but **no enabled MCP server**. Provision it once:
+The **Codex fallback runtime** (used only when no direct model endpoint is
+discoverable) requires a dedicated, **absolute** Codex home that holds the
+provider/auth configuration but **no enabled MCP server**. The direct runtime
+does **not** need it. Provision it once if you rely on the fallback:
 
 ```bash
 export FDE_GYM_CODEX_HOME="$HOME/.codex-fde-gym"
@@ -75,8 +77,10 @@ fde-gym doctor --require-safe     # release gate: exit non-zero unless safeForSt
 npm run release:gate              # npm ci → typecheck → build → test → doctor:strict, stops on first failure
 ```
 
-`doctor` probes the real Codex CLI and reports a `safeForStrictMode` boolean
-plus seven gate booleans (`localCommandExecution`, `freshContext`,
+`doctor` verifies the **Codex** path only — the learner-facing Skill and the
+fallback runtime. The direct runtime does not go through Codex and needs no
+`doctor` gate. It probes the real Codex CLI and reports a `safeForStrictMode`
+boolean plus seven gate booleans (`localCommandExecution`, `freshContext`,
 `distinctRoleSessions`, `structuredOutput`, `toolsDisabled`,
 `parentCanaryIsolated`, `childCanaryContained`). The probe first verifies the
 dedicated strict home and its MCP inventory — an unset/invalid
