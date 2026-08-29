@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 2,
+  "id": "export-freight-forwarding",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "digest": "8094a00412fe8004b64a95c0f1206fa26e05ccf1cb8b83ea328bb3cd7949ae07",
+  "artifacts": [
+    {
+      "path": "public.json",
+      "sha256": "8d16e0a6664edff87c6427ef4bcd282fb233a25086ad42dd361a57e2e2e0184c",
+      "bytes": 3362,
+      "schemaVersion": 1
+    },
+    {
+      "path": "customer.json",
+      "sha256": "8e23f6f806a8408b0d670e3fb377c27525768a9b89ee0729f52bd1df3d4fb35a",
+      "bytes": 13251,
+      "schemaVersion": 1
+    },
+    {
+      "path": "evaluator.json",
+      "sha256": "59f6608dee579007f785344be83a0d5dae6812733879928d63284591e5397e6e",
+      "bytes": 18463,
+      "schemaVersion": 1
+    },
+    {
+      "path": "events.json",
+      "sha256": "4e3220a021dbfcb20d3618b25d6a6a9811530fc758e7833c27497b128022bfd2",
+      "bytes": 2111,
+      "schemaVersion": 1
+    }
+  ]
+}

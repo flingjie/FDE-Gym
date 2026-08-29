@@ -1,0 +1,502 @@
+{
+  "id": "export-freight-forwarding",
+  "schemaVersion": 1,
+  "expectedEvidence": [
+    {
+      "id": "ev-workflow",
+      "category": "workflow",
+      "description": {
+        "zh-CN": "货代工作流信息：订舱量、跨系统重复录入、制单周期",
+        "en-US": "Freight forwarding workflow: booking volume, cross-system re-keying, documentation cycle"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-001",
+        "du-002"
+      ]
+    },
+    {
+      "id": "ev-pain",
+      "category": "pain",
+      "description": {
+        "zh-CN": "货代业务痛点：单证差错率、改单成本、报价响应慢",
+        "en-US": "Freight forwarding pain points: documentation errors, amendment costs, slow quoting"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-003",
+        "du-004"
+      ]
+    },
+    {
+      "id": "ev-root-cause",
+      "category": "root-cause",
+      "description": {
+        "zh-CN": "现有系统失效根因：系统不同步、知识分散、依赖人工经验",
+        "en-US": "Root causes of current failure: unsynchronized systems, scattered knowledge, reliance on manual experience"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-005",
+        "du-006"
+      ]
+    },
+    {
+      "id": "ev-business-impact",
+      "category": "business-impact",
+      "description": {
+        "zh-CN": "业务影响：差错财务损失、可节省的人工成本",
+        "en-US": "Business impact: financial losses from errors, achievable labor savings"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-007",
+        "du-008"
+      ]
+    },
+    {
+      "id": "ev-constraints",
+      "category": "constraints",
+      "description": {
+        "zh-CN": "实施限制：敏感单证人工复核、数据不得出境",
+        "en-US": "Implementation constraints: human review for sensitive documents, no data egress"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-009",
+        "du-010"
+      ]
+    },
+    {
+      "id": "ev-success-measures",
+      "category": "success-measures",
+      "description": {
+        "zh-CN": "成功指标：差错率、制单周期、报价响应、舱位利用率",
+        "en-US": "Success metrics: error rate, documentation cycle, quote response, capacity utilization"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-011",
+        "du-012"
+      ]
+    },
+    {
+      "id": "ev-trust",
+      "category": "trust",
+      "description": {
+        "zh-CN": "信任问题：一线员工抵触、高管期望过高",
+        "en-US": "Trust issues: frontline resistance, executive overconfidence"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-013",
+        "du-014"
+      ]
+    },
+    {
+      "id": "ev-failure-modes",
+      "category": "failure-modes",
+      "description": {
+        "zh-CN": "失败模式：AI编造编码导致退单、旺季失效导致积压",
+        "en-US": "Failure modes: AI fabricating codes causing rejections, peak failure causing backlog"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-015",
+        "du-016"
+      ]
+    }
+  ],
+  "rubric": {
+    "stages": [
+      {
+        "id": "framing",
+        "label": {
+          "zh-CN": "问题定义",
+          "en-US": "Problem Framing"
+        },
+        "criteria": [
+          {
+            "id": "f-c1",
+            "label": {
+              "zh-CN": "货代问题陈述清晰度",
+              "en-US": "Freight Forwarding Problem Clarity"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "能否准确描述单证差错、报价响应慢与可视化不足的问题",
+              "en-US": "Can accurately describe the documentation-error, slow-quoting, and weak-visibility problem"
+            }
+          },
+          {
+            "id": "f-c2",
+            "label": {
+              "zh-CN": "关键利益相关者识别",
+              "en-US": "Key Stakeholder Identification"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "是否识别了运营总监、合规经理、大客户经理和CFO及其核心关切",
+              "en-US": "Has identified the operations director, compliance manager, account manager, and CFO with their core concerns"
+            }
+          },
+          {
+            "id": "f-c3",
+            "label": {
+              "zh-CN": "成功标准明确性",
+              "en-US": "Success Criteria Clarity"
+            },
+            "weight": 45,
+            "description": {
+              "zh-CN": "是否明确定义了可衡量的成功指标（差错率、周期、响应、利用率）",
+              "en-US": "Are measurable success criteria (error rate, cycle, response, utilization) clearly defined"
+            }
+          }
+        ]
+      },
+      {
+        "id": "solution",
+        "label": {
+          "zh-CN": "方案设计",
+          "en-US": "Solution Design"
+        },
+        "criteria": [
+          {
+            "id": "s-c1",
+            "label": {
+              "zh-CN": "方案完整性",
+              "en-US": "Solution Completeness"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "方案是否覆盖订舱、单证、报价、跟踪与人工复核的完整流程",
+              "en-US": "Does the solution cover booking, documentation, quoting, tracking, and human review"
+            }
+          },
+          {
+            "id": "s-c2",
+            "label": {
+              "zh-CN": "与约束的兼容性",
+              "en-US": "Constraint Compatibility"
+            },
+            "weight": 35,
+            "description": {
+              "zh-CN": "方案是否在预算、系统集成、数据不出境与八周期限内可行",
+              "en-US": "Is the solution feasible within budget, system integration, no data egress, and the eight-week timeline"
+            }
+          },
+          {
+            "id": "s-c3",
+            "label": {
+              "zh-CN": "可实施性",
+              "en-US": "Implementability"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "方案是否考虑了与TMS和报关系统的集成以及员工接受度",
+              "en-US": "Does the solution consider TMS/customs integration and staff adoption"
+            }
+          }
+        ]
+      },
+      {
+        "id": "challenge",
+        "label": {
+          "zh-CN": "挑战应对",
+          "en-US": "Challenge Response"
+        },
+        "criteria": [
+          {
+            "id": "ch-c1",
+            "label": {
+              "zh-CN": "合规挑战应对",
+              "en-US": "Compliance Challenge Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "能否有效应对受控货物、制裁筛查和数据出境的合规挑战",
+              "en-US": "Can effectively address compliance challenges around controlled goods, sanctions screening, and data egress"
+            }
+          },
+          {
+            "id": "ch-c2",
+            "label": {
+              "zh-CN": "差错与旺季韧性",
+              "en-US": "Error and Peak Resilience"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "是否提出降低编造差错并在旺季失效时优雅降级的措施",
+              "en-US": "Are measures proposed to reduce fabrication errors and degrade gracefully during peak failures"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pitch",
+        "label": {
+          "zh-CN": "方案表达",
+          "en-US": "Solution Presentation"
+        },
+        "criteria": [
+          {
+            "id": "p-c1",
+            "label": {
+              "zh-CN": "高层ROI适配",
+              "en-US": "Executive ROI Adaptation"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "是否面向CFO关注的利润率、成本与投资回报进行阐述",
+              "en-US": "Does the presentation address the CFO's margin, cost, and ROI concerns"
+            }
+          },
+          {
+            "id": "p-c2",
+            "label": {
+              "zh-CN": "清晰度和说服力",
+              "en-US": "Clarity and Persuasiveness"
+            },
+            "weight": 60,
+            "description": {
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向",
+              "en-US": "Is the presentation clear, persuasive, and action-oriented"
+            }
+          }
+        ]
+      },
+      {
+        "id": "process",
+        "label": {
+          "zh-CN": "实施流程",
+          "en-US": "Implementation Process"
+        },
+        "criteria": [
+          {
+            "id": "pr-c1",
+            "label": {
+              "zh-CN": "分阶段上线合理性",
+              "en-US": "Phased Rollout Reasonableness"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "八周试点与分阶段自动化上线计划是否合理、可实现",
+              "en-US": "Is the eight-week pilot and phased automation rollout reasonable and achievable"
+            }
+          },
+          {
+            "id": "pr-c2",
+            "label": {
+              "zh-CN": "可交付成果明确性",
+              "en-US": "Deliverable Clarity"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "每个阶段的可交付成果是否明确、可验收",
+              "en-US": "Are deliverables for each phase clearly defined and verifiable"
+            }
+          },
+          {
+            "id": "pr-c3",
+            "label": {
+              "zh-CN": "风险管理",
+              "en-US": "Risk Management"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "是否识别了关键风险并制定了缓解计划",
+              "en-US": "Are key risks identified and mitigation plans established"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "criticalContradictions": [
+    {
+      "id": "cc-001",
+      "statement": {
+        "zh-CN": "高管追求一步到位全自动制单与报关以最大化节省，而合规经理要求受控货物与制裁名单匹配必须人工复核",
+        "en-US": "Executives pursue one-step full automation of documentation and customs to maximize savings, while the compliance manager requires human review for controlled goods and sanctions screening"
+      },
+      "expectedEvidenceIds": [
+        "ev-constraints",
+        "ev-business-impact"
+      ]
+    },
+    {
+      "id": "cc-002",
+      "statement": {
+        "zh-CN": "运营希望降低单证差错并压缩制单周期，而一线单证员不信任AI、继续沿用Excel手工台账",
+        "en-US": "Operations wants lower documentation errors and shorter cycles, while frontline documentation staff distrust AI and keep manual Excel ledgers"
+      },
+      "expectedEvidenceIds": [
+        "ev-success-measures",
+        "ev-trust"
+      ]
+    }
+  ],
+  "hintLadders": [
+    {
+      "id": "hl-workflow",
+      "topic": "workflow",
+      "hints": {
+        "1": {
+          "zh-CN": "思考货代业务的起点：每月处理多少订舱？数据如何在系统间流转？",
+          "en-US": "Think about the freight forwarding starting point: how many bookings a month, and how does data move between systems?"
+        },
+        "2": {
+          "zh-CN": "关注跨系统重复录入的比例与单证制作环节数量。",
+          "en-US": "Focus on the share of cross-system re-keying and the number of documentation steps."
+        },
+        "3": {
+          "zh-CN": "关键发现：每月约4,200票订舱，65%重复录入，一份提单经过约7个手工环节。",
+          "en-US": "Key discovery: about 4,200 bookings a month, 65% re-keyed, and one bill of lading passes through about 7 manual steps."
+        }
+      }
+    },
+    {
+      "id": "hl-pain",
+      "topic": "pain",
+      "hints": {
+        "1": {
+          "zh-CN": "货代业务的主要痛点是什么？",
+          "en-US": "What are the main pain points in the freight forwarding business?"
+        },
+        "2": {
+          "zh-CN": "单证出错和报价响应慢分别带来什么成本？",
+          "en-US": "What costs do documentation errors and slow quoting each bring?"
+        },
+        "3": {
+          "zh-CN": "关键发现：差错率约4.8%，每次差错平均约280美元，旺季报价平均6小时且每月约5%客户流失。",
+          "en-US": "Key discovery: error rate about 4.8%, each error about $280, peak quotes average 6 hours, and about 5% of customers churn monthly."
+        }
+      }
+    },
+    {
+      "id": "hl-root-cause",
+      "topic": "root-cause",
+      "hints": {
+        "1": {
+          "zh-CN": "现有系统与流程的根本缺陷是什么？",
+          "en-US": "What is the fundamental defect of the current systems and process?"
+        },
+        "2": {
+          "zh-CN": "TMS与报关系统之间如何同步数据？新员工如何学会制单？",
+          "en-US": "How is data synced between the TMS and customs system? How do new staff learn documentation?"
+        },
+        "3": {
+          "zh-CN": "关键发现：系统之间没有自动同步，缺少统一知识库，新员工依赖老员工经验。",
+          "en-US": "Key discovery: systems are not automatically synced, there is no unified knowledge base, and new staff rely on veterans' experience."
+        }
+      }
+    },
+    {
+      "id": "hl-business-impact",
+      "topic": "business-impact",
+      "hints": {
+        "1": {
+          "zh-CN": "差错和低效对财务结果有什么影响？",
+          "en-US": "What impact do errors and inefficiency have on financial results?"
+        },
+        "2": {
+          "zh-CN": "自动化能带来多大的可量化节省？",
+          "en-US": "How much quantifiable savings can automation bring?"
+        },
+        "3": {
+          "zh-CN": "关键发现：每年约94万美元差错损失，自动化单证与报价可年省约38%人工成本。",
+          "en-US": "Key discovery: about $940,000 a year in error losses, and automating documentation and quoting could save about 38% of labor cost."
+        }
+      }
+    },
+    {
+      "id": "hl-constraints",
+      "topic": "constraints",
+      "hints": {
+        "1": {
+          "zh-CN": "自动化在合规与数据隐私上有哪些限制？",
+          "en-US": "What compliance and data-privacy limits constrain automation?"
+        },
+        "2": {
+          "zh-CN": "哪些单证必须人工复核？数据可以出境吗？",
+          "en-US": "Which documents require human review? Can data leave the region?"
+        },
+        "3": {
+          "zh-CN": "关键发现：受控货物、制裁名单与出口许可证单证必须人工复核，客户与舱单数据不得出境。",
+          "en-US": "Key discovery: controlled goods, sanctions, and export-license documents need human review, and customer and manifest data must not leave the region."
+        }
+      }
+    },
+    {
+      "id": "hl-success",
+      "topic": "success-measures",
+      "hints": {
+        "1": {
+          "zh-CN": "管理层希望达到什么具体指标？",
+          "en-US": "What specific metrics does management hope to achieve?"
+        },
+        "2": {
+          "zh-CN": "差错率、制单周期、报价响应和舱位利用率的目标分别是什么？",
+          "en-US": "What are the targets for error rate, documentation cycle, quote response, and capacity utilization?"
+        },
+        "3": {
+          "zh-CN": "关键发现：差错率降到1.5%以下、制单周期3天变1天、报价6小时变1小时、旺季利用率提升12%。",
+          "en-US": "Key discovery: error rate below 1.5%, documentation 3 days to 1 day, quotes 6 hours to 1 hour, and peak utilization up 12%."
+        }
+      }
+    },
+    {
+      "id": "hl-trust",
+      "topic": "trust",
+      "hints": {
+        "1": {
+          "zh-CN": "一线员工和高管对AI各持什么态度？",
+          "en-US": "What attitudes do frontline employees and executives hold toward AI?"
+        },
+        "2": {
+          "zh-CN": "一线员工为什么抵触AI？高管的期望是否现实？",
+          "en-US": "Why do frontline employees resist AI? Are executives' expectations realistic?"
+        },
+        "3": {
+          "zh-CN": "关键发现：一线员工怕丢工作并继续用Excel台账，高管期望一步到位全自动而低估合规与差错约束。",
+          "en-US": "Key discovery: frontline employees fear job loss and keep Excel ledgers, while executives expect one-step full automation and underestimate compliance and error constraints."
+        }
+      }
+    },
+    {
+      "id": "hl-failure-modes",
+      "topic": "failure-modes",
+      "hints": {
+        "1": {
+          "zh-CN": "如果AI出错或失效，最坏情况是什么？",
+          "en-US": "If the AI errs or fails, what is the worst case?"
+        },
+        "2": {
+          "zh-CN": "AI在不确定时会做什么？旺季失效会带来什么？",
+          "en-US": "What does the AI do when uncertain? What happens if it fails at peak?"
+        },
+        "3": {
+          "zh-CN": "关键发现：AI会自信编造HS编码或原产地规则导致退单；旺季失效会造成积压、延误和索赔。",
+          "en-US": "Key discovery: the AI confidently fabricates HS codes or origin rules causing rejections, and peak failure causes backlog, delays, and claims."
+        }
+      }
+    }
+  ],
+  "passGates": [
+    {
+      "id": "pg-001",
+      "description": {
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个包含合规人工复核、数据本地化和升级通道的完整方案",
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete plan with compliance human review, data localization, and an escalation path"
+      }
+    },
+    {
+      "id": "pg-002",
+      "description": {
+        "zh-CN": "在PITCH阶段，学员必须面向管理层展示可量化的ROI并化解合规与信任顾虑",
+        "en-US": "In the PITCH phase, the learner must present quantifiable ROI to leadership and address compliance and trust concerns"
+      }
+    }
+  ],
+  "canary": "7f14e8de28e5228f352896f2ac6fb381"
+}

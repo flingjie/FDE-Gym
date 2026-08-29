@@ -1,0 +1,68 @@
+{
+  "id": "export-freight-forwarding",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们设计一个基于AI的解决方案，提升出口货运代理的运营效率并降低单证差错率",
+    "en-US": "Please help us design an AI-based solution to improve our export freight forwarding efficiency and reduce documentation error rates"
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家出口货运代理公司，为客户安排海运和空运出口业务，覆盖订舱、报关、单证制作、跟踪和交付。当前业务高度依赖邮件、Excel 和人工跨系统录入，我们希望引入 AI 来减少人工操作、降低单证差错并提升货物可视化，同时满足海关与出口管制的合规要求。",
+    "en-US": "We are an export freight forwarding company that arranges ocean and air exports for customers, covering booking, customs declaration, documentation, tracking, and delivery. Operations today rely heavily on email, Excel, and manual re-keying across fragmented systems. We want to introduce AI to reduce manual effort, lower documentation errors, and improve shipment visibility while meeting customs and export-control compliance."
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "必须与现有TMS（运输管理系统）和报关系统集成",
+      "en-US": "Must integrate with the existing TMS and customs declaration system"
+    },
+    {
+      "zh-CN": "受控货物、制裁名单匹配和出口许可证相关单证必须保留人工复核",
+      "en-US": "Documents involving controlled goods, sanctions screening, and export licenses must retain human review"
+    },
+    {
+      "zh-CN": "客户及舱单数据不得发送到境外的第三方大模型",
+      "en-US": "Customer and manifest data must not be sent to offshore third-party LLMs"
+    },
+    {
+      "zh-CN": "八周试点期限，且不能影响现有在途货物的正常操作",
+      "en-US": "Eight-week pilot timeline, and it must not disrupt live shipment operations"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "完整的货代运营优化方案设计文档",
+      "en-US": "Complete freight forwarding operations optimization design document"
+    },
+    {
+      "zh-CN": "数据流图与系统架构图",
+      "en-US": "Data flow diagram and system architecture diagram"
+    },
+    {
+      "zh-CN": "风险评估与缓解措施",
+      "en-US": "Risk assessment and mitigation measures"
+    },
+    {
+      "zh-CN": "实施路线图与里程碑",
+      "en-US": "Implementation roadmap and milestones"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解货代业务现状",
+      "en-US": "You have a budget of 12 questions to understand the freight forwarding operation"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}
