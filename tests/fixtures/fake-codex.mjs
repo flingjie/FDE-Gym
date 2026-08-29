@@ -92,7 +92,28 @@ function main() {
   }
 }
 
+function invocationKind() {
+  const prompt = stdin.toLowerCase();
+  if (argv.includes("--output-schema")) return "structured";
+  if (prompt.includes("environment variable")) return "environment";
+  if (prompt.includes("scenario file")) return "tools";
+  return "role";
+}
+
 function respond() {
+  // Targeted probe-failure controls: identify the invocation kind without
+  // retaining prompt content, then fail only that specific probe.
+  const kind = invocationKind();
+  if (process.env.FAKE_FAIL_ON === kind) {
+    const mode = process.env.FAKE_FAIL_MODE ?? "exit";
+    if (mode === "timeout") {
+      setTimeout(respond, 60_000);
+      return;
+    }
+    process.stderr.write("fake-codex: targeted probe failure\n");
+    process.exit(7);
+  }
+
   const exitCode = Number(process.env.FAKE_EXIT_CODE ?? 0);
   if (exitCode !== 0) {
     process.stderr.write(`fake-codex: simulated exit ${exitCode}\n`);

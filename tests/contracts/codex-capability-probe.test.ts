@@ -20,6 +20,7 @@ const fakeCodex = fileURLToPath(new URL("../fixtures/fake-codex.mjs", import.met
 const missingCodex = fileURLToPath(new URL("../fixtures/no-such-codex", import.meta.url));
 
 let tempRoots: string[] = [];
+let strictHome: string;
 
 function makeTemp(): string {
   const dir = mkdtempSync(join(tmpdir(), "fde-probe-test-"));
@@ -31,10 +32,13 @@ beforeEach(() => {
   for (const key of Object.keys(process.env)) {
     if (key.startsWith("FAKE_")) delete process.env[key];
   }
-  delete process.env.FDE_PARENT_CANARY;
+  strictHome = makeTemp();
+  process.env.FDE_GYM_CODEX_HOME = strictHome;
 });
 
 afterEach(() => {
+  delete process.env.FDE_GYM_CODEX_HOME;
+  delete process.env.FDE_PARENT_CANARY;
   for (const dir of tempRoots) {
     try {
       rmSync(dir, { recursive: true, force: true });
@@ -217,19 +221,88 @@ describe("codex capability probe — contract (fake executable)", () => {
     const workRoot = makeTemp();
     const home = makeTemp();
     process.env.FAKE_PERSIST_SESSION = "1";
-    process.env.CODEX_HOME = home;
 
     const report = await probeCodexCapabilities({
       executable: fakeCodex,
       workRoot,
       skillDiscoveryHome: home,
-      sessionsDir: join(home, "sessions"),
+      sessionsDir: join(strictHome, "sessions"),
       timeoutMs: 10_000,
-      envExtraAllow: ["FAKE_PERSIST_SESSION", "CODEX_HOME"],
+      envExtraAllow: ["FAKE_PERSIST_SESSION"],
     });
 
     expect(report.freshContext).toBe(false);
     expect(report.failures).toContain("SESSION_PERSISTED");
+    expect(report.safeForStrictMode).toBe(false);
+  });
+
+  it("fails parent isolation when only the environment probe exits nonzero", async () => {
+    process.env.FAKE_FAIL_ON = "environment";
+    process.env.FAKE_FAIL_MODE = "exit";
+    const report = await probeCodexCapabilities({
+      executable: fakeCodex,
+      workRoot: makeTemp(),
+      sessionsDir: join(makeTemp(), "sessions"),
+      timeoutMs: 10_000,
+      envExtraAllow: ["FAKE_FAIL_ON", "FAKE_FAIL_MODE", "FAKE_MCP_MODE"],
+    });
+    expect(report.parentCanaryIsolated).toBe(false);
+    expect(report.failures).toContain("ENVIRONMENT_PROBE_FAILED");
+    expect(report.safeForStrictMode).toBe(false);
+  });
+
+  it("fails tool isolation when only the tool probe exits nonzero", async () => {
+    process.env.FAKE_FAIL_ON = "tools";
+    process.env.FAKE_FAIL_MODE = "exit";
+    const report = await probeCodexCapabilities({
+      executable: fakeCodex,
+      workRoot: makeTemp(),
+      sessionsDir: join(makeTemp(), "sessions"),
+      timeoutMs: 10_000,
+      envExtraAllow: ["FAKE_FAIL_ON", "FAKE_FAIL_MODE", "FAKE_MCP_MODE"],
+    });
+    expect(report.toolsDisabled).toBe(false);
+    expect(report.failures).toContain("TOOL_ISOLATION_PROBE_FAILED");
+    expect(report.safeForStrictMode).toBe(false);
+  });
+
+  it("does not validate stale structured output after this invocation fails", async () => {
+    const workRoot = makeTemp();
+    writeFileSync(join(workRoot, "structured-out.txt"), JSON.stringify({ result: "stale" }), "utf8");
+    process.env.FAKE_FAIL_ON = "structured";
+    process.env.FAKE_FAIL_MODE = "exit";
+    const report = await probeCodexCapabilities({
+      executable: fakeCodex,
+      workRoot,
+      sessionsDir: join(makeTemp(), "sessions"),
+      timeoutMs: 10_000,
+      cleanup: false,
+      envExtraAllow: ["FAKE_FAIL_ON", "FAKE_FAIL_MODE", "FAKE_MCP_MODE"],
+    });
+    expect(report.structuredOutput).toBe(false);
+    expect(report.failures).toContain("STRUCTURED_OUTPUT_INVOCATION_FAILED");
+    expect(report.safeForStrictMode).toBe(false);
+  });
+
+  it("does not mutate the process-wide parent canary across concurrent probes", async () => {
+    process.env.FDE_PARENT_CANARY = "ORIGINAL_PARENT_VALUE";
+    await Promise.all([
+      probeCodexCapabilities({ executable: fakeCodex, workRoot: makeTemp(), sessionsDir: join(makeTemp(), "a"), timeoutMs: 10_000 }),
+      probeCodexCapabilities({ executable: fakeCodex, workRoot: makeTemp(), sessionsDir: join(makeTemp(), "b"), timeoutMs: 10_000 }),
+    ]);
+    expect(process.env.FDE_PARENT_CANARY).toBe("ORIGINAL_PARENT_VALUE");
+  });
+
+  it("rejects an enabled MCP before model capability probes", async () => {
+    process.env.FAKE_MCP_MODE = "enabled";
+    const report = await probeCodexCapabilities({
+      executable: fakeCodex,
+      workRoot: makeTemp(),
+      sessionsDir: join(makeTemp(), "sessions"),
+      timeoutMs: 10_000,
+      envExtraAllow: ["FAKE_MCP_MODE"],
+    });
+    expect(report.failures).toContain("MCP_SERVERS_ENABLED");
     expect(report.safeForStrictMode).toBe(false);
   });
 });
