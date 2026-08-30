@@ -7,7 +7,7 @@ bounds.
 ## The Skill must never
 
 - **Role-play** the customer, the coach, or the evidence tracker. Those are
-  isolated model roles the CLI runs behind strict isolation; the Skill is not
+  isolated model roles the CLI runs in its role runtime (a single no-tools model call); the Skill is not
   one of them.
 - **Extract evidence** itself. Evidence extraction runs inside the CLI's
   role-scoped runtime; the Skill never sees the evidence graph internals.
@@ -34,6 +34,5 @@ bounds.
 
 The product's safety guarantee rests on a strict partition: the parent Codex
 conversation (this Skill) only ever sees learner-safe envelopes, while hidden
-scenario content and raw role behavior stay inside the CLI's isolated child
-processes. Any leak across that boundary — any hidden text surfaced by the
+scenario content and raw role behavior stay inside the CLI's role runtime (a single no-tools model call). Any leak across that boundary — any hidden text surfaced by the
 Skill — breaks the partition. The Skill's entire job is to never cross it.

@@ -3,7 +3,7 @@
 FDE Gym's safety guarantee is a **partition**: the learner (and the learner's
 Codex conversation, via the repo-local Skill in `.codex/skills/fde-gym/`) only
 ever sees learner-safe envelopes, while hidden scenario content and raw role
-behavior stay inside the CLI's isolated child processes. This document states
+behavior stay inside the CLI's role runtime (a single no-tools model call). This document states
 the threat model, the exact mechanisms, and — just as important — the boundary
 the product does **not** claim to cross.
 
@@ -101,8 +101,7 @@ This is a **local training product**, not a remote proctored exam:
 - A learner who can read their own disk — or attach a debugger, or set
   `FDE_GYM_HOME` to a directory they control — can see every hidden fact,
   canary, and evaluator criterion.
-- The read-only sandbox and disabled tools prevent the **model** from reading
-  files, but they cannot prevent the **human operator** from doing so.
+- The role runtime is a single no-tools model call, so the **model** has no filesystem surface — but it cannot prevent the **human operator** from reading files.
 
 Therefore: local hidden files are **NOT certification-grade anti-cheating**.
 The isolation is real and makes accidental leakage hard, but it is a

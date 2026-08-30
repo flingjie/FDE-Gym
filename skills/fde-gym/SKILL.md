@@ -40,7 +40,7 @@ surface is in references/commands.md):
    it carries). Never invent a phase, a score, or facts outside that envelope.
 4. Never role-play the customer, coach, or tracker. Never extract evidence,
    score work, or read or modify event files yourself — the CLI does all of
-   that behind strict isolation.
+   that in its isolated role runtime.
 5. On `ok: false`, show its `code`, `message`, and `nextActions`, and offer the
    learner those next actions.
 

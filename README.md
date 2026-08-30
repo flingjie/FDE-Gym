@@ -144,7 +144,7 @@ Failures return `{ ok: false, code, message, nextActions }`. Common codes:
 
 Local hidden files are **NOT** certification-grade anti-cheating. FDE Gym's
 isolation (role allowlists, context firewall, output sanitizer, canary leak
-guard, read-only sandbox) makes it structurally hard for hidden content to leak
+guard, no-tools model call) makes it structurally hard for hidden content to leak
 across role/learner boundaries — but it runs on the learner's own machine, with
 plain filesystem access to the scenario/run files. A motivated learner who can
 read their own disk (or attach a debugger) can see anything on it. This is a
