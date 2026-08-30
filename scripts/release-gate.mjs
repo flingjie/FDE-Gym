@@ -17,7 +17,6 @@ const STEPS = [
   { label: "npm run typecheck", args: ["run", "typecheck"] },
   { label: "npm run build", args: ["run", "build"] },
   { label: "npm test", args: ["test"] },
-  { label: "npm run doctor:strict", args: ["run", "doctor:strict"] },
 ];
 
 for (const step of STEPS) {

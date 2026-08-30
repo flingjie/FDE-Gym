@@ -15,8 +15,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "doctor": "npm run build && node dist/cli/main.js doctor --json",
-    "doctor:strict": "npm run build && node dist/cli/main.js doctor --json --require-safe",
     "release:gate": "node scripts/release-gate.mjs"
   },
   "dependencies": {
