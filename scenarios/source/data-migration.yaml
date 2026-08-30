@@ -457,8 +457,8 @@ evaluator:
           "zh-CN": "去找抽样里的字段缺失或不一致占比，以及每周手工核对占用的时间。"
           "en-US": "Look for the share of sampled records with missing or inconsistent fields, and how much weekly time goes to manual recon."
         "3":
-          "zh-CN": "抽样验证里有多少记录字段缺失或格式不一致？团队每周要花多少时间手工核对，还在不停发现新异常吗？"
-          "en-US": "What share of sampled records have missing fields or inconsistent formats, and how much of the week is spent reconciling by hand while new anomalies keep appearing?"
+          "zh-CN": "抽样验证里有多少记录字段缺失或格式不一致？团队每周手工核对要花多少时间，期间数据问题还会怎么冒出来？"
+          "en-US": "What share of sampled records have missing fields or inconsistent formats, and how much of the week is spent reconciling by hand — how do new data issues show up during that work?"
     - id: hl-root-cause
       topic: root-cause
       hints:
@@ -494,7 +494,7 @@ evaluator:
           "en-US": "Look for go-live window length, the allowed cutover hours, and the budget cap on tools and contract staff."
         "3":
           "zh-CN": "上线窗口还剩多久，迁移必须排在什么时段以压低停机？预算够几套工具、几名合同工程师，能不能请外部治理专家？"
-          "en-US": "How long is the go-live window, when must cutover run to keep downtime down, and does the budget cover only one tool and a handful of contractors — with no outside governance help?"
+          "en-US": "How long is the go-live window, when must cutover run to keep downtime down, how many tools and contract engineers does the budget cover, and is outside governance help in scope?"
     - id: hl-success
       topic: success-measures
       hints:
@@ -523,14 +523,14 @@ evaluator:
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "回滚来不及和字段被静默截断，哪种更可能把数据打穿？"
-          "en-US": "Which failure punches through first: a rollback that is too slow, or fields silently truncated?"
+          "zh-CN": "迟到的回滚和静默丢数据，哪种失败类型更可能把迁移打穿？"
+          "en-US": "Which failure class punches through first: a late rollback, or silent data loss?"
         "2":
-          "zh-CN": "去找回滚超时后的双写分叉，以及超长字段静默截断且现有校验不报警。"
-          "en-US": "Look for dual-write divergence after a late rollback, and silent truncation of over-length fields that current validation will not flag."
+          "zh-CN": "去找回滚超时的影响，以及超长字段是否被现有校验覆盖。"
+          "en-US": "Look for rollback-timeout effects, and whether over-length fields are caught by current validation."
         "3":
-          "zh-CN": "回滚如果不能及时生效，新旧系统同时写入会怎样？迁移中超长字段会不会被静默截断、现有校验会不会报错？"
-          "en-US": "If rollback does not take effect in time, what happens when old and new systems write together, and can over-length fields be truncated silently without validation errors?"
+          "zh-CN": "回滚如果不能及时生效，数据侧会出现什么？超长字段在迁移时会怎样处理，现有校验能不能抓住？"
+          "en-US": "If rollback does not take effect in time, what happens on the data side? What happens to over-length fields during migration, and does current validation catch them?"
   passGates:
     - id: pg-001
       description:
