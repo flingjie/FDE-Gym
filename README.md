@@ -89,6 +89,7 @@ Four claims are precise and are what the verification suite asserts:
 | `hint` | request a laddered hint (`--topic [--level 1..3]`) |
 | `frame` | DISCOVERY → PROBLEM_FRAMING |
 | `clarify` | PROBLEM_FRAMING → DISCOVERY |
+| `repair-evidence` | re-run a pending evidence extraction (`--run-id --command-id`) |
 | `submit-brief` | submit a problem brief (JSON on stdin) |
 | `submit-design` | submit a solution design + inject challenges (`[--seed n]`) |
 | `respond-challenge` | answer a challenge (JSON on stdin) |

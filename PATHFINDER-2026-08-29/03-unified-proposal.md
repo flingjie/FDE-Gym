@@ -4,6 +4,9 @@
 
 ## 提案 A：单一 Strict Codex Policy
 
+> OBSOLETE — superseded by ADR-0002 (direct-only runtime; the Codex role runtime,
+> `strict-policy.ts`, `capability-probe.ts`, and `doctor` were removed)
+
 - **组件**：`StrictCodexPolicy`
 - **单一入口**：建议放在 `src/integrations/codex/strict-policy.ts`，导出 `strictCodexArgs()` 与必要的环境策略常量。
 - **旧调用点**：

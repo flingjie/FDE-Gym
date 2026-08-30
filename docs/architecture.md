@@ -107,6 +107,19 @@ and `previousHash` chains to the prior event (empty for the first). `loadRun` /
 `loadEvents` re-verify the chain and reject a mismatch with
 `EVENT_CHAIN_INVALID`.
 
+Durable commits never call `appendEvents` directly. Every mutating command runs
+through `executeCommandTransaction` (`src/core/command-transaction.ts`) — the
+single write-ahead journal path. It writes a per-command journal
+(`runs/<run-id>/commands/<commandId>.json`) atomically *before* any event or
+effect is applied, recording the canonical request hash, the complete event
+batch, the learner-safe result snapshot, and the idempotent effects; only then
+does it append the batch through `appendEvents` (the hash-chained JSONL) and
+apply effects. This makes command-id dedup and result replay deterministic: a
+`prepared` (interrupted) journal is finished by appending its events and
+applying its effects without re-invoking a model, and a `committed` journal with
+a matching request hash returns the stored result; a different hash raises
+`COMMAND_ID_CONFLICT`.
+
 Determinism is the product's core invariant. Four claims are precise, and the
 verification suite asserts each one:
 

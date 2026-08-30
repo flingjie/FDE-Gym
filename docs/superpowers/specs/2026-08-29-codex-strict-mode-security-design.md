@@ -1,5 +1,7 @@
 # Codex Strict-Mode Security Design
 
+> OBSOLETE — superseded by ADR-0002
+
 **Date:** 2026-08-29  
 **Status:** Approved for implementation planning  
 **Scope:** FDEGym's production `CodexAgentRuntime` and live capability probe
