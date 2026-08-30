@@ -49,24 +49,27 @@ import type {
 } from "./domain.js";
 import { InvalidPhaseCommandError } from "./errors.js";
 import { decide } from "./state-machine.js";
-import { appendEvents, type StoreOptions } from "./event-store.js";
+import type { StoreOptions } from "./event-store.js";
 import type { CommandEffect } from "./command-transaction.js";
 import { createInitialRunState, type RunState } from "./reducer.js";
 
 /**
  * FDE Gym — discovery turn orchestrator (the wiring layer for Tasks 8–10).
  *
- * `runDiscoveryTurn` executes the FIXED discovery pipeline in exactly this
+ * `prepareDiscoveryTurn` computes the FIXED discovery pipeline in exactly this
  * order:
  *
  *   record learner question → invoke Customer → sanitize/project customer reply
  *   → record reply → invoke Evidence Tracker on the public turn →
- *   validate/apply graph patch → compute deterministic per-question metrics →
- *   persist all accepted events.
+ *   validate/apply graph patch → compute deterministic per-question metrics.
+ *
+ * The prepare functions are PURE of durable I/O: they return the accepted
+ * events and an updated aggregate; the caller journals and appends them through
+ * `executeCommandTransaction` (the sole commit API — see `command-transaction.ts`).
  *
  * If the Evidence Tracker fails (invalid output, leak, timeout), the customer
  * reply is RETAINED and the turn is marked `EVIDENCE_PENDING`; `frame` must not
- * transition until `repairPendingEvidence` succeeds. The orchestrator is
+ * transition until `prepareRepairPendingEvidence` succeeds. The orchestrator is
  * deterministic: no wall-clock, no randomness — it takes a passed-in
  * `AgentRuntime` and derives every id from `commandId`.
  */
@@ -306,19 +309,6 @@ export async function prepareDiscoveryTurn(
 }
 
 /**
- * Persist the result of a discovery-turn preparation. Kept as the imperative
- * orchestrator entry point (unit-tested directly); the CLI layers the same
- * preparation inside `executeCommandTransaction`.
- */
-export async function runDiscoveryTurn(
-  input: RunDiscoveryTurnInput,
-): Promise<DiscoveryTurnResult> {
-  const result = await prepareDiscoveryTurn(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
-}
-
-/**
  * Repair a turn left in EVIDENCE_PENDING: re-run the Evidence Tracker on the
  * retained public turn, apply the patch, persist `evidence.patched`, and clear
  * the pending marker. Throws (leaving the turn pending) if extraction fails.
@@ -367,15 +357,6 @@ export async function prepareRepairPendingEvidence(
     metrics: computeDiscoveryMetrics(evidence.questionAssessment),
     updatedState,
   };
-}
-
-/** Persist the result of a pending-evidence repair preparation. */
-export async function repairPendingEvidence(
-  input: RepairPendingEvidenceInput,
-): Promise<DiscoveryTurnResult> {
-  const result = await prepareRepairPendingEvidence(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -486,13 +467,6 @@ export async function prepareFramingGate(input: FramingGateInput): Promise<Frami
   };
 }
 
-/** Persist the result of a framing-gate preparation. */
-export async function runFramingGate(input: FramingGateInput): Promise<FramingGateResult> {
-  const result = await prepareFramingGate(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
-}
-
 /**
  * Compose the deterministic structure result with the Coach's semantic result.
  * `passed` is the recomputed gate; `entailments` are the Coach's (semantic);
@@ -572,15 +546,6 @@ export async function prepareClarification(
   };
 }
 
-/** Persist the result of a clarification preparation. */
-export async function requestClarification(
-  input: ClarificationInput,
-): Promise<ClarificationResult> {
-  const result = await prepareClarification(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
-}
-
 // ---------------------------------------------------------------------------
 // Solution gate (Task 9): submit-design
 // ---------------------------------------------------------------------------
@@ -635,15 +600,6 @@ export async function prepareSolutionDesign(
     acceptedEvents: events,
     updatedState: { ...state, proposal, phase: "CHALLENGE" },
   };
-}
-
-/** Persist the result of a solution-design preparation. */
-export async function submitSolutionDesign(
-  input: SubmitSolutionDesignInput,
-): Promise<SubmitSolutionDesignResult> {
-  const result = await prepareSolutionDesign(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -776,15 +732,6 @@ export async function prepareChallengeInjection(
   };
 }
 
-/** Persist the result of a challenge-injection preparation. */
-export async function runChallengeInjection(
-  input: ChallengeInjectionInput,
-): Promise<ChallengeInjectionResult> {
-  const result = await prepareChallengeInjection(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
-}
-
 // ---------------------------------------------------------------------------
 // Challenge response gate (Task 9): respond-challenge
 // ---------------------------------------------------------------------------
@@ -853,15 +800,6 @@ export async function prepareRespondToChallenge(
   };
 }
 
-/** Persist the result of a challenge-response preparation. */
-export async function respondToChallenge(
-  input: RespondToChallengeInput,
-): Promise<RespondToChallengeResult> {
-  const result = await prepareRespondToChallenge(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
-}
-
 // ---------------------------------------------------------------------------
 // Pitch gate (Task 9): submit-pitch
 // ---------------------------------------------------------------------------
@@ -910,13 +848,6 @@ export async function preparePitch(input: SubmitPitchInput): Promise<SubmitPitch
     acceptedEvents: events,
     updatedState: { ...state, pitch, phase: "REVIEW" },
   };
-}
-
-/** Persist the result of a pitch preparation. */
-export async function submitPitch(input: SubmitPitchInput): Promise<SubmitPitchResult> {
-  const result = await preparePitch(input);
-  await appendEvents(input.state.runId, result.acceptedEvents, input.store);
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1063,17 +994,6 @@ export async function prepareRetry(
     newRunEvents,
     parentEvents,
   };
-}
-
-/** Persist the parent link + the new run's start events produced by a retry preparation. */
-export async function createRetry(
-  parentRun: RunAggregate,
-  options: CreateRetryOptions,
-): Promise<CreateRetryResult> {
-  const result = await prepareRetry(parentRun, options);
-  await appendEvents(parentRun.runId, result.parentEvents, options.store);
-  await appendEvents(result.runId, result.newRunEvents, options.store);
-  return result;
 }
 
 // ---------------------------------------------------------------------------

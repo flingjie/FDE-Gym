@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  createRetry,
   INVALID_RETRY_FOCUS,
   prepareRetry,
 } from "../../src/core/orchestrator";
@@ -14,6 +13,7 @@ import {
   executeCommandTransaction,
   type JsonValue,
 } from "../../src/core/command-transaction";
+import { commitPrepared } from "../helpers/commit-prepared";
 import { COMMAND_ID_CONFLICT } from "../../src/core/errors";
 import { foldRunAggregate } from "../../src/replay/projector";
 import {
@@ -128,11 +128,35 @@ describe("retry: clean second attempt", () => {
     const store = { baseDir };
     await seedParent(store);
 
-    const result = await createRetry(parentAggregate(), {
+    const prepared = await prepareRetry(parentAggregate(), {
       newRunId: "run-child",
       commandId: "cmd-retry",
       seed: 7,
       focusSummaries: FOCUS,
+    });
+    const result = prepared;
+    await commitPrepared({
+      runId: prepared.parentRunId,
+      commandId: "cmd-retry",
+      request: { type: "retry", newRunId: "run-child", seed: 7, focusSummaries: FOCUS },
+      events: prepared.parentEvents,
+      effects: [
+        {
+          type: "retry.ensure-child",
+          effectId: `${prepared.parentRunId}:cmd-retry:child`,
+          parentRunId: prepared.parentRunId,
+          childRunId: prepared.runId,
+          events: prepared.newRunEvents,
+        },
+      ],
+      result: {
+        runId: prepared.runId,
+        parentRunId: prepared.parentRunId,
+        scenarioId: prepared.scenarioId,
+        locale: prepared.locale,
+        phase: prepared.state.phase ?? "DISCOVERY",
+        focusSummaries: prepared.focusSummaries,
+      },
       store,
     });
 
@@ -184,10 +208,34 @@ describe("retry: clean second attempt", () => {
     const store = { baseDir };
     await seedParent(store);
 
-    const result = await createRetry(parentAggregate(), {
+    const prepared = await prepareRetry(parentAggregate(), {
       newRunId: "run-child",
       commandId: "cmd-retry",
       focusSummaries: FOCUS,
+    });
+    const result = prepared;
+    await commitPrepared({
+      runId: prepared.parentRunId,
+      commandId: "cmd-retry",
+      request: { type: "retry", newRunId: "run-child", seed: null, focusSummaries: FOCUS },
+      events: prepared.parentEvents,
+      effects: [
+        {
+          type: "retry.ensure-child",
+          effectId: `${prepared.parentRunId}:cmd-retry:child`,
+          parentRunId: prepared.parentRunId,
+          childRunId: prepared.runId,
+          events: prepared.newRunEvents,
+        },
+      ],
+      result: {
+        runId: prepared.runId,
+        parentRunId: prepared.parentRunId,
+        scenarioId: prepared.scenarioId,
+        locale: prepared.locale,
+        phase: prepared.state.phase ?? "DISCOVERY",
+        focusSummaries: prepared.focusSummaries,
+      },
       store,
     });
 
@@ -220,25 +268,23 @@ describe("retry: clean second attempt", () => {
     const baseDir = makeStore();
     const store = { baseDir };
 
-    const wrongPhase = await createRetry(
+    const wrongPhase = await prepareRetry(
       { ...parentAggregate(), phase: "DISCOVERY" },
-      { newRunId: "run-x", commandId: "cmd-x", focusSummaries: FOCUS, store },
+      { newRunId: "run-x", commandId: "cmd-x", focusSummaries: FOCUS },
     ).catch((error) => error);
     expect((wrongPhase as { code?: string }).code).toBe("INVALID_PHASE_COMMAND");
 
-    const tooFew = await createRetry(parentAggregate(), {
+    const tooFew = await prepareRetry(parentAggregate(), {
       newRunId: "run-y",
       commandId: "cmd-y",
       focusSummaries: [text("only one")],
-      store,
     }).catch((error) => error);
     expect((tooFew as { code?: string }).code).toBe(INVALID_RETRY_FOCUS);
 
-    const tooMany = await createRetry(parentAggregate(), {
+    const tooMany = await prepareRetry(parentAggregate(), {
       newRunId: "run-z",
       commandId: "cmd-z",
       focusSummaries: [text("a"), text("b"), text("c"), text("d")],
-      store,
     }).catch((error) => error);
     expect((tooMany as { code?: string }).code).toBe(INVALID_RETRY_FOCUS);
   });
@@ -348,10 +394,33 @@ describe("retry: recoverable child creation and conflict", () => {
     const store = { baseDir };
     await seedParent(store);
 
-    await createRetry(parentAggregate(), {
+    const prepared = await prepareRetry(parentAggregate(), {
       newRunId: "run-child",
       commandId: "cmd-retry",
       focusSummaries: FOCUS,
+    });
+    await commitPrepared({
+      runId: prepared.parentRunId,
+      commandId: "cmd-retry",
+      request: { type: "retry", newRunId: "run-child", seed: null, focusSummaries: FOCUS },
+      events: prepared.parentEvents,
+      effects: [
+        {
+          type: "retry.ensure-child",
+          effectId: `${prepared.parentRunId}:cmd-retry:child`,
+          parentRunId: prepared.parentRunId,
+          childRunId: prepared.runId,
+          events: prepared.newRunEvents,
+        },
+      ],
+      result: {
+        runId: prepared.runId,
+        parentRunId: prepared.parentRunId,
+        scenarioId: prepared.scenarioId,
+        locale: prepared.locale,
+        phase: prepared.state.phase ?? "DISCOVERY",
+        focusSummaries: prepared.focusSummaries,
+      },
       store,
     });
 

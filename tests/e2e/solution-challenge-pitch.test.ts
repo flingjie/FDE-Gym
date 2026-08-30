@@ -5,12 +5,13 @@ import { join } from "node:path";
 
 import { createRng } from "../../src/simulation/rng";
 import {
-  respondToChallenge,
-  runChallengeInjection,
-  submitPitch,
-  submitSolutionDesign,
+  prepareChallengeInjection,
+  preparePitch,
+  prepareRespondToChallenge,
+  prepareSolutionDesign,
 } from "../../src/core/orchestrator";
 import { loadRun } from "../../src/core/event-store";
+import { commitPrepared } from "../helpers/commit-prepared";
 import type { RunAggregate } from "../../src/security/context-firewall";
 import type { CustomerCapsule, ScenarioEventCandidate } from "../../src/scenarios/schema";
 import type { ChallengeResponse, PitchArtifact, SolutionProposal } from "../../src/core/domain";
@@ -199,10 +200,18 @@ describe("solution → challenge → pitch (middle and late stages)", () => {
     const store = { baseDir };
 
     // 1. Submit the solution design: SOLUTION_DESIGN -> CHALLENGE.
-    const design = await submitSolutionDesign({
+    const designInput = {
       state: aggregate(),
       proposal: proposal(),
       commandId: "cmd-design",
+    };
+    const design = await prepareSolutionDesign(designInput);
+    await commitPrepared({
+      runId: designInput.state.runId,
+      commandId: designInput.commandId,
+      request: { type: "submit-design", proposal: designInput.proposal },
+      events: design.acceptedEvents,
+      result: { phase: design.updatedState.phase },
       store,
     });
     expect(design.acceptedEvents.map((e) => e.type)).toEqual([
@@ -213,12 +222,23 @@ describe("solution → challenge → pitch (middle and late stages)", () => {
     expect(design.updatedState.proposal).not.toBeNull();
 
     // 2. Inject the deterministic challenge wave.
-    const injection = await runChallengeInjection({
+    const injectionInput = {
       state: design.updatedState,
       capsule: customerCapsule(),
       candidates: challengeCandidates(),
       rng: createRng(20260823),
       commandId: "cmd-inject",
+    };
+    const injection = await prepareChallengeInjection(injectionInput);
+    await commitPrepared({
+      runId: injectionInput.state.runId,
+      commandId: injectionInput.commandId,
+      request: { type: "challenge-inject" },
+      events: injection.acceptedEvents,
+      result: {
+        injectedChallengeIds: injection.injectedChallengeIds,
+        phase: "CHALLENGE",
+      },
       store,
     });
     // event-staging (on_stage_enter CHALLENGE) + event-budget (ev-pain revealed) fire;
@@ -246,11 +266,22 @@ describe("solution → challenge → pitch (middle and late stages)", () => {
     let state = injection.updatedState;
     for (let i = 0; i < mandatory.length; i++) {
       const last = i === mandatory.length - 1;
-      const result = await respondToChallenge({
+      const respondInput = {
         state,
         response: response(mandatory[i]),
         commandId: `cmd-resp-${i}`,
         mandatoryChallengeIds: mandatory,
+      };
+      const result = await prepareRespondToChallenge(respondInput);
+      await commitPrepared({
+        runId: respondInput.state.runId,
+        commandId: respondInput.commandId,
+        request: { type: "respond-challenge", response: respondInput.response },
+        events: result.acceptedEvents,
+        result: {
+          challengesAddressed: result.challengesAddressed,
+          phase: result.updatedState.phase,
+        },
         store,
       });
       expect(result.challengesAddressed).toBe(last);
@@ -267,10 +298,14 @@ describe("solution → challenge → pitch (middle and late stages)", () => {
     }
 
     // 4. Submit the pitch: PITCH -> REVIEW.
-    const pitched = await submitPitch({
-      state,
-      pitch: pitch(),
-      commandId: "cmd-pitch",
+    const pitchInput = { state, pitch: pitch(), commandId: "cmd-pitch" };
+    const pitched = await preparePitch(pitchInput);
+    await commitPrepared({
+      runId: pitchInput.state.runId,
+      commandId: pitchInput.commandId,
+      request: { type: "submit-pitch", pitch: pitchInput.pitch },
+      events: pitched.acceptedEvents,
+      result: { phase: pitched.updatedState.phase },
       store,
     });
     expect(pitched.acceptedEvents.map((e) => e.type)).toEqual([
@@ -290,11 +325,10 @@ describe("solution → challenge → pitch (middle and late stages)", () => {
 
   it("rejects a solution whose approach links no evidence", async () => {
     const baseDir = makeStore();
-    const error = await submitSolutionDesign({
+    const error = await prepareSolutionDesign({
       state: aggregate(),
       proposal: proposal({ approachEvidenceIds: [] }),
       commandId: "cmd-bad-design",
-      store: { baseDir },
     }).catch((e) => e);
 
     expect(error).toBeInstanceOf(Error);
@@ -310,29 +344,59 @@ describe("solution → challenge → pitch (middle and late stages)", () => {
     const baseDir = makeStore();
     const store = { baseDir };
 
-    const design = await submitSolutionDesign({
+    const designInput = {
       state: aggregate(),
       proposal: proposal(),
       commandId: "cmd-design",
+    };
+    const design = await prepareSolutionDesign(designInput);
+    await commitPrepared({
+      runId: designInput.state.runId,
+      commandId: designInput.commandId,
+      request: { type: "submit-design", proposal: designInput.proposal },
+      events: design.acceptedEvents,
+      result: { phase: design.updatedState.phase },
       store,
     });
-    const injection = await runChallengeInjection({
+    const injectionInput = {
       state: design.updatedState,
       capsule: customerCapsule(),
       candidates: challengeCandidates(),
       rng: createRng(7),
       commandId: "cmd-inject",
+    };
+    const injection = await prepareChallengeInjection(injectionInput);
+    await commitPrepared({
+      runId: injectionInput.state.runId,
+      commandId: injectionInput.commandId,
+      request: { type: "challenge-inject" },
+      events: injection.acceptedEvents,
+      result: {
+        injectedChallengeIds: injection.injectedChallengeIds,
+        phase: "CHALLENGE",
+      },
       store,
     });
     const mandatory = injection.injectedChallengeIds;
     expect(mandatory).toHaveLength(2);
 
     // Answer only the first mandatory challenge.
-    const partial = await respondToChallenge({
+    const respondInput = {
       state: injection.updatedState,
       response: response(mandatory[0]),
       commandId: "cmd-resp-0",
       mandatoryChallengeIds: mandatory,
+    };
+    const partial = await prepareRespondToChallenge(respondInput);
+    await commitPrepared({
+      runId: respondInput.state.runId,
+      commandId: respondInput.commandId,
+      request: { type: "respond-challenge", response: respondInput.response },
+      events: partial.acceptedEvents,
+      result: {
+        challengesAddressed: partial.challengesAddressed,
+        phase: partial.updatedState.phase,
+      },
       store,
     });
 
@@ -353,34 +417,63 @@ describe("solution → challenge → pitch (middle and late stages)", () => {
     const baseDir = makeStore();
     // Reach PITCH first via a single challenge so the phase guard passes.
     const store = { baseDir };
-    const design = await submitSolutionDesign({
+    const designInput = {
       state: aggregate(),
       proposal: proposal(),
       commandId: "cmd-design",
+    };
+    const design = await prepareSolutionDesign(designInput);
+    await commitPrepared({
+      runId: designInput.state.runId,
+      commandId: designInput.commandId,
+      request: { type: "submit-design", proposal: designInput.proposal },
+      events: design.acceptedEvents,
+      result: { phase: design.updatedState.phase },
       store,
     });
-    const injection = await runChallengeInjection({
+    const injectionInput = {
       state: design.updatedState,
       capsule: customerCapsule(),
       candidates: [challengeCandidates()[0]],
       rng: createRng(3),
       commandId: "cmd-inject",
+    };
+    const injection = await prepareChallengeInjection(injectionInput);
+    await commitPrepared({
+      runId: injectionInput.state.runId,
+      commandId: injectionInput.commandId,
+      request: { type: "challenge-inject" },
+      events: injection.acceptedEvents,
+      result: {
+        injectedChallengeIds: injection.injectedChallengeIds,
+        phase: "CHALLENGE",
+      },
       store,
     });
-    const answered = await respondToChallenge({
+    const respondInput = {
       state: injection.updatedState,
       response: response(injection.injectedChallengeIds[0]),
       commandId: "cmd-resp-0",
       mandatoryChallengeIds: injection.injectedChallengeIds,
+    };
+    const answered = await prepareRespondToChallenge(respondInput);
+    await commitPrepared({
+      runId: respondInput.state.runId,
+      commandId: respondInput.commandId,
+      request: { type: "respond-challenge", response: respondInput.response },
+      events: answered.acceptedEvents,
+      result: {
+        challengesAddressed: answered.challengesAddressed,
+        phase: answered.updatedState.phase,
+      },
       store,
     });
     expect(answered.updatedState.phase).toBe("PITCH");
 
-    const error = await submitPitch({
+    const error = await preparePitch({
       state: answered.updatedState,
       pitch: pitch({ ask: text("", "") }),
       commandId: "cmd-bad-pitch",
-      store,
     }).catch((e) => e);
 
     expect(error).toBeInstanceOf(Error);

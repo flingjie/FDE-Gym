@@ -8,11 +8,12 @@ import {
   assertFrameAllowed,
   computeDiscoveryMetrics,
   FRAME_BLOCKED,
-  repairPendingEvidence,
-  runDiscoveryTurn,
+  prepareDiscoveryTurn,
+  prepareRepairPendingEvidence,
   type RunDiscoveryTurnInput,
 } from "../../src/core/orchestrator";
 import { loadEvents, loadRun } from "../../src/core/event-store";
+import { commitPrepared } from "../helpers/commit-prepared";
 import { foldRunAggregate } from "../../src/replay/projector";
 import type { RunAggregate } from "../../src/security/context-firewall";
 import type { CustomerCapsule } from "../../src/scenarios/schema";
@@ -149,7 +150,17 @@ afterEach(() => {
 describe("discovery turn pipeline", () => {
   it("records question → reply → evidence patch and computes metrics", async () => {
     const baseDir = makeStore();
-    const result = await runDiscoveryTurn(runInput({ store: { baseDir } }));
+    const input = runInput();
+    const result = await prepareDiscoveryTurn(input);
+    await commitPrepared({
+      runId: input.state.runId,
+      commandId: input.commandId,
+      request: { type: "ask", question: input.question, stakeholderId: input.stakeholderId },
+      events: result.acceptedEvents,
+      result: { runId: result.runId },
+      store: { baseDir },
+      canaries: [CANARY],
+    });
 
     expect(result.pendingEvidence).toBeNull();
     expect(result.acceptedEvents.map((e) => e.type)).toEqual([
@@ -178,7 +189,17 @@ describe("discovery turn pipeline", () => {
       fixtures: { "customer:cmd-1:customer": customerOutput() }, // no evidence fixture
     });
 
-    const result = await runDiscoveryTurn(runInput({ runtime, store: { baseDir } }));
+    const input = runInput({ runtime });
+    const result = await prepareDiscoveryTurn(input);
+    await commitPrepared({
+      runId: input.state.runId,
+      commandId: input.commandId,
+      request: { type: "ask", question: input.question, stakeholderId: input.stakeholderId },
+      events: result.acceptedEvents,
+      result: { runId: result.runId },
+      store: { baseDir },
+      canaries: [CANARY],
+    });
 
     expect(result.acceptedEvents.map((e) => e.type)).toEqual([
       "question.asked",
@@ -211,7 +232,17 @@ describe("discovery turn pipeline", () => {
       fixtures: { "customer:cmd-1:customer": customerOutput() }, // no evidence fixture
     });
 
-    await runDiscoveryTurn(runInput({ runtime, store: { baseDir } }));
+    const input = runInput({ runtime });
+    const prepared = await prepareDiscoveryTurn(input);
+    await commitPrepared({
+      runId: input.state.runId,
+      commandId: input.commandId,
+      request: { type: "ask", question: input.question, stakeholderId: input.stakeholderId },
+      events: prepared.acceptedEvents,
+      result: { runId: prepared.runId },
+      store: { baseDir },
+      canaries: [CANARY],
+    });
 
     // Reload + fold: pendingEvidence is reconstructed from committed events.
     const recorded = await loadEvents("run-1", { baseDir });
@@ -270,7 +301,17 @@ describe("discovery turn pipeline", () => {
       },
     });
 
-    const result = await runDiscoveryTurn(runInput({ runtime, store: { baseDir } }));
+    const input = runInput({ runtime });
+    const result = await prepareDiscoveryTurn(input);
+    await commitPrepared({
+      runId: input.state.runId,
+      commandId: input.commandId,
+      request: { type: "ask", question: input.question, stakeholderId: input.stakeholderId },
+      events: result.acceptedEvents,
+      result: { runId: result.runId },
+      store: { baseDir },
+      canaries: [CANARY],
+    });
 
     // The in-memory pendingEvidence must also carry the stable code, never the
     // distinct internal code — this is the object the CLI `ask` projects from.
@@ -299,21 +340,37 @@ describe("discovery turn pipeline", () => {
     };
     const noEvidenceRuntime = new FixtureAgentRuntime({ fixtures });
 
-    const failed = await runDiscoveryTurn(
-      runInput({ runtime: noEvidenceRuntime, store: { baseDir } }),
-    );
+    const input = runInput({ runtime: noEvidenceRuntime });
+    const failed = await prepareDiscoveryTurn(input);
+    await commitPrepared({
+      runId: input.state.runId,
+      commandId: input.commandId,
+      request: { type: "ask", question: input.question, stakeholderId: input.stakeholderId },
+      events: failed.acceptedEvents,
+      result: { runId: failed.runId },
+      store: { baseDir },
+      canaries: [CANARY],
+    });
     expect(failed.pendingEvidence).not.toBeNull();
 
     // Repair: now the evidence fixture exists; extractEvidence reads the last
     // transcript turn (already retained) and applies the patch.
     fixtures["evidence_tracker:cmd-1:evidence"] = trackerOutput(0);
-    const repaired = await repairPendingEvidence({
+    const repaired = await prepareRepairPendingEvidence({
       runtime: new FixtureAgentRuntime({ fixtures }),
       state: failed.updatedState,
       commandId: "cmd-1",
       timeoutMs: 1_000,
       canaries: [CANARY],
+    });
+    await commitPrepared({
+      runId: repaired.runId,
+      commandId: "repair-1",
+      request: { type: "repair-evidence" },
+      events: repaired.acceptedEvents,
+      result: { runId: repaired.runId },
       store: { baseDir },
+      canaries: [CANARY],
     });
 
     expect(repaired.pendingEvidence).toBeNull();

@@ -7,11 +7,12 @@ import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime";
 import {
   CLARIFICATION_BUDGET_EXCEEDED,
   DEFAULT_CLARIFICATION_BUDGET,
-  requestClarification,
-  runFramingGate,
+  prepareClarification,
+  prepareFramingGate,
   type FramingGateInput,
 } from "../../src/core/orchestrator";
 import { loadRun } from "../../src/core/event-store";
+import { commitPrepared } from "../helpers/commit-prepared";
 import type { RunAggregate } from "../../src/security/context-firewall";
 import type { EvaluatorCapsule } from "../../src/scenarios/schema";
 import type { ProblemBrief } from "../../src/core/domain";
@@ -197,9 +198,17 @@ describe("problem framing gate — one failed brief, clarification, then a passi
       },
     });
 
-    const result = await runFramingGate(
-      framingInput({ runtime, store: { baseDir } }),
-    );
+    const input = framingInput({ runtime });
+    const result = await prepareFramingGate(input);
+    await commitPrepared({
+      runId: input.state.runId,
+      commandId: input.commandId,
+      request: { type: "submit-brief", brief: input.brief },
+      events: result.acceptedEvents,
+      result: { passed: result.passed, supportRatio: result.supportRatio },
+      store: { baseDir },
+      canaries: [CANARY],
+    });
 
     // Failure: supportRatio = (2*1 + 3*0) / 5 = 0.4 < 0.75.
     expect(result.passed).toBe(false);
@@ -242,10 +251,18 @@ describe("problem framing gate — one failed brief, clarification, then a passi
     let used = 0;
     let phase: "PROBLEM_FRAMING" | "DISCOVERY" = "PROBLEM_FRAMING";
     for (let i = 0; i < DEFAULT_CLARIFICATION_BUDGET; i++) {
-      const clarified = await requestClarification({
+      const input = {
         state: { ...state, phase },
         commandId: `clarify-${i}`,
         clarificationBudgetUsed: used,
+      };
+      const clarified = await prepareClarification(input);
+      await commitPrepared({
+        runId: input.state.runId,
+        commandId: input.commandId,
+        request: { type: "clarify" },
+        events: clarified.acceptedEvents,
+        result: { phase: clarified.updatedState.phase },
         store: { baseDir },
       });
       used = clarified.clarificationBudgetUsed;
@@ -256,11 +273,10 @@ describe("problem framing gate — one failed brief, clarification, then a passi
     expect(used).toBe(DEFAULT_CLARIFICATION_BUDGET);
 
     // The next clarification exceeds the budget.
-    const error = await requestClarification({
+    const error = await prepareClarification({
       state: { ...state, phase: "PROBLEM_FRAMING" },
       commandId: "clarify-over",
       clarificationBudgetUsed: used,
-      store: { baseDir },
     }).catch((e) => e);
     expect((error as { code?: string }).code).toBe(CLARIFICATION_BUDGET_EXCEEDED);
   });
@@ -279,14 +295,21 @@ describe("problem framing gate — one failed brief, clarification, then a passi
       },
     });
 
-    const result = await runFramingGate(
-      framingInput({
-        runtime,
-        brief: passingBrief(),
-        commandId: "cmd-2",
-        store: { baseDir },
-      }),
-    );
+    const input = framingInput({
+      runtime,
+      brief: passingBrief(),
+      commandId: "cmd-2",
+    });
+    const result = await prepareFramingGate(input);
+    await commitPrepared({
+      runId: input.state.runId,
+      commandId: input.commandId,
+      request: { type: "submit-brief", brief: input.brief },
+      events: result.acceptedEvents,
+      result: { passed: result.passed, supportRatio: result.supportRatio },
+      store: { baseDir },
+      canaries: [CANARY],
+    });
 
     expect(result.passed).toBe(true);
     expect(result.supportRatio).toBe(1);
@@ -311,7 +334,7 @@ describe("problem framing gate — one failed brief, clarification, then a passi
 
   it("rejects submit-brief outside PROBLEM_FRAMING", async () => {
     const runtime = new FixtureAgentRuntime({ fixtures: {} });
-    const error = await runFramingGate(
+    const error = await prepareFramingGate(
       framingInput({
         runtime,
         state: framingAggregate({ phase: "DISCOVERY" }),
