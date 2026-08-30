@@ -86,6 +86,13 @@ describe("SKILL.md metadata", () => {
     expect(skill).toMatch(/ok/);
   });
 
+  it("instructs Codex to escalate network for role-invoking commands", () => {
+    expect(skill).toMatch(/sandbox_permissions\s*=\s*require_escalated/);
+    expect(skill).toMatch(/ask/);
+    expect(skill).toMatch(/submit-brief/);
+    expect(skill).toMatch(/review/);
+  });
+
   it("all three referenced docs exist on disk (the Skill resolves)", () => {
     for (const doc of REFERENCE_DOCS) {
       expect(existsSync(join(SKILL_DIR, doc))).toBe(true);

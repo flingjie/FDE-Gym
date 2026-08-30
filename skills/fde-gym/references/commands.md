@@ -37,3 +37,9 @@ never interpolated into a shell command line. `--json` is the default output;
 - Only ever run one command per learner intent; surface the envelope verbatim.
 - On `ok: false`, relay `code`, `message`, and `nextActions` to the learner and
   offer those next actions. Do not retry silently more than once.
+- `ask`, `submit-brief`, and `review` call the OpenAI-compatible model endpoint
+  (`POST {baseUrl}/chat/completions`). Run them with
+  `sandbox_permissions=require_escalated`. Codex's default sandbox sets
+  `network_access=false`, so a probe of `127.0.0.1:15721` from inside the
+  sandbox returns connection refused even when the local proxy is up. Escalate
+  and retry once before treating `AGENT_SPAWN_ERROR` as a down endpoint.

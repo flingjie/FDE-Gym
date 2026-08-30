@@ -43,6 +43,12 @@ surface is in references/commands.md):
    that in its isolated role runtime.
 5. On `ok: false`, show its `code`, `message`, and `nextActions`, and offer the
    learner those next actions.
+6. Role-invoking commands (`ask`, `submit-brief`, `review`) POST to the local
+   model endpoint. Always run them with `sandbox_permissions=require_escalated`
+   (they need localhost network). If `AGENT_SPAWN_ERROR` arrives and a
+   sandboxed curl to the configured `127.0.0.1` base URL fails with connection
+   refused, do **not** conclude the proxy is down — escalate and retry that
+   same command once. Only then report the envelope.
 
 ## References
 
