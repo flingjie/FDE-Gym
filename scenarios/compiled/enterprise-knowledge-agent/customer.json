@@ -1,0 +1,319 @@
+{
+  "id": "enterprise-knowledge-agent",
+  "schemaVersion": 1,
+  "stakeholders": [
+    {
+      "id": "knowledge-lead",
+      "role": {
+        "zh-CN": "知识与IT负责人",
+        "en-US": "Head of Knowledge / IT"
+      },
+      "persona": {
+        "zh-CN": "46岁女性，负责内部知识平台与IT。希望员工能向代理问到带引用的业务答案，又急于先上线检索，时常低估 ACL 必须进检索路径。",
+        "en-US": "46-year-old female, owns the internal knowledge platform and IT. Wants employees to get cited business answers from an agent, is eager to ship retrieval first, and often underestimates that ACL must sit on the retrieval path."
+      },
+      "concerns": [
+        {
+          "zh-CN": "员工能不能用代理问到带引用的内部答案？",
+          "en-US": "Can employees get cited internal answers from the agent?"
+        },
+        {
+          "zh-CN": "检索会不会因为过严的权限变得什么都答不上？",
+          "en-US": "Will overly strict permissions make the agent unable to answer anything?"
+        },
+        {
+          "zh-CN": "如何把 Slack 口口相传迁到可引用的知识路径？",
+          "en-US": "How do we move tribal Slack answers onto a citable knowledge path?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解安全对越权引用的零容忍",
+          "en-US": "Does not know security has zero tolerance for unauthorized quotes"
+        },
+        {
+          "zh-CN": "低估了一线对过期 wiki 的不信任",
+          "en-US": "Underestimates frontline distrust of the stale wiki"
+        }
+      ]
+    },
+    {
+      "id": "iam-security",
+      "role": {
+        "zh-CN": "安全与身份负责人",
+        "en-US": "Security / IAM lead"
+      },
+      "persona": {
+        "zh-CN": "50岁男性，负责身份与访问。坚持无权内容不得被引用，对外口径必须人工，对检索绕过 ACL 持零容忍态度。",
+        "en-US": "50-year-old male, owns identity and access. Insists entitled-only content must not be quoted, external copy needs a human, and has zero tolerance for retrieval that bypasses ACL."
+      },
+      "concerns": [
+        {
+          "zh-CN": "检索会不会忽略 ACL 把无权内容拼进回答？",
+          "en-US": "Could retrieval ignore ACL and splice unauthorized content into answers?"
+        },
+        {
+          "zh-CN": "内部文档会不会被送到境外模型？",
+          "en-US": "Will internal documents be sent to offshore models?"
+        },
+        {
+          "zh-CN": "如何审计每一次检索与引用？",
+          "en-US": "How do we audit every retrieval and citation?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解一线靠 Slack 找答案的效率压力",
+          "en-US": "Does not understand the efficiency pressure of frontline Slack tribal knowledge"
+        },
+        {
+          "zh-CN": "低估了没有引用时业务口径会漂移",
+          "en-US": "Underestimates how uncited answers let business wording drift"
+        }
+      ]
+    },
+    {
+      "id": "frontline-user",
+      "role": {
+        "zh-CN": "一线业务同事",
+        "en-US": "Frontline business user"
+      },
+      "persona": {
+        "zh-CN": "29岁女性，一线业务。今天主要在 Slack 口口相传找答案，不信过期 wiki，只要能马上问到人。",
+        "en-US": "29-year-old female, frontline business. Today she finds answers through tribal Slack, does not trust the stale wiki, and just wants a person she can ask right now."
+      },
+      "concerns": [
+        {
+          "zh-CN": "代理给的答案能不能当场用，还是又要去问同事？",
+          "en-US": "Can I use the agent's answer on the spot, or will I still have to ask a colleague?"
+        },
+        {
+          "zh-CN": "引用会不会指向我打不开的页面？",
+          "en-US": "Will citations point at pages I cannot open?"
+        },
+        {
+          "zh-CN": "问错一次会不会被安全找上门？",
+          "en-US": "If I ask the wrong thing, will security come after me?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解对外口径必须经人工确认",
+          "en-US": "Does not know external customer-facing copy needs a human"
+        },
+        {
+          "zh-CN": "看不到知识库运营补洞的负担",
+          "en-US": "Cannot see the ops burden of patching the knowledge base"
+        }
+      ]
+    },
+    {
+      "id": "ops-owner",
+      "role": {
+        "zh-CN": "知识库运营负责人",
+        "en-US": "Knowledge-base operations owner"
+      },
+      "persona": {
+        "zh-CN": "38岁男性，负责 wiki 与工单知识运营。疲于补过期页面，希望代理能带引用，又担心编造引用会把脏页洗成权威。",
+        "en-US": "38-year-old male, owns wiki and ticket knowledge operations. Exhausted from patching stale pages, wants the agent to carry citations, and fears fabricated citations will launder dirty pages into authority."
+      },
+      "concerns": [
+        {
+          "zh-CN": "过期页面会不会被代理当成权威出处？",
+          "en-US": "Will stale pages be treated as authoritative citations?"
+        },
+        {
+          "zh-CN": "工单和 wiki 能不能进同一套索引？",
+          "en-US": "Can tickets and wiki land in the same index?"
+        },
+        {
+          "zh-CN": "引用幻觉会不会让运营更难纠错？",
+          "en-US": "Will citation hallucination make ops harder to correct?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解安全要把 ACL 目录嵌进每一次检索",
+          "en-US": "Does not know security wants the ACL directory on every retrieval"
+        },
+        {
+          "zh-CN": "低估了一线会继续绕过知识库问 Slack",
+          "en-US": "Underestimates that the frontline will keep bypassing the knowledge base for Slack"
+        }
+      ]
+    }
+  ],
+  "disclosureUnits": [
+    {
+      "id": "du-001",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "员工提问后代理先查文档索引再核 ACL 目录；约60%答案来自过期 wiki。",
+        "en-US": "After an employee asks, the agent hits the document index then the ACL directory; about 60% of answers come from the stale wiki."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-002",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "检索路径还会补查 wiki 与工单；一线今天主要靠 Slack 口口相传找答案。",
+        "en-US": "The retrieval path also looks up wiki and tickets; the frontline today finds answers mainly through tribal Slack."
+      },
+      "prerequisites": [
+        "du-001"
+      ],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-003",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "员工常常要问好几个人才能问到业务答案；越权命中约8%。",
+        "en-US": "Employees often have to ask several people before they get a business answer; unauthorized hits are about 8%."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-004",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "知识库运营疲于补洞；一线不信过期 wiki，继续在 Slack 问人。",
+        "en-US": "Knowledge-base ops is exhausted patching holes; the frontline distrusts the stale wiki and keeps asking people on Slack."
+      },
+      "prerequisites": [
+        "du-003"
+      ],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-005",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "现网检索经常不核 ACL；wiki 没有新鲜度闸门。",
+        "en-US": "Production retrieval often skips the ACL check; the wiki has no freshness gate."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-006",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "引用是事后拼的，不是检索命中带来的；工单和 wiki 没有统一索引。",
+        "en-US": "Citations are stitched on after the fact, not carried by the retrieval hit; tickets and wiki are not in one index."
+      },
+      "prerequisites": [
+        "du-005"
+      ],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-007",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "错误内部答案会让对外口径不一致；纠错要业务加班改客户材料。",
+        "en-US": "Wrong internal answers make external wording drift; fixing them means the business works overtime on customer materials."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-008",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "安全认为一次越权引用就会触发审计；知识负责人仍想先上线再补权限。",
+        "en-US": "Security believes one unauthorized quote will trigger an audit; the knowledge lead still wants to ship first and add permissions later."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-009",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "员工无权阅读的内容不得被引用；对外口径必须经人工确认。",
+        "en-US": "Content the employee is not entitled to must not be quoted; external customer-facing copy needs a human."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-010",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "内部文档与工单不得出境到第三方大模型。",
+        "en-US": "Internal documents and tickets must not leave the region to a third-party LLM."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-011",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "目标：带引用的内部答案成为默认路径，一线不再只靠 Slack。",
+        "en-US": "Goal: cited internal answers become the default path, and the frontline no longer relies only on Slack."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-012",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "质量红线：引用幻觉抽查约12%，检索必须先过 ACL。",
+        "en-US": "Quality floor: citation-hallucination spot checks are about 12%, and retrieval must pass ACL first."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-013",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "一线更信 Slack 同事，不信知识库代理。",
+        "en-US": "The frontline trusts Slack colleagues more than the knowledge-base agent."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-014",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "安全不信检索会守住权限，知识负责人低估 ACL。",
+        "en-US": "Security does not believe retrieval will honor permissions; the knowledge lead underestimates ACL."
+      },
+      "prerequisites": [
+        "du-013"
+      ],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-015",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "不确定时会编造引用。",
+        "en-US": "When uncertain, it fabricates citations."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    },
+    {
+      "id": "du-016",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "检索忽略 ACL，把无权内容拼进回答。",
+        "en-US": "Retrieval ignores ACL and splices unauthorized content into the answer."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    }
+  ],
+  "responsePolicies": [],
+  "privateConflicts": [],
+  "canary": "cd42305b5151b31849e0f086f82d3a31"
+}

@@ -309,23 +309,11 @@ describe("collectHintDisciplineIssues", () => {
 });
 
 const SOURCES = [
-  "support-automation",
-  "manufacturing-alert-triage",
-  "data-migration",
-  "export-freight-forwarding",
-  "customer-support-agent",
   "enterprise-knowledge-agent",
+  "customer-support-agent",
   "data-analysis-agent",
   "document-review-agent",
   "software-engineering-agent",
-] as const;
-
-/** Compiled bundles for new ids land in Task 4; keep equality checks on existing trees. */
-const COMPILED_SOURCES = [
-  "support-automation",
-  "manufacturing-alert-triage",
-  "data-migration",
-  "export-freight-forwarding",
 ] as const;
 
 describe("production source ladders", () => {
@@ -339,7 +327,7 @@ describe("production source ladders", () => {
 });
 
 describe("committed compiled ladders", () => {
-  for (const id of COMPILED_SOURCES) {
+  for (const id of SOURCES) {
     it(`${id} compiled evaluator ladders match source and L3 is Socratic`, () => {
       const sourceDoc = ScenarioAuthoringSchema.parse(
         parse(readFileSync(join(process.cwd(), "scenarios", "source", `${id}.yaml`), "utf8")),

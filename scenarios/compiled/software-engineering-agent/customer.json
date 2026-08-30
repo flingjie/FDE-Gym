@@ -1,0 +1,319 @@
+{
+  "id": "software-engineering-agent",
+  "schemaVersion": 1,
+  "stakeholders": [
+    {
+      "id": "eng-manager",
+      "role": {
+        "zh-CN": "工程经理",
+        "en-US": "Engineering manager"
+      },
+      "persona": {
+        "zh-CN": "47岁男性，负责工程吞吐。希望代理清 Bug 积压、跑测试并开 PR，又时常把测试已绿当成可以合并。",
+        "en-US": "47-year-old male, owns engineering throughput. Wants the agent to clear the bug backlog, run tests, and open PRs, and often treats green tests as ready to merge."
+      },
+      "concerns": [
+        {
+          "zh-CN": "代理能不能真的缩短修 Bug 到开 PR 的周期？",
+          "en-US": "Can the agent actually shorten the cycle from bug-fix to opening a PR?"
+        },
+        {
+          "zh-CN": "测试绿了是不是就可以合？",
+          "en-US": "If tests are green, can we merge?"
+        },
+        {
+          "zh-CN": "IC 不让代理碰仓库时吞吐还怎么上去？",
+          "en-US": "How does throughput rise if ICs will not let the agent touch their repo?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解平台安全要把生产密钥彻底隔离",
+          "en-US": "Does not know platform security wants production secrets fully isolated"
+        },
+        {
+          "zh-CN": "低估了绿测仍被撤回对发布窗口的伤害",
+          "en-US": "Underestimates how green-then-reverted PRs hurt the release window"
+        }
+      ]
+    },
+    {
+      "id": "platform-security",
+      "role": {
+        "zh-CN": "平台与安全负责人",
+        "en-US": "Platform / security lead"
+      },
+      "persona": {
+        "zh-CN": "51岁女性，负责平台与密钥。坚持受保护分支合并和生产密钥必须人工，禁止 push 默认分支，对秘密进 PR 零容忍。",
+        "en-US": "51-year-old female, owns platform and secrets. Insists protected-branch merges and production-secret use need a human, forbids pushing the default branch, and has zero tolerance for secrets in a PR."
+      },
+      "concerns": [
+        {
+          "zh-CN": "沙箱会不会读到生产密钥？",
+          "en-US": "Could the sandbox read a production secret?"
+        },
+        {
+          "zh-CN": "PR 描述或 diff 会不会带出密钥？",
+          "en-US": "Could a PR description or diff leak a secret?"
+        },
+        {
+          "zh-CN": "代理会不会直接 push 默认分支？",
+          "en-US": "Could the agent push the default branch directly?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解工程经理要用代理清 Bug 积压",
+          "en-US": "Does not understand the eng manager is using the agent to clear the bug backlog"
+        },
+        {
+          "zh-CN": "低估了测试只锁接口时行为仍会偏",
+          "en-US": "Underestimates that tests locking only the old interface still let behavior drift"
+        }
+      ]
+    },
+    {
+      "id": "ic-developer",
+      "role": {
+        "zh-CN": "一线开发",
+        "en-US": "IC developer"
+      },
+      "persona": {
+        "zh-CN": "32岁男性，IC。不信任代理动自己的仓库，仍手写补丁，担心代理改错行为却把测试跑绿。",
+        "en-US": "32-year-old male, IC. Does not trust the agent to touch his repo, still writes patches by hand, and fears the agent will change the wrong behavior while leaving tests green."
+      },
+      "concerns": [
+        {
+          "zh-CN": "代理会不会在我不知情时改我的分支？",
+          "en-US": "Will the agent change my branch without me knowing?"
+        },
+        {
+          "zh-CN": "它改完我还要不要整页重审？",
+          "en-US": "After it edits, do I still have to re-review the whole page?"
+        },
+        {
+          "zh-CN": "测试绿了，行为是不是还是错的？",
+          "en-US": "If tests are green, can the behavior still be wrong?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解受保护分支合并必须人工",
+          "en-US": "Does not know protected-branch merges require a human"
+        },
+        {
+          "zh-CN": "看不到平台对密钥进 PR 的事故记录",
+          "en-US": "Cannot see the platform's incident record of a secret entering a PR"
+        }
+      ]
+    },
+    {
+      "id": "qa-lead",
+      "role": {
+        "zh-CN": "质量负责人",
+        "en-US": "QA lead"
+      },
+      "persona": {
+        "zh-CN": "40岁女性，负责质量。关心绿测是否锁住行为，担心代理只把旧断言跑绿，发布后再被撤回。",
+        "en-US": "40-year-old female, owns quality. Cares whether green tests lock behavior, and fears the agent will only green the old assertions and get reverted after release."
+      },
+      "concerns": [
+        {
+          "zh-CN": "现有测试锁住的是接口还是行为？",
+          "en-US": "Do current tests lock the interface or the behavior?"
+        },
+        {
+          "zh-CN": "代理开的 PR 要不要额外的行为验收？",
+          "en-US": "Do agent-opened PRs need extra behavior acceptance?"
+        },
+        {
+          "zh-CN": "撤回会不会把发布窗口打乱？",
+          "en-US": "Will reverts scramble the release window?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解沙箱仍可能读到生产密钥",
+          "en-US": "Does not know the sandbox may still read a production secret"
+        },
+        {
+          "zh-CN": "低估了工程经理会把绿测当成合并许可",
+          "en-US": "Underestimates that the eng manager will treat green tests as merge permission"
+        }
+      ]
+    }
+  ],
+  "disclosureUnits": [
+    {
+      "id": "du-001",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "代理在隔离沙箱里拉 Git 分支、改代码、跑测试，再经 PR 接口开 PR。",
+        "en-US": "The agent pulls a Git branch in an isolated sandbox, edits code, runs tests, then opens a PR through the PR API."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-002",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "默认分支禁止直接 push；合并受保护分支必须人工。",
+        "en-US": "Pushing the default branch is forbidden; merging a protected branch requires a human."
+      },
+      "prerequisites": [
+        "du-001"
+      ],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-003",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "约15%绿测 PR 被 revert。",
+        "en-US": "About 15% of green-test PRs are reverted."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-004",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "工程师不信任代理动自己的仓库；评审排队变长。",
+        "en-US": "Engineers do not trust the agent to touch their repo; the review queue grows."
+      },
+      "prerequisites": [
+        "du-003"
+      ],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-005",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "测试套件只断言旧接口，改错行为也能绿。",
+        "en-US": "The test suite only asserts the old interface, so wrong behavior can still go green."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-006",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "沙箱仍能读到生产密钥；PR 描述会回显环境变量。",
+        "en-US": "The sandbox can still read production secrets; the PR description echoes environment variables."
+      },
+      "prerequisites": [
+        "du-005"
+      ],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-007",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "一次 revert 会打乱发布窗口；安全认为一次密钥进 PR 就要轮换。",
+        "en-US": "One revert scrambles the release window; security believes one secret in a PR forces a rotation."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-008",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "工程经理想用代理清 Bug 积压；平台安全要先锁权限。",
+        "en-US": "The eng manager wants the agent to clear the bug backlog; platform security wants permissions locked first."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-009",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "受保护分支合并和生产密钥使用必须人工；禁止 push 默认分支。",
+        "en-US": "Merges to protected branches and production-secret use require a human; pushing the default branch is forbidden."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-010",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "生产密钥不得进入沙箱或 PR。",
+        "en-US": "Production secrets must not enter the sandbox or a PR."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-011",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "目标：沙箱内修 Bug、跑测试、开 PR 成为默认路径。",
+        "en-US": "Goal: fixing bugs, running tests, and opening PRs inside the sandbox becomes the default path."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-012",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "质量红线：绿测不得掩盖行为回归；PR 中不得出现秘密。",
+        "en-US": "Quality floor: green tests must not hide a behavior regression; a secret must not appear in a PR."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-013",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "IC 不让代理碰自己的仓库，仍手写补丁。",
+        "en-US": "The IC will not let the agent touch their repo and still writes patches by hand."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-014",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "工程经理以为测试绿就可以合；QA 低估行为回归。",
+        "en-US": "The eng manager thinks green tests mean merge; QA underestimates behavior regressions."
+      },
+      "prerequisites": [
+        "du-013"
+      ],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-015",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "测试绿但改错了行为。",
+        "en-US": "Tests are green but the behavior is wrong."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    },
+    {
+      "id": "du-016",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "曾有一次把 token 写进 PR 描述。",
+        "en-US": "There was one incident of a token written into a PR description."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    }
+  ],
+  "responsePolicies": [],
+  "privateConflicts": [],
+  "canary": "cd42305b5151b31849e0f086f82d3a31"
+}

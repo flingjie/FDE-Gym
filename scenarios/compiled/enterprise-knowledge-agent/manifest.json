@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 2,
+  "id": "enterprise-knowledge-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "digest": "131e8f9f4e6569f3d1c1769d0a53746b02805b67977369c7e4c749a62c2ab835",
+  "artifacts": [
+    {
+      "path": "public.json",
+      "sha256": "5500b034d759aceb972a1305384a4b47dec2c2829e8af500b1db4dfb114066e0",
+      "bytes": 3333,
+      "schemaVersion": 1
+    },
+    {
+      "path": "customer.json",
+      "sha256": "fab197ed646c6ceecc398d0d0931d83b4e0f3e7c6c6564fd8cfcbf95ea3ffbda",
+      "bytes": 12122,
+      "schemaVersion": 1
+    },
+    {
+      "path": "evaluator.json",
+      "sha256": "8eaabb8bea5213ff0c3696927d5775eedc2c0e69bdad9c322d517f47e082e273",
+      "bytes": 21740,
+      "schemaVersion": 1
+    },
+    {
+      "path": "events.json",
+      "sha256": "afc596a5ecfb5ffc73d5462e0888b62a7abed5d35128ab6e76e034cb4327c94f",
+      "bytes": 2027,
+      "schemaVersion": 1
+    }
+  ]
+}

@@ -1,0 +1,502 @@
+{
+  "id": "customer-support-agent",
+  "schemaVersion": 1,
+  "expectedEvidence": [
+    {
+      "id": "ev-workflow",
+      "category": "workflow",
+      "description": {
+        "zh-CN": "代理工具调用顺序（先 CRM 再订单接口）、可走工具闭环的工单类型、平时与高峰首响、工具超时缺少人工插队规则",
+        "en-US": "Agent tool-call order (CRM then order API), which tickets can close in a tool loop, first-response in normal versus peak hours, missing jump-the-queue rule on tool timeout"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-001",
+        "du-002"
+      ]
+    },
+    {
+      "id": "ev-pain",
+      "category": "pain",
+      "description": {
+        "zh-CN": "支持痛点：人工成本占比、一线流失、复杂工单一次解决、客服在 CRM 来回切屏",
+        "en-US": "Support pain: labor share of budget, frontline attrition, complex-ticket first-contact resolution, CRM screen-switching"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-003",
+        "du-004"
+      ]
+    },
+    {
+      "id": "ev-root-cause",
+      "category": "root-cause",
+      "description": {
+        "zh-CN": "现网仍是规则引擎加 FAQ、不能调订单或退款接口；换说法匹配失败；没有工具结果就改口编政策",
+        "en-US": "Production is still rules plus FAQ and cannot call order or refund APIs; paraphrase matching fails; the agent fabricates policy without a tool result"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-005",
+        "du-006"
+      ]
+    },
+    {
+      "id": "ev-business-impact",
+      "category": "business-impact",
+      "description": {
+        "zh-CN": "业务影响：等待流失的终身价值与人数、工具闭环部分覆盖可节省的成本、工程师私下的自动处理目标",
+        "en-US": "Business impact: wait-driven churn lifetime value and volume, savings from partial tool-loop coverage, the engineer's private auto-handle target"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-007",
+        "du-008"
+      ]
+    },
+    {
+      "id": "ev-constraints",
+      "category": "constraints",
+      "description": {
+        "zh-CN": "实施限制：付款/退款/账户变更写接口须人工确认，工单与 CRM 数据不得出境到第三方大模型",
+        "en-US": "Implementation constraints: HITL confirmation before payment/refund/account write APIs; ticket and CRM data must not go to offshore third-party models"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-009",
+        "du-010"
+      ]
+    },
+    {
+      "id": "ev-success-measures",
+      "category": "success-measures",
+      "description": {
+        "zh-CN": "成功指标：自动闭环大部分重复单、首响与人工成本目标、政策准确率红线、退款接口超时不得当成成功",
+        "en-US": "Success metrics: auto-close most repetitive tickets, first-response and labor-cost targets, policy-accuracy floor, timed-out refund calls must not count as success"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-011",
+        "du-012"
+      ]
+    },
+    {
+      "id": "ev-trust",
+      "category": "trust",
+      "description": {
+        "zh-CN": "信任问题：一线怕丢工作而绕过代理，高管以为可以一步全自动并低估 HITL 与工具失败",
+        "en-US": "Trust issues: frontline job-fear and bypass; executives expect one-step full automation and underestimate HITL and tool failure"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-013",
+        "du-014"
+      ]
+    },
+    {
+      "id": "ev-failure-modes",
+      "category": "failure-modes",
+      "description": {
+        "zh-CN": "失败模式：不确定时幻觉退款政策并调用退款接口；高峰工具超时把大量工单打进人工队列",
+        "en-US": "Failure modes: policy hallucination plus a refund API call; peak tool-timeout flood of the human queue"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-015",
+        "du-016"
+      ]
+    }
+  ],
+  "rubric": {
+    "stages": [
+      {
+        "id": "framing",
+        "label": {
+          "zh-CN": "问题定义",
+          "en-US": "Problem Framing"
+        },
+        "criteria": [
+          {
+            "id": "f-c1",
+            "label": {
+              "zh-CN": "客服代理问题陈述清晰度",
+              "en-US": "Support-Agent Problem Clarity"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "能否准确描述支持中心需要工具型客服代理来同时处理质量、延迟与成本的问题",
+              "en-US": "Can accurately describe why the support center needs a tool-calling agent for quality, latency, and cost"
+            }
+          },
+          {
+            "id": "f-c2",
+            "label": {
+              "zh-CN": "关键利益相关者识别",
+              "en-US": "Key Stakeholder Identification"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "是否识别了客服总监、合规官、代理平台工程师和CFO及其核心关切",
+              "en-US": "Has identified the support director, compliance officer, agent-platform engineer, and CFO with their core concerns"
+            }
+          },
+          {
+            "id": "f-c3",
+            "label": {
+              "zh-CN": "成功标准明确性",
+              "en-US": "Success Criteria Clarity"
+            },
+            "weight": 45,
+            "description": {
+              "zh-CN": "是否明确定义了可衡量的成功指标（自动闭环、首响、人工成本、政策准确率、退款超时不得当成成功）",
+              "en-US": "Are measurable success criteria (auto-close, first-response, labor cost, policy accuracy, timed-out refunds must not count as success) clearly defined"
+            }
+          }
+        ]
+      },
+      {
+        "id": "solution",
+        "label": {
+          "zh-CN": "方案设计",
+          "en-US": "Solution Design"
+        },
+        "criteria": [
+          {
+            "id": "s-c1",
+            "label": {
+              "zh-CN": "方案完整性",
+              "en-US": "Solution Completeness"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "方案是否覆盖 CRM/订单/退款工具闭环、写操作 HITL、升级与超时失败处理",
+              "en-US": "Does the solution cover the CRM/order/refund tool loop, HITL on writes, escalation, and timeout failure handling"
+            }
+          },
+          {
+            "id": "s-c2",
+            "label": {
+              "zh-CN": "工具调用与 FAQ 机器人的权衡",
+              "en-US": "Tool-calling vs. FAQ-bot Trade-off"
+            },
+            "weight": 35,
+            "description": {
+              "zh-CN": "方案是否清晰地权衡了会调业务系统工具的代理与 FAQ 机器人的取舍",
+              "en-US": "Does the solution clearly weigh a tool-calling agent against an FAQ bot"
+            }
+          },
+          {
+            "id": "s-c3",
+            "label": {
+              "zh-CN": "合规与 HITL 兼容性",
+              "en-US": "Compliance and HITL Compatibility"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "方案是否在付款/退款/账户变更人工确认与数据出境限制内可行",
+              "en-US": "Is the solution feasible within HITL on payment/refund/account writes and data-egress limits"
+            }
+          }
+        ]
+      },
+      {
+        "id": "challenge",
+        "label": {
+          "zh-CN": "挑战应对",
+          "en-US": "Challenge Response"
+        },
+        "criteria": [
+          {
+            "id": "ch-c1",
+            "label": {
+              "zh-CN": "不安全自动化应对",
+              "en-US": "Unsafe Automation Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "能否有效应对代理幻觉退款政策并调用退款接口等不安全自动化",
+              "en-US": "Can effectively address unsafe automation such as hallucinating a refund policy and calling the refund API"
+            }
+          },
+          {
+            "id": "ch-c2",
+            "label": {
+              "zh-CN": "升级与超时应对",
+              "en-US": "Escalation and Timeout Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "是否建立了可靠的转人工升级通道，且退款接口超时不得被当成成功",
+              "en-US": "Has a reliable human escalation path been established, and timed-out refund calls must not count as success"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pitch",
+        "label": {
+          "zh-CN": "方案表达",
+          "en-US": "Solution Presentation"
+        },
+        "criteria": [
+          {
+            "id": "p-c1",
+            "label": {
+              "zh-CN": "高层ROI适配",
+              "en-US": "Executive ROI Adaptation"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "是否面向CFO关注的成本与投资回报进行阐述，同时承认 HITL 会限制全自动节省",
+              "en-US": "Does the presentation address the CFO's cost and ROI concerns while acknowledging HITL limits full-automation savings"
+            }
+          },
+          {
+            "id": "p-c2",
+            "label": {
+              "zh-CN": "清晰度和说服力",
+              "en-US": "Clarity and Persuasiveness"
+            },
+            "weight": 60,
+            "description": {
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向",
+              "en-US": "Is the presentation clear, persuasive, and action-oriented"
+            }
+          }
+        ]
+      },
+      {
+        "id": "process",
+        "label": {
+          "zh-CN": "实施流程",
+          "en-US": "Implementation Process"
+        },
+        "criteria": [
+          {
+            "id": "pr-c1",
+            "label": {
+              "zh-CN": "分阶段上线合理性",
+              "en-US": "Phased Rollout Reasonableness"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "分阶段工具型代理上线（先只读查询、再 HITL 写操作）是否合理、可实现",
+              "en-US": "Is the phased tool-calling agent rollout (read tools first, then HITL writes) reasonable and achievable"
+            }
+          },
+          {
+            "id": "pr-c2",
+            "label": {
+              "zh-CN": "度量体系明确性",
+              "en-US": "Measurement Clarity"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "质量、延迟与成本的度量体系是否明确",
+              "en-US": "Are the quality, latency, and cost metrics clearly defined"
+            }
+          },
+          {
+            "id": "pr-c3",
+            "label": {
+              "zh-CN": "风险管理",
+              "en-US": "Risk Management"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "是否识别了政策幻觉、退款超时、高峰队列堆积和一线绕过等风险并制定了缓解计划",
+              "en-US": "Are risks such as policy hallucination, refund timeouts, peak queue floods, and frontline bypass identified with mitigation plans"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "criticalContradictions": [
+    {
+      "id": "cc-001",
+      "statement": {
+        "zh-CN": "代理平台工程师希望把自动处理推到70%，而合规官要求付款、退款、账户变更必须人工确认后才许调用写 API",
+        "en-US": "The agent-platform engineer wants to push auto-handling to 70%, while the compliance officer requires human confirmation before payment, refund, or account-change write APIs"
+      },
+      "expectedEvidenceIds": [
+        "ev-constraints",
+        "ev-workflow"
+      ]
+    },
+    {
+      "id": "cc-002",
+      "statement": {
+        "zh-CN": "CFO 追求工具闭环覆盖带来的成本节省，而一线客服怕丢工作、绕过代理直接人工回复",
+        "en-US": "The CFO pursues savings from tool-loop coverage, while frontline agents fear losing their jobs and bypass the agent to reply manually"
+      },
+      "expectedEvidenceIds": [
+        "ev-trust",
+        "ev-business-impact"
+      ]
+    }
+  ],
+  "hintLadders": [
+    {
+      "id": "hl-workflow",
+      "topic": "workflow",
+      "hints": {
+        "1": {
+          "zh-CN": "在谈代理之前，它现在会按什么顺序去碰业务系统？",
+          "en-US": "Before proposing the agent, in what order does work currently touch the business systems?"
+        },
+        "2": {
+          "zh-CN": "去找工具调用顺序、哪些单能闭环，以及平时和高峰的响应节奏。",
+          "en-US": "Look for tool-call order, which tickets can close in a loop, and response pace at normal versus peak."
+        },
+        "3": {
+          "zh-CN": "现在客服代理会按什么顺序调用 CRM 和订单接口？重复单大概能闭环多少？首响在平时和高峰分别怎样？",
+          "en-US": "In what order does the support agent call CRM and the order API? About what share of repetitive tickets can close in a tool loop? What is first-response like in normal hours versus peak?"
+        }
+      }
+    },
+    {
+      "id": "hl-pain",
+      "topic": "pain",
+      "hints": {
+        "1": {
+          "zh-CN": "支持中心现在最疼的是成本结构、人稳不稳，还是复杂单？",
+          "en-US": "Is the support center hurting most on cost structure, workforce stability, or complex tickets?"
+        },
+        "2": {
+          "zh-CN": "去找人工成本占比、一线稳定性，以及复杂单一次解决和切屏负担。",
+          "en-US": "Look for labor-cost share, workforce stability, and first-contact resolution plus screen-switching on complex tickets."
+        },
+        "3": {
+          "zh-CN": "人工成本在总支持预算里大概占多少？一线一年走多少人？复杂工单一次解决得怎么样，客服是不是还在 CRM 里来回切屏？",
+          "en-US": "What share of the support budget is labor, how severe is frontline attrition, how well are complex tickets resolved at first contact, and do agents still context-switch in the CRM?"
+        }
+      }
+    },
+    {
+      "id": "hl-root-cause",
+      "topic": "root-cause",
+      "hints": {
+        "1": {
+          "zh-CN": "现有自动化到底卡在规则、语言，还是工具？",
+          "en-US": "Is current automation stuck on rules, language, or tools?"
+        },
+        "2": {
+          "zh-CN": "去找现网技术栈、工具可达范围，以及换说法或缺结果时的表现。",
+          "en-US": "Look for the current stack, tool reachability, and paraphrase or missing-result behavior."
+        },
+        "3": {
+          "zh-CN": "现网实际靠什么在跑？工具现在能调到哪一层？用户换个说法或没有工具结果时会怎样？",
+          "en-US": "What does production actually run on, how far do tools currently reach, and what happens when a user rephrases or a tool result is missing?"
+        }
+      }
+    },
+    {
+      "id": "hl-business-impact",
+      "topic": "business-impact",
+      "hints": {
+        "1": {
+          "zh-CN": "等太久和工具闭环覆盖，分别打在收入还是成本上？",
+          "en-US": "Do long waits and tool-loop coverage hit revenue, cost, or both?"
+        },
+        "2": {
+          "zh-CN": "去找等待导致的流失价值，覆盖一部分工单后的可节省成本，以及工程师私下的自动处理目标。",
+          "en-US": "Look for wait-driven churn value, the cost that partial ticket coverage could save, and the engineer's private auto-handle target."
+        },
+        "3": {
+          "zh-CN": "因等待流失一个客户大概损失多少？每月因此走多少人？工具闭环覆盖一部分工单一年能省多少？工程师私下想把自动处理推到多高？",
+          "en-US": "What lifetime value is lost per wait-driven churn, how many customers leave monthly for that reason, what annual saving does partial tool-loop coverage imply, and how high does the engineer privately want to push auto-handling?"
+        }
+      }
+    },
+    {
+      "id": "hl-constraints",
+      "topic": "constraints",
+      "hints": {
+        "1": {
+          "zh-CN": "写操作和数据放哪里跑，分别被什么拦住？",
+          "en-US": "What stops write actions versus where ticket data is allowed to run?"
+        },
+        "2": {
+          "zh-CN": "去找必须人工确认才能调用的写接口类型，以及工单与 CRM 数据能否出境。",
+          "en-US": "Look for write-API types that require human confirmation and whether ticket and CRM data may leave the region."
+        },
+        "3": {
+          "zh-CN": "付款、退款、账户变更要不要人工确认才许调用写接口？工单和 CRM 数据能不能送到境外第三方大模型？",
+          "en-US": "Must payment, refund, and account-change writes wait for a human before the write API is called, and may ticket and CRM data go to an offshore third-party model?"
+        }
+      }
+    },
+    {
+      "id": "hl-success",
+      "topic": "success-measures",
+      "hints": {
+        "1": {
+          "zh-CN": "管理层用速度、成本还是政策质量来宣布代理成功？",
+          "en-US": "Will leadership call this agent a win on speed, cost, or policy quality?"
+        },
+        "2": {
+          "zh-CN": "去找自动闭环、首响、人工成本的目标，以及退款超时绝不能当成成功的质量红线。",
+          "en-US": "Look for targets on auto-close, first-response, and labor cost, including the hard floor that a timed-out refund must not count as success."
+        },
+        "3": {
+          "zh-CN": "自动闭环、首响和人工成本要改到什么程度才算达标？政策准确率有没有底线？退款接口超时后能不能被当成成功？",
+          "en-US": "What auto-close, first-response, and labor-cost change counts as success, is there a policy-accuracy floor, and may a timed-out refund API be treated as success?"
+        }
+      }
+    },
+    {
+      "id": "hl-trust",
+      "topic": "trust",
+      "hints": {
+        "1": {
+          "zh-CN": "一线和高管对同一套客服代理，分别怕什么、盼什么？",
+          "en-US": "What do frontline agents versus executives fear or expect from the same support agent?"
+        },
+        "2": {
+          "zh-CN": "去找一线是否绕过代理直接人工回复，以及高管对一步全自动和工具失败的预期。",
+          "en-US": "Look for frontline workarounds that bypass the agent and executive expectations of one-step full automation versus tool failure."
+        },
+        "3": {
+          "zh-CN": "一线会不会怕丢工作而绕过代理？高管有没有把 HITL 和工具失败想得太容易？",
+          "en-US": "Will frontline staff fear job loss and bypass the agent, and are executives underestimating HITL and tool failure?"
+        }
+      }
+    },
+    {
+      "id": "hl-failure-modes",
+      "topic": "failure-modes",
+      "hints": {
+        "1": {
+          "zh-CN": "做错动作和超时把队列打爆，哪种更可能把支持中心打穿？",
+          "en-US": "Which failure punches through first: a wrong action, or a timeout that collapses the queue?"
+        },
+        "2": {
+          "zh-CN": "去找不确定时的胡编行为，以及高峰工具超时时人工队列会怎样。",
+          "en-US": "Look for fabrication under uncertainty and what happens to the human queue if tools time out at peak."
+        },
+        "3": {
+          "zh-CN": "模型没把握时会怎么处理退款？高峰工具一旦超时，人工侧会看到什么？",
+          "en-US": "When the model is unsure, how does it handle refunds? What does the human side see if tools time out at peak?"
+        }
+      }
+    }
+  ],
+  "passGates": [
+    {
+      "id": "pg-001",
+      "description": {
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个包含 CRM/订单/退款工具闭环、写操作 HITL 与升级通道的完整方案",
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete plan with a CRM/order/refund tool loop, HITL on writes, and an escalation path"
+      }
+    },
+    {
+      "id": "pg-002",
+      "description": {
+        "zh-CN": "在PITCH阶段，学员必须面向管理层展示可量化的ROI，并化解一线绕过、HITL 与退款超时等安全顾虑",
+        "en-US": "In the PITCH phase, the learner must present quantifiable ROI to leadership and address frontline bypass, HITL, and refund-timeout safety concerns"
+      }
+    }
+  ],
+  "canary": "eafa2abd7af7896604bd202ca5b5c93b"
+}

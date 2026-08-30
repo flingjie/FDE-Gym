@@ -36,7 +36,7 @@ function unknownRoleError(role: unknown): Error {
 /**
  * Loads the partition for the given agent role through a fully verified bundle.
  *
- * @param id - Scenario id (e.g. "manufacturing-alert-triage").
+ * @param id - Scenario id (e.g. "customer-support-agent").
  * @param role - Agent role requesting the partition.
  * @returns The role's capsule.
  * @throws Error for an unknown role or a missing/invalid scenario id.

@@ -1,0 +1,319 @@
+{
+  "id": "data-analysis-agent",
+  "schemaVersion": 1,
+  "stakeholders": [
+    {
+      "id": "analytics-lead",
+      "role": {
+        "zh-CN": "分析负责人",
+        "en-US": "Analytics lead"
+      },
+      "persona": {
+        "zh-CN": "42岁女性，负责分析团队。希望业务用自然语言自助问数，少找分析师搬数，又时常低估错误关联和漏过滤的风险。",
+        "en-US": "42-year-old female, owns the analytics team. Wants business users to ask in natural language and stop tapping analysts for pulls, and often underestimates the risk of a wrong join or a dropped filter."
+      },
+      "concerns": [
+        {
+          "zh-CN": "业务能不能用自然语言问到可信的指标？",
+          "en-US": "Can the business get trustworthy metrics in natural language?"
+        },
+        {
+          "zh-CN": "语义层盖不住的指标，代理会不会乱拼查询？",
+          "en-US": "If the semantic layer does not cover a metric, will the agent invent a query?"
+        },
+        {
+          "zh-CN": "如何减少分析师当取数窗口的时间？",
+          "en-US": "How do we stop analysts from being a human extract window?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解隐私官对一次明细泄漏的零容忍",
+          "en-US": "Does not know the privacy officer has zero tolerance for one detail-row leak"
+        },
+        {
+          "zh-CN": "低估了业务会把结果直接贴进幻灯片",
+          "en-US": "Underestimates that requesters will paste results straight into slides"
+        }
+      ]
+    },
+    {
+      "id": "platform-dba",
+      "role": {
+        "zh-CN": "数据平台与库负责人",
+        "en-US": "Data-platform / DBA"
+      },
+      "persona": {
+        "zh-CN": "48岁男性，负责数仓与平台。坚持代理只能发只读 SQL，跨部门宽表必须批准，对文本转 SQL 直接打宽表持审慎态度。",
+        "en-US": "48-year-old male, owns the warehouse and platform. Insists the agent may only issue read-only SQL, cross-department wide tables need approval, and is cautious about text-to-SQL hitting wide tables directly."
+      },
+      "concerns": [
+        {
+          "zh-CN": "代理会不会写出带副作用的语句？",
+          "en-US": "Could the agent emit a statement with side effects?"
+        },
+        {
+          "zh-CN": "宽表裸查会不会打穿平台负载？",
+          "en-US": "Will bare queries against wide tables crush platform load?"
+        },
+        {
+          "zh-CN": "行级安全是不是每条查询都套上？",
+          "en-US": "Is row-level security applied on every query?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解业务贴幻灯片的速度压力",
+          "en-US": "Does not understand the slide-deadline pressure on the business"
+        },
+        {
+          "zh-CN": "低估了语义层缺口会把代理逼去裸写 SQL",
+          "en-US": "Underestimates that semantic-layer gaps push the agent to write raw SQL"
+        }
+      ]
+    },
+    {
+      "id": "business-requester",
+      "role": {
+        "zh-CN": "业务请求方",
+        "en-US": "Business requester"
+      },
+      "persona": {
+        "zh-CN": "35岁男性，业务方。会把查询结果直接贴进幻灯片，嫌审批慢，更想直接问宽表。",
+        "en-US": "35-year-old male, business requester. Pastes query results straight into slides, dislikes approval latency, and would rather ask a wide table directly."
+      },
+      "concerns": [
+        {
+          "zh-CN": "我能不能当天拿到能上会的数？",
+          "en-US": "Can I get numbers I can take to a meeting the same day?"
+        },
+        {
+          "zh-CN": "语义层没有的口径，我还能不能问？",
+          "en-US": "If the semantic layer has no definition, can I still ask?"
+        },
+        {
+          "zh-CN": "审批会不会把问数拖到下周？",
+          "en-US": "Will approval push the ask into next week?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解漏过滤会打出个人字段",
+          "en-US": "Does not know a dropped filter can surface personal fields"
+        },
+        {
+          "zh-CN": "看不到平台对写库和宽表的硬闸门",
+          "en-US": "Cannot see the platform's hard gate on writes and wide tables"
+        }
+      ]
+    },
+    {
+      "id": "privacy-officer",
+      "role": {
+        "zh-CN": "隐私负责人",
+        "en-US": "Privacy officer"
+      },
+      "persona": {
+        "zh-CN": "53岁女性，负责隐私与数据使用。坚持禁止写库、宽表要批准，对错关联或漏过滤打出个人字段零容忍。",
+        "en-US": "53-year-old female, owns privacy and data use. Insists on no warehouse writes and approval for wide tables, and has zero tolerance for a wrong join or dropped filter that returns personal fields."
+      },
+      "concerns": [
+        {
+          "zh-CN": "自然语言查询会不会漏掉过滤打出个人字段？",
+          "en-US": "Could a natural-language query drop a filter and return personal fields?"
+        },
+        {
+          "zh-CN": "结果会不会被贴到不受控的幻灯片里？",
+          "en-US": "Will results be pasted into uncontrolled slide decks?"
+        },
+        {
+          "zh-CN": "如何审计每一条生成的 SQL？",
+          "en-US": "How do we audit every generated SQL statement?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解分析负责人要用自助问数换回分析师时间",
+          "en-US": "Does not understand the analytics lead is trading self-serve asks for analyst time"
+        },
+        {
+          "zh-CN": "低估了语义层覆盖不足时业务会施压绕过",
+          "en-US": "Underestimates that thin semantic coverage lets the business pressure a bypass"
+        }
+      ]
+    }
+  ],
+  "disclosureUnits": [
+    {
+      "id": "du-001",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "业务人员用自然语言问数仓；代理先走 BI 语义层再生成只读 SQL。",
+        "en-US": "Business users ask the warehouse in natural language; the agent hits the BI semantic layer first, then emits read-only SQL."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-002",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "行级安全本应套在每条查询上；跨部门宽表要另走批准。",
+        "en-US": "Row-level security is supposed to wrap every query; cross-department wide tables take a separate approval path."
+      },
+      "prerequisites": [
+        "du-001"
+      ],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-003",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "一次错误查询曾打出约2.4万行含手机号。",
+        "en-US": "One bad query once dumped about 24,000 rows that included mobile numbers."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-004",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "业务请求方会把结果直接贴进幻灯片；语义层覆盖约40%指标。",
+        "en-US": "The business requester pastes results straight into slides; the semantic layer covers about 40% of metrics."
+      },
+      "prerequisites": [
+        "du-003"
+      ],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-005",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "语义层覆盖不全，代理常裸写 JOIN。",
+        "en-US": "Semantic-layer coverage is incomplete, so the agent often writes raw JOINs."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-006",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "过滤条件会被模型丢掉；行级安全不是默认强制。",
+        "en-US": "The model can drop filter predicates; row-level security is not enforced by default."
+      },
+      "prerequisites": [
+        "du-005"
+      ],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-007",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "一次个人字段泄漏会触发监管通报；分析负责人仍想先让业务自助问数。",
+        "en-US": "One personal-field leak triggers a regulatory notice; the analytics lead still wants the business to self-serve first."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-008",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "DBA 认为写库或宽表裸查会打穿平台；业务觉得审批太慢。",
+        "en-US": "The DBA believes a write or a bare wide-table scan will punch through the platform; the business thinks approval is too slow."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-009",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "代理禁止写库；跨部门宽表必须先批准。",
+        "en-US": "The agent must not write the warehouse; cross-department wide tables must be approved first."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-010",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "含手机号等个人字段的结果不得带出受控环境。",
+        "en-US": "Results that include mobile numbers or other personal fields must not leave the controlled environment."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-011",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "目标：自然语言问数成为只读默认路径，业务少找分析师搬数。",
+        "en-US": "Goal: natural-language asks become the read-only default path, and the business stops tapping analysts for pulls."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-012",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "质量红线：查询必须带行级安全；语义层未覆盖的指标不得裸拼 SQL。",
+        "en-US": "Quality floor: every query must carry row-level security; metrics the semantic layer does not cover must not be assembled as raw SQL."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-013",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "业务请求方不信语义层，想直接问宽表。",
+        "en-US": "The business requester does not trust the semantic layer and wants to ask the wide table directly."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-014",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "隐私官不信文本转 SQL 会守住过滤；分析负责人低估关联风险。",
+        "en-US": "The privacy officer does not believe text-to-SQL will keep filters; the analytics lead underestimates join risk."
+      },
+      "prerequisites": [
+        "du-013"
+      ],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-015",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "错 JOIN 会把不该关联的用户表拼出来。",
+        "en-US": "A wrong JOIN stitches in a user table that should not have been joined."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    },
+    {
+      "id": "du-016",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "漏过滤会打出含手机号的明细。",
+        "en-US": "A dropped filter dumps detail rows that include mobile numbers."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    }
+  ],
+  "responsePolicies": [],
+  "privateConflicts": [],
+  "canary": "cd42305b5151b31849e0f086f82d3a31"
+}

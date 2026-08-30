@@ -1,0 +1,502 @@
+{
+  "id": "data-analysis-agent",
+  "schemaVersion": 1,
+  "expectedEvidence": [
+    {
+      "id": "ev-workflow",
+      "category": "workflow",
+      "description": {
+        "zh-CN": "问数代理路径（自然语言到语义层再到只读 SQL）、行级安全是否套在每条查询上、跨部门宽表如何走批准",
+        "en-US": "Analysis-agent path (natural language to semantic layer to read-only SQL), whether row-level security wraps every query, and how cross-department wide tables take approval"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-001",
+        "du-002"
+      ]
+    },
+    {
+      "id": "ev-pain",
+      "category": "pain",
+      "description": {
+        "zh-CN": "问数痛点：一次失败查询打出的个人字段暴露、语义层覆盖缺口、结果被贴进幻灯片",
+        "en-US": "Ask-data pain: personal-field exposure from a failed query, semantic-layer coverage gap, results pasted into slides"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-003",
+        "du-004"
+      ]
+    },
+    {
+      "id": "ev-root-cause",
+      "category": "root-cause",
+      "description": {
+        "zh-CN": "语义层覆盖不全导致裸写关联；过滤条件会被丢掉；行级安全不是默认强制",
+        "en-US": "Incomplete semantic coverage leads to raw joins; filter predicates can be dropped; row-level security is not enforced by default"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-005",
+        "du-006"
+      ]
+    },
+    {
+      "id": "ev-business-impact",
+      "category": "business-impact",
+      "description": {
+        "zh-CN": "业务影响：个人字段泄漏触发监管通报、分析负责人仍要先上自助问数、平台与业务对写库和宽表审批的对立",
+        "en-US": "Business impact: a personal-field leak triggers a regulatory notice, the analytics lead still wants self-serve first, and platform versus business conflict on writes and wide-table approval"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-007",
+        "du-008"
+      ]
+    },
+    {
+      "id": "ev-constraints",
+      "category": "constraints",
+      "description": {
+        "zh-CN": "实施限制：禁止写库、跨部门宽表须先批准，含个人字段的结果不得带出受控环境",
+        "en-US": "Implementation constraints: no warehouse writes, approval before cross-department wide tables; results with personal fields must not leave the controlled environment"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-009",
+        "du-010"
+      ]
+    },
+    {
+      "id": "ev-success-measures",
+      "category": "success-measures",
+      "description": {
+        "zh-CN": "成功指标：自然语言问数成为只读默认路径、业务少找分析师搬数、查询必须带行级安全、语义层未覆盖不得裸拼 SQL",
+        "en-US": "Success metrics: natural-language asks as the read-only default path, fewer analyst pulls, every query carries row-level security, uncovered metrics must not become raw SQL"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-011",
+        "du-012"
+      ]
+    },
+    {
+      "id": "ev-trust",
+      "category": "trust",
+      "description": {
+        "zh-CN": "信任问题：业务想绕过语义层问宽表，隐私官不信文本转 SQL 会守过滤，分析负责人低估关联风险",
+        "en-US": "Trust issues: the business wants to bypass the semantic layer for wide tables; privacy does not trust text-to-SQL to keep filters; the analytics lead underestimates join risk"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-013",
+        "du-014"
+      ]
+    },
+    {
+      "id": "ev-failure-modes",
+      "category": "failure-modes",
+      "description": {
+        "zh-CN": "失败模式：错误关联拼进不该出现的用户表；丢掉过滤后打出含个人字段的明细",
+        "en-US": "Failure modes: a wrong association stitches in a user table that should not appear; a dropped filter dumps detail rows with personal fields"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-015",
+        "du-016"
+      ]
+    }
+  ],
+  "rubric": {
+    "stages": [
+      {
+        "id": "framing",
+        "label": {
+          "zh-CN": "问题定义",
+          "en-US": "Problem Framing"
+        },
+        "criteria": [
+          {
+            "id": "f-c1",
+            "label": {
+              "zh-CN": "问数代理问题陈述清晰度",
+              "en-US": "Analysis-Agent Problem Clarity"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "能否准确描述业务需要只读的自然语言问数代理，而不是迁库或开放写库",
+              "en-US": "Can accurately describe why the business needs a read-only natural-language analysis agent, not a warehouse migration or open writes"
+            }
+          },
+          {
+            "id": "f-c2",
+            "label": {
+              "zh-CN": "关键利益相关者识别",
+              "en-US": "Key Stakeholder Identification"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "是否识别了分析负责人、平台DBA、业务请求方和隐私官及其核心关切",
+              "en-US": "Has identified the analytics lead, platform DBA, business requester, and privacy officer with their core concerns"
+            }
+          },
+          {
+            "id": "f-c3",
+            "label": {
+              "zh-CN": "成功标准明确性",
+              "en-US": "Success Criteria Clarity"
+            },
+            "weight": 45,
+            "description": {
+              "zh-CN": "是否明确定义了可衡量的成功指标（只读默认路径、少找分析师、行级安全必带、未覆盖指标不得裸拼）",
+              "en-US": "Are measurable success criteria (read-only default path, fewer analyst pulls, required row-level security, no raw SQL for uncovered metrics) clearly defined"
+            }
+          }
+        ]
+      },
+      {
+        "id": "solution",
+        "label": {
+          "zh-CN": "方案设计",
+          "en-US": "Solution Design"
+        },
+        "criteria": [
+          {
+            "id": "s-c1",
+            "label": {
+              "zh-CN": "方案完整性",
+              "en-US": "Solution Completeness"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "方案是否覆盖只读 SQL、语义层、行级安全、禁止写库、宽表批准与漏过滤处理",
+              "en-US": "Does the solution cover read-only SQL, the semantic layer, row-level security, no writes, wide-table approval, and dropped-filter handling"
+            }
+          },
+          {
+            "id": "s-c2",
+            "label": {
+              "zh-CN": "文本转 SQL 与语义层守门的权衡",
+              "en-US": "Text-to-SQL vs. Semantic-layer Guardrail Trade-off"
+            },
+            "weight": 35,
+            "description": {
+              "zh-CN": "方案是否清晰地权衡了自然语言生成 SQL 与必须走语义层守门",
+              "en-US": "Does the solution clearly weigh free text-to-SQL against a required semantic-layer guardrail"
+            }
+          },
+          {
+            "id": "s-c3",
+            "label": {
+              "zh-CN": "隐私与 HITL 兼容性",
+              "en-US": "Privacy and HITL Compatibility"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "方案是否在禁止写库与跨部门宽表须批准的限制内可行",
+              "en-US": "Is the solution feasible within no warehouse writes and human approval on cross-department wide tables"
+            }
+          }
+        ]
+      },
+      {
+        "id": "challenge",
+        "label": {
+          "zh-CN": "挑战应对",
+          "en-US": "Challenge Response"
+        },
+        "criteria": [
+          {
+            "id": "ch-c1",
+            "label": {
+              "zh-CN": "错误关联与漏过滤应对",
+              "en-US": "Wrong-join and Dropped-filter Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "能否有效应对错误关联或丢掉过滤打出个人字段等不安全自动化",
+              "en-US": "Can effectively address unsafe automation such as a wrong join or a dropped filter that returns personal fields"
+            }
+          },
+          {
+            "id": "ch-c2",
+            "label": {
+              "zh-CN": "写库与宽表升级应对",
+              "en-US": "Write and Wide-table Escalation Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "是否建立了禁止写库、宽表必须人工批准的升级通道",
+              "en-US": "Has a reliable path been established so writes are refused and wide tables wait for human approval"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pitch",
+        "label": {
+          "zh-CN": "方案表达",
+          "en-US": "Solution Presentation"
+        },
+        "criteria": [
+          {
+            "id": "p-c1",
+            "label": {
+              "zh-CN": "高层自助与监管适配",
+              "en-US": "Executive Self-serve and Regulatory Adaptation"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "是否面向分析负责人的自助压力与隐私官的监管关切进行阐述，同时承认行级安全和批准会限制覆盖",
+              "en-US": "Does the presentation address the analytics lead's self-serve pressure and the privacy officer's regulatory concerns while acknowledging row-level security and approval limit coverage"
+            }
+          },
+          {
+            "id": "p-c2",
+            "label": {
+              "zh-CN": "清晰度和说服力",
+              "en-US": "Clarity and Persuasiveness"
+            },
+            "weight": 60,
+            "description": {
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向",
+              "en-US": "Is the presentation clear, persuasive, and action-oriented"
+            }
+          }
+        ]
+      },
+      {
+        "id": "process",
+        "label": {
+          "zh-CN": "实施流程",
+          "en-US": "Implementation Process"
+        },
+        "criteria": [
+          {
+            "id": "pr-c1",
+            "label": {
+              "zh-CN": "分阶段上线合理性",
+              "en-US": "Phased Rollout Reasonableness"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "分阶段问数代理上线（先语义层内只读查询，再批准后的宽表）是否合理、可实现",
+              "en-US": "Is the phased analysis-agent rollout (read-only queries inside the semantic layer first, then approved wide tables) reasonable and achievable"
+            }
+          },
+          {
+            "id": "pr-c2",
+            "label": {
+              "zh-CN": "度量体系明确性",
+              "en-US": "Measurement Clarity"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "查询安全、语义覆盖与业务自助的度量体系是否明确",
+              "en-US": "Are query-safety, semantic-coverage, and business-self-serve metrics clearly defined"
+            }
+          },
+          {
+            "id": "pr-c3",
+            "label": {
+              "zh-CN": "风险管理",
+              "en-US": "Risk Management"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "是否识别了错误关联、漏过滤、写库尝试和结果外带等风险并制定了缓解计划",
+              "en-US": "Are risks such as wrong joins, dropped filters, write attempts, and results leaving the environment identified with mitigation plans"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "criticalContradictions": [
+    {
+      "id": "cc-001",
+      "statement": {
+        "zh-CN": "分析负责人想先让业务自助问数，而隐私官要求查询必须带行级安全、禁止打出个人字段",
+        "en-US": "The analytics lead wants the business to self-serve first, while the privacy officer requires every query to carry row-level security and forbids dumping personal fields"
+      },
+      "expectedEvidenceIds": [
+        "ev-constraints",
+        "ev-business-impact"
+      ]
+    },
+    {
+      "id": "cc-002",
+      "statement": {
+        "zh-CN": "业务请求方想直接问宽表并马上贴进幻灯片，而 DBA 要求跨部门宽表必须先批准、代理不得写库",
+        "en-US": "The business requester wants to ask wide tables directly and paste into slides immediately, while the DBA requires approval before cross-department wide tables and forbids warehouse writes"
+      },
+      "expectedEvidenceIds": [
+        "ev-trust",
+        "ev-workflow"
+      ]
+    }
+  ],
+  "hintLadders": [
+    {
+      "id": "hl-workflow",
+      "topic": "workflow",
+      "hints": {
+        "1": {
+          "zh-CN": "在谈问数代理之前，业务现在是怎样从数仓拿到数的？",
+          "en-US": "Before proposing the analysis agent, how does the business currently get numbers out of the warehouse?"
+        },
+        "2": {
+          "zh-CN": "去找自然语言怎么落到 SQL、语义层和行级安全的位置，以及宽表怎么走。",
+          "en-US": "Look for how natural language lands on SQL, where the semantic layer and row-level security sit, and how wide tables are reached."
+        },
+        "3": {
+          "zh-CN": "业务用自然语言提问后，代理会按什么顺序用语义层和只读 SQL？行级安全和跨部门宽表分别怎么处理？",
+          "en-US": "After a natural-language ask, in what order does the agent use the semantic layer and read-only SQL? How are row-level security and cross-department wide tables handled?"
+        }
+      }
+    },
+    {
+      "id": "hl-pain",
+      "topic": "pain",
+      "hints": {
+        "1": {
+          "zh-CN": "问数现在最疼的是取数效率、指标口径，还是数据暴露？",
+          "en-US": "Is asking for data hurting most on pull speed, metric definitions, or data exposure?"
+        },
+        "2": {
+          "zh-CN": "去找一次失败查询的暴露面、语义层覆盖范围，以及结果离开分析环境后的用法。",
+          "en-US": "Look for the blast radius of a failed query, semantic-layer coverage, and what happens to results after they leave the analytics environment."
+        },
+        "3": {
+          "zh-CN": "出错的查询曾经把什么打出来？语义层现在盖住多少指标？业务拿到结果后会怎么用？",
+          "en-US": "What did a failed query once dump, how much of the metric set does the semantic layer cover today, and what does the business do with the result?"
+        }
+      }
+    },
+    {
+      "id": "hl-root-cause",
+      "topic": "root-cause",
+      "hints": {
+        "1": {
+          "zh-CN": "现有问数卡住的是语义层、SQL 拼装，还是安全默认值？",
+          "en-US": "Is current asking stuck on the semantic layer, SQL assembly, or security defaults?"
+        },
+        "2": {
+          "zh-CN": "去找语义层覆盖、关联怎么生成，以及过滤和行级安全是否默认生效。",
+          "en-US": "Look for semantic-layer coverage, how associations are generated, and whether filters and row-level security apply by default."
+        },
+        "3": {
+          "zh-CN": "语义层盖不住的指标，代理会怎么写查询？过滤条件和行级安全在查询里实际怎么落地？",
+          "en-US": "When the semantic layer does not cover a metric, how does the agent write the query? How do filters and row-level security actually land on the statement?"
+        }
+      }
+    },
+    {
+      "id": "hl-business-impact",
+      "topic": "business-impact",
+      "hints": {
+        "1": {
+          "zh-CN": "错数和漏数，分别打在监管还是业务速度上？",
+          "en-US": "Do wrong or leaked numbers hit regulation, business speed, or both?"
+        },
+        "2": {
+          "zh-CN": "去找个人字段泄漏的组织代价，以及自助问数与平台守门之间的张力。",
+          "en-US": "Look for the organizational cost of a personal-field leak and the tension between self-serve asks and platform gates."
+        },
+        "3": {
+          "zh-CN": "一次把明细打出来会触发什么？分析负责人和平台对先上线自助问数分别怎么看？",
+          "en-US": "What does dumping detail rows trigger, and how do the analytics lead and the platform each view shipping self-serve asks first?"
+        }
+      }
+    },
+    {
+      "id": "hl-constraints",
+      "topic": "constraints",
+      "hints": {
+        "1": {
+          "zh-CN": "写库和跨部门取数，分别被什么拦住？",
+          "en-US": "What stops warehouse writes versus what stops a cross-department pull?"
+        },
+        "2": {
+          "zh-CN": "去找禁止的写操作、宽表批准，以及个人字段能否带出受控环境。",
+          "en-US": "Look for forbidden writes, wide-table approval, and whether personal fields may leave the controlled environment."
+        },
+        "3": {
+          "zh-CN": "代理能不能写数仓？跨部门宽表要不要先批准？含个人字段的结果能不能带出受控环境？",
+          "en-US": "May the agent write the warehouse, must cross-department wide tables wait for approval, and may results with personal fields leave the controlled environment?"
+        }
+      }
+    },
+    {
+      "id": "hl-success",
+      "topic": "success-measures",
+      "hints": {
+        "1": {
+          "zh-CN": "管理层用自助效率、语义覆盖还是安全红线来宣布问数代理成功？",
+          "en-US": "Will leadership call this analysis agent a win on self-serve speed, semantic coverage, or the safety floor?"
+        },
+        "2": {
+          "zh-CN": "去找默认问数路径、行级安全是否必带，以及语义层未覆盖时能不能裸写 SQL。",
+          "en-US": "Look for the default ask path, whether row-level security is required, and whether uncovered metrics may become raw SQL."
+        },
+        "3": {
+          "zh-CN": "怎样才算业务少找分析师搬数？查询必须带上什么安全控制？语义层没有的指标能不能直接拼 SQL？",
+          "en-US": "What would count as the business stopping analyst pulls, which safety control must every query carry, and may uncovered metrics be assembled as raw SQL?"
+        }
+      }
+    },
+    {
+      "id": "hl-trust",
+      "topic": "trust",
+      "hints": {
+        "1": {
+          "zh-CN": "业务和隐私对同一套问数代理，分别盼什么、怕什么？",
+          "en-US": "What do the business versus privacy hope or fear from the same analysis agent?"
+        },
+        "2": {
+          "zh-CN": "去找业务是否绕过语义层，以及隐私对文本转 SQL 守过滤的预期。",
+          "en-US": "Look for business workarounds around the semantic layer and privacy's expectation that text-to-SQL will keep filters."
+        },
+        "3": {
+          "zh-CN": "业务更想问宽表还是走语义层？隐私是否相信自然语言查询会守住过滤？",
+          "en-US": "Would the business rather ask a wide table or go through the semantic layer, and does privacy believe a natural-language query will keep its filters?"
+        }
+      }
+    },
+    {
+      "id": "hl-failure-modes",
+      "topic": "failure-modes",
+      "hints": {
+        "1": {
+          "zh-CN": "查询太宽和拼错数据粒度，哪种更可能把问数代理打穿？",
+          "en-US": "Which failure punches through first: a query that is too wide, or a query that joins at the wrong grain?"
+        },
+        "2": {
+          "zh-CN": "去找错误关联和丢失过滤时结果集的样子，以及个人字段如何出现。",
+          "en-US": "Look for what the result set looks like after a wrong association or a missing filter, and how personal fields show up."
+        },
+        "3": {
+          "zh-CN": "查询一旦关联错了，结果里会出现什么？过滤没带上时，业务会看到什么字段？",
+          "en-US": "If the query associates the wrong tables, what appears in the result? If a filter never made it on, which fields does the business see?"
+        }
+      }
+    }
+  ],
+  "passGates": [
+    {
+      "id": "pg-001",
+      "description": {
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个包含只读 SQL、语义层、行级安全、禁止写库与宽表批准的完整方案",
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete plan with read-only SQL, the semantic layer, row-level security, no warehouse writes, and wide-table approval"
+      }
+    },
+    {
+      "id": "pg-002",
+      "description": {
+        "zh-CN": "在PITCH阶段，学员必须面向管理层展示可量化的自助收益，并化解个人字段泄漏、写库与宽表绕过等安全顾虑",
+        "en-US": "In the PITCH phase, the learner must present quantifiable self-serve value to leadership and address personal-field leaks, warehouse writes, and wide-table bypass"
+      }
+    }
+  ],
+  "canary": "eafa2abd7af7896604bd202ca5b5c93b"
+}

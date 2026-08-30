@@ -1,0 +1,46 @@
+[
+  {
+    "id": "event-iam-mandate",
+    "trigger": {
+      "kind": "on_stage_enter",
+      "phase": "DISCOVERY"
+    },
+    "prompt": {
+      "zh-CN": "【安全通知】安全与身份负责人宣布：员工无权阅读的内容一律禁止被代理引用，对外口径必须先经人工确认。",
+      "en-US": "【Security Notice】The Security / IAM lead announces that content the employee is not entitled to is strictly forbidden from agent quotes, and external customer-facing copy must wait for human confirmation."
+    }
+  },
+  {
+    "id": "event-ship-first-pressure",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-business-impact"
+    },
+    "prompt": {
+      "zh-CN": "【上线压力】知识与IT负责人要求：知识代理必须先上线检索，权限闸门可以下一阶段再补。",
+      "en-US": "【Ship Pressure】The Head of Knowledge / IT requires the knowledge agent to ship retrieval first, with the permission gate allowed to wait for a later phase."
+    }
+  },
+  {
+    "id": "event-fabricated-citation",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-failure-modes"
+    },
+    "prompt": {
+      "zh-CN": "【事故报告】知识库运营通报：代理曾编造引用，并且一次检索忽略了 ACL，把无权内容写进了回答。",
+      "en-US": "【Incident Report】Knowledge-base ops reports that the agent fabricated a citation, and one retrieval ignored ACL and wrote unauthorized content into the answer."
+    }
+  },
+  {
+    "id": "event-citation-required",
+    "trigger": {
+      "kind": "after_question_count",
+      "count": 3
+    },
+    "prompt": {
+      "zh-CN": "【流程要求】知识库运营要求：每一次内部答案都必须带可打开的引用，对外口径不得由代理自行定稿。",
+      "en-US": "【Process Required】Knowledge-base ops requires every internal answer to carry an openable citation, and external wording must not be finalized by the agent alone."
+    }
+  }
+]

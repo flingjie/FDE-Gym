@@ -1,0 +1,68 @@
+{
+  "id": "enterprise-knowledge-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们设计一个企业内部知识代理，让员工问到带引用、且经过权限校验的内部业务答案。",
+    "en-US": "Please help us design an enterprise knowledge agent so employees can get internal business answers that carry citations and pass permission checks."
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家跨区域运营的公司，内部知识散落在文档索引、wiki 和工单里。管理层希望员工能向代理提问并得到带引用的业务答案，而检索必须先过权限，不能把无权内容讲出去。",
+    "en-US": "We are a company operating across regions. Internal knowledge is scattered across a document index, wiki, and tickets. Leadership wants employees to ask an agent and get cited business answers, and retrieval must pass permissions so entitled-only content is not spoken aloud."
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "员工无权阅读的内容不得被引用；对外口径必须先经人工确认（HITL）",
+      "en-US": "Content the employee is not entitled to must not be quoted; anything that becomes external customer-facing copy needs a human (HITL)"
+    },
+    {
+      "zh-CN": "内部文档与工单不得发送到境外的第三方大模型",
+      "en-US": "Internal documents and tickets must not be sent to offshore third-party LLMs"
+    },
+    {
+      "zh-CN": "代理不得编造引用",
+      "en-US": "The agent must not fabricate citations"
+    },
+    {
+      "zh-CN": "允许调用的工具是文档索引、ACL 目录和 wiki/工单检索；代理不得在检索时绕过 ACL",
+      "en-US": "Allowed tools are the document index, ACL directory, and wiki/ticket lookup; the agent must not retrieve while ignoring ACL"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "企业知识代理方案设计文档",
+      "en-US": "Enterprise knowledge-agent design document"
+    },
+    {
+      "zh-CN": "带权限检索与无引用问答的权衡分析",
+      "en-US": "Permissioned retrieval vs. uncited Q&A trade-off analysis"
+    },
+    {
+      "zh-CN": "无权内容拦截与对外口径人工确认（HITL）流程",
+      "en-US": "Unauthorized-content block and external-copy human-in-the-loop (HITL) process"
+    },
+    {
+      "zh-CN": "引用质量、权限命中与一线采用的度量体系",
+      "en-US": "Citation quality, permission-hit, and frontline-adoption measurement framework"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解这家客户的知识代理现状",
+      "en-US": "You have a budget of 12 questions to understand this customer's knowledge-agent situation"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}

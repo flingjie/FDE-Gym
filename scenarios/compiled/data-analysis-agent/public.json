@@ -1,0 +1,68 @@
+{
+  "id": "data-analysis-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们设计一个只读的数据分析代理，让业务人员用自然语言问数仓，并在写库和跨部门宽表上保留人工。",
+    "en-US": "Please help us design a read-only data-analysis agent so business users can ask the warehouse in natural language, while keeping humans on warehouse writes and cross-department wide tables."
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家业务团队会自己取数的公司。管理层希望业务人员能用自然语言问数仓，代理只生成只读 SQL、走 BI 语义层并套行级安全，而不是再做一个迁库项目。",
+    "en-US": "We are a company whose business teams pull their own numbers. Leadership wants business users to ask the warehouse in natural language. The agent should emit read-only SQL, use the BI semantic layer, and apply row-level security — not become another database-migration project."
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "代理禁止写数仓；跨部门宽表必须先经人工批准（HITL）",
+      "en-US": "The agent must not write the warehouse; cross-department wide tables need human approval (HITL)"
+    },
+    {
+      "zh-CN": "查询结果中的个人数据不得带出受控分析环境",
+      "en-US": "Personal data in query results must not leave the controlled analytics environment"
+    },
+    {
+      "zh-CN": "代理不得在语义层未覆盖时裸拼关联",
+      "en-US": "The agent must not freely compose joins when the semantic layer does not cover the metric"
+    },
+    {
+      "zh-CN": "允许调用的工具是只读 SQL、BI 语义层和行级安全；代理不得丢掉过滤条件打出明细",
+      "en-US": "Allowed tools are read-only SQL, the BI semantic layer, and row-level security; the agent must not drop filters and dump detail rows"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "数据分析代理方案设计文档",
+      "en-US": "Data-analysis agent design document"
+    },
+    {
+      "zh-CN": "文本转 SQL 与语义层守门的权衡分析",
+      "en-US": "Text-to-SQL vs. semantic-layer-guardrail trade-off analysis"
+    },
+    {
+      "zh-CN": "禁止写库与跨部门宽表批准（HITL）流程",
+      "en-US": "No-write and cross-department wide-table approval (HITL) process"
+    },
+    {
+      "zh-CN": "查询安全、语义覆盖与业务自助的度量体系",
+      "en-US": "Query-safety, semantic-coverage, and business-self-serve measurement framework"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解这家客户的问数代理现状",
+      "en-US": "You have a budget of 12 questions to understand this customer's analysis-agent situation"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}

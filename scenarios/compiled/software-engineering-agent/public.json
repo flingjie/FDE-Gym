@@ -1,0 +1,68 @@
+{
+  "id": "software-engineering-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们设计一个软件工程代理，在隔离沙箱里修 Bug、跑测试并开 PR，同时守住受保护分支和生产密钥。",
+    "en-US": "Please help us design a software-engineering agent that fixes bugs, runs tests, and opens PRs inside an isolated sandbox, while protecting protected branches and production secrets."
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家产品工程团队。管理层希望代理在隔离沙箱里改代码、跑测试、经 PR 接口开评审，而不是让代理直接碰默认分支或生产密钥。",
+    "en-US": "We are a product engineering team. Leadership wants an agent that edits code, runs tests, and opens reviews through the PR API inside an isolated sandbox — not an agent that touches the default branch or production secrets."
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "受保护分支合并与生产密钥使用必须先经人工确认（HITL）；禁止直接 push 默认分支",
+      "en-US": "Merges to protected branches and any use of production secrets require a human (HITL); pushing the default branch is forbidden"
+    },
+    {
+      "zh-CN": "生产密钥不得进入沙箱、PR 描述或 diff",
+      "en-US": "Production secrets must not enter the sandbox, the PR description, or the diff"
+    },
+    {
+      "zh-CN": "代理不得在测试已绿时把行为回归当成成功",
+      "en-US": "The agent must not treat a behavior regression as success just because tests are green"
+    },
+    {
+      "zh-CN": "允许调用的工具是 Git、隔离沙箱、测试运行器和 PR 接口；代理不得把秘密写进 PR",
+      "en-US": "Allowed tools are Git, an isolated sandbox, the test runner, and the PR API; the agent must not write a secret into a PR"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "软件工程代理方案设计文档",
+      "en-US": "Software-engineering agent design document"
+    },
+    {
+      "zh-CN": "沙箱修 Bug 与人工改仓库的权衡分析",
+      "en-US": "Sandbox bug-fix vs. human-only repo-edit trade-off analysis"
+    },
+    {
+      "zh-CN": "受保护分支合并与生产密钥的人工确认（HITL）流程",
+      "en-US": "Human-in-the-loop (HITL) process for protected-branch merges and production secrets"
+    },
+    {
+      "zh-CN": "绿测质量、秘密泄漏与发布窗口的度量体系",
+      "en-US": "Green-test quality, secret-leak, and release-window measurement framework"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解这家客户的工程代理现状",
+      "en-US": "You have a budget of 12 questions to understand this customer's engineering-agent situation"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}

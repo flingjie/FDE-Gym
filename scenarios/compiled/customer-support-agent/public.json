@@ -1,0 +1,68 @@
+{
+  "id": "customer-support-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们设计一个会调用业务系统工具的客服代理，自动处理大部分请求，并在敏感操作上保留人工。",
+    "en-US": "Please help us design a customer-support agent that calls business-system tools, handles most requests automatically, and keeps humans on sensitive actions."
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家软件即服务公司，运营着一个客户支持中心。管理层希望上线会调用 CRM、订单和退款/物流接口的工具型客服代理，而不是给规则引擎套一层聊天皮肤。目标是自动处理大部分请求，同时在敏感动作上保留人工。",
+    "en-US": "We are a software-as-a-service company running a customer support center. Leadership wants a tool-calling agent (CRM, order, and refund/shipping APIs), not a rules engine with a chat skin. The agent should handle most requests automatically while keeping humans on sensitive actions."
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "付款、退款和账户变更动作必须先经人工确认（HITL）才能执行",
+      "en-US": "Payment, refund, and account-change actions require a human (HITL) before they may run"
+    },
+    {
+      "zh-CN": "客户工单数据不得发送到境外的第三方大模型",
+      "en-US": "Customer ticket data must not be sent to offshore third-party LLMs"
+    },
+    {
+      "zh-CN": "代理不得编造政策",
+      "en-US": "The agent must not fabricate policy"
+    },
+    {
+      "zh-CN": "允许调用的工具是 CRM、订单和退款接口；代理不得把超时的退款调用静默重试并当成成功",
+      "en-US": "Allowed tools are the CRM, order, and refund APIs; the agent must not silently retry a timed-out refund call as success"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "客服代理方案设计文档",
+      "en-US": "Customer-support agent design document"
+    },
+    {
+      "zh-CN": "工具调用代理与 FAQ 机器人的权衡分析",
+      "en-US": "Tool-calling agent vs. FAQ-bot trade-off analysis"
+    },
+    {
+      "zh-CN": "升级通道与人工确认（HITL）流程",
+      "en-US": "Escalation path and human-in-the-loop (HITL) process"
+    },
+    {
+      "zh-CN": "质量、延迟与成本的度量体系",
+      "en-US": "Quality, latency, and cost measurement framework"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解这家客户的客服代理现状",
+      "en-US": "You have a budget of 12 questions to understand this customer's support-agent situation"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}

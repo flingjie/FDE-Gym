@@ -1,0 +1,46 @@
+[
+  {
+    "id": "event-security-mandate",
+    "trigger": {
+      "kind": "on_stage_enter",
+      "phase": "DISCOVERY"
+    },
+    "prompt": {
+      "zh-CN": "【安全通知】平台与安全负责人宣布：受保护分支合并与生产密钥使用一律禁止代理自行执行，必须先经人工确认，默认分支不得被直接 push。",
+      "en-US": "【Security Notice】Platform / security announces that protected-branch merges and production-secret use are strictly forbidden from agent self-execution and must wait for a human, and the default branch must not be pushed."
+    }
+  },
+  {
+    "id": "event-backlog-pressure",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-business-impact"
+    },
+    "prompt": {
+      "zh-CN": "【吞吐压力】工程经理要求：代理必须先清 Bug 积压并在测试绿后开 PR，受保护分支的人工合并可以后补。",
+      "en-US": "【Throughput Pressure】The eng manager requires the agent to clear the bug backlog and open PRs after green tests first, with human merges to protected branches allowed to wait."
+    }
+  },
+  {
+    "id": "event-secret-in-pr",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-failure-modes"
+    },
+    "prompt": {
+      "zh-CN": "【事故报告】质量负责人通报：一套测试已经绿的改动改错了行为，并且一次开 PR 时把密钥写进了描述。",
+      "en-US": "【Incident Report】The QA lead reports that a green-test change altered the wrong behavior, and one opened PR wrote a secret into the description."
+    }
+  },
+  {
+    "id": "event-protected-branch",
+    "trigger": {
+      "kind": "after_question_count",
+      "count": 3
+    },
+    "prompt": {
+      "zh-CN": "【流程要求】平台安全要求：每一个代理开出的 PR 都必须保留人工合并通道，生产密钥不得出现在沙箱或评审文本，测试绿不得被当成行为正确。",
+      "en-US": "【Process Required】Platform security requires every agent-opened PR to keep a human merge path, production secrets must not appear in the sandbox or review text, and a green test must not count as correct behavior."
+    }
+  }
+]

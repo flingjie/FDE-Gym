@@ -1,0 +1,46 @@
+[
+  {
+    "id": "event-counsel-mandate",
+    "trigger": {
+      "kind": "on_stage_enter",
+      "phase": "DISCOVERY"
+    },
+    "prompt": {
+      "zh-CN": "【法务通知】律师宣布：盖章、对外承诺或“此件具约束力”的结论一律禁止代理自行发出，必须先经律师或业务确认。",
+      "en-US": "【Counsel Notice】Counsel announces that seal, external-commitment, or “this is binding” conclusions are strictly forbidden from agent self-issue and must wait for counsel or the business owner."
+    }
+  },
+  {
+    "id": "event-backlog-pressure",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-business-impact"
+    },
+    "prompt": {
+      "zh-CN": "【清堆压力】业务负责人要求：审核代理必须先把积压打下去，承诺性结论的人工确认可以后补。",
+      "en-US": "【Pile Pressure】The business owner requires the review agent to drive the backlog down first, with human confirmation on commitment conclusions allowed to wait."
+    }
+  },
+  {
+    "id": "event-invented-term",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-failure-modes"
+    },
+    "prompt": {
+      "zh-CN": "【事故报告】文档运营通报：代理漏掉了一条赔偿条款，并在结论里写进了原文没有的交货约定。",
+      "en-US": "【Incident Report】Document ops reports that the agent missed an indemnity clause and wrote a delivery term into the conclusion that was not in the source."
+    }
+  },
+  {
+    "id": "event-hitl-required",
+    "trigger": {
+      "kind": "after_question_count",
+      "count": 3
+    },
+    "prompt": {
+      "zh-CN": "【流程要求】律师要求：任何盖章或承诺性结论都必须保留律师或业务确认通道，漏抽不得被当成通过。",
+      "en-US": "【Process Required】Counsel requires every seal or commitment conclusion to keep a counsel-or-business confirmation path, and a missed clause must not count as a pass."
+    }
+  }
+]

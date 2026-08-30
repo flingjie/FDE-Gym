@@ -1,0 +1,319 @@
+{
+  "id": "document-review-agent",
+  "schemaVersion": 1,
+  "stakeholders": [
+    {
+      "id": "counsel",
+      "role": {
+        "zh-CN": "法务律师",
+        "en-US": "Legal counsel"
+      },
+      "persona": {
+        "zh-CN": "49岁女性，公司法务。坚持盖章和承诺性结论必须律师或业务确认，对漏抽关键条款和幻觉约定零容忍。",
+        "en-US": "49-year-old female, company counsel. Insists seal and commitment conclusions need counsel or the business owner, and has zero tolerance for a missed material clause or an invented term."
+      },
+      "concerns": [
+        {
+          "zh-CN": "代理会不会漏掉终止或赔偿条款？",
+          "en-US": "Could the agent miss a termination or indemnity clause?"
+        },
+        {
+          "zh-CN": "模型会不会写出原文里没有的约定？",
+          "en-US": "Will the model write a term that is not in the source?"
+        },
+        {
+          "zh-CN": "盖章结论能不能在没有律师确认时发出？",
+          "en-US": "Can a sealed conclusion go out without counsel confirmation?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解业务清积压的速度压力",
+          "en-US": "Does not understand the business pressure to clear the pile"
+        },
+        {
+          "zh-CN": "低估了扫描件解析失败对抽取的伤害",
+          "en-US": "Underestimates how failed scan parsing hurts extraction"
+        }
+      ]
+    },
+    {
+      "id": "business-owner",
+      "role": {
+        "zh-CN": "业务负责人",
+        "en-US": "Business owner"
+      },
+      "persona": {
+        "zh-CN": "44岁男性，业务负责人。要速度，希望代理直接出结论清掉文件堆，时常低估幻觉约定会变成对外承诺。",
+        "en-US": "44-year-old male, business owner. Wants speed, hopes the agent will issue conclusions and clear the pile, and often underestimates that an invented term becomes an external commitment."
+      },
+      "concerns": [
+        {
+          "zh-CN": "审核能不能跟上签约窗口？",
+          "en-US": "Can review keep up with the signing window?"
+        },
+        {
+          "zh-CN": "每份都等律师会不会把交易拖死？",
+          "en-US": "Will waiting for counsel on every file kill the deal?"
+        },
+        {
+          "zh-CN": "代理结论我能不能直接当业务意见用？",
+          "en-US": "Can I treat the agent conclusion as the business opinion?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解漏掉要害条款会把公司锁进坏合同",
+          "en-US": "Does not know a missed material clause can lock the company into a bad contract"
+        },
+        {
+          "zh-CN": "看不到文档运营处理扫描件失败的负担",
+          "en-US": "Cannot see the ops burden of failed scans"
+        }
+      ]
+    },
+    {
+      "id": "doc-ops",
+      "role": {
+        "zh-CN": "文档运营负责人",
+        "en-US": "Document-operations owner"
+      },
+      "persona": {
+        "zh-CN": "36岁女性，负责文件堆与解析流水线。疲于处理扫描件和积压，希望解析到主数据比对能跑通，又担心模型在页缝补写。",
+        "en-US": "36-year-old female, owns the document pile and parse pipeline. Exhausted by scans and backlog, wants parse-through-master-data-match to run, and worries the model will invent text at page breaks."
+      },
+      "concerns": [
+        {
+          "zh-CN": "扫描件解析失败时后面的抽取还能不能用？",
+          "en-US": "If scan parsing fails, can downstream extraction still be used?"
+        },
+        {
+          "zh-CN": "积压要怎样才能开始下降？",
+          "en-US": "What would it take for the backlog to start falling?"
+        },
+        {
+          "zh-CN": "规则引擎和主数据对不齐时运营怎么收场？",
+          "en-US": "How does ops recover when the rule engine and master data do not align?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解律师对承诺性结论的红线",
+          "en-US": "Does not know counsel's red line on commitment conclusions"
+        },
+        {
+          "zh-CN": "低估了采购会把代理输出当已审意见",
+          "en-US": "Underestimates that procurement will treat agent output as already reviewed"
+        }
+      ]
+    },
+    {
+      "id": "procurement-lead",
+      "role": {
+        "zh-CN": "采购负责人",
+        "en-US": "Procurement lead"
+      },
+      "persona": {
+        "zh-CN": "41岁男性，采购。要供应商合同尽快过审，倾向相信抽取结果，低估幻觉约定和漏条款。",
+        "en-US": "41-year-old male, procurement. Wants vendor contracts cleared quickly, tends to trust extraction output, and underestimates invented terms and missed clauses."
+      },
+      "concerns": [
+        {
+          "zh-CN": "供应商合同能不能在窗口内过审？",
+          "en-US": "Can vendor contracts clear inside the window?"
+        },
+        {
+          "zh-CN": "主数据比对会不会把合格供应商卡住？",
+          "en-US": "Will master-data match block a qualified vendor?"
+        },
+        {
+          "zh-CN": "代理标出来的风险我能不能当已确认？",
+          "en-US": "Can I treat risks the agent flagged as already confirmed?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解盖章结论必须律师或业务确认",
+          "en-US": "Does not know sealed conclusions need counsel or the business owner"
+        },
+        {
+          "zh-CN": "看不到页缝和表格处漏抽的规律",
+          "en-US": "Cannot see the pattern of misses at page breaks and tables"
+        }
+      ]
+    }
+  ],
+  "disclosureUnits": [
+    {
+      "id": "du-001",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "文档进线后先解析或走 OCR/视觉模型，再做条款抽取。",
+        "en-US": "After a document arrives, it is parsed or run through OCR/VLM, then clause extraction."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-002",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "抽取结果走规则引擎，再与主数据比对；积压约1.2万份。",
+        "en-US": "Extraction results go through the rule engine, then master-data match; the backlog is about 12,000 files."
+      },
+      "prerequisites": [
+        "du-001"
+      ],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-003",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "法务和业务都在等审核；抽查漏条款约9%。",
+        "en-US": "Counsel and the business are both waiting on review; spot checks miss about 9% of clauses."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-004",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "采购要速度，律师要准确；扫描件经常解析失败。",
+        "en-US": "Procurement wants speed, counsel wants accuracy; scans often fail to parse."
+      },
+      "prerequisites": [
+        "du-003"
+      ],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-005",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "规则只覆盖常见模板，非标合同条款对不齐。",
+        "en-US": "Rules only cover common templates; nonstandard contract clauses do not align."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-006",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "模型会在页缝或表格处漏抽，也会补上文档里没有的约定。",
+        "en-US": "The model misses clauses at page breaks or tables, and also fills in terms that are not in the document."
+      },
+      "prerequisites": [
+        "du-005"
+      ],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-007",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "漏掉终止或赔偿条款会把公司锁进坏合同。",
+        "en-US": "Missing a termination or indemnity clause locks the company into a bad contract."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-008",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "业务负责人想先清积压；律师认为一次幻觉约定就会对外承诺。",
+        "en-US": "The business owner wants to clear the backlog first; counsel believes one invented term becomes an external commitment."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-009",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "盖章或承诺性结论必须律师或业务确认。",
+        "en-US": "Seal or commitment conclusions require confirmation from counsel or the business owner."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-010",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "合同原文不得出境到第三方大模型。",
+        "en-US": "Contract source text must not leave the region to a third-party LLM."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-011",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "目标：解析到主数据比对成为默认审核路径，积压开始下降。",
+        "en-US": "Goal: parse-through-master-data-match becomes the default review path, and the backlog starts to fall."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-012",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "质量红线：关键条款不得漏抽，不得出现文档中不存在的约定。",
+        "en-US": "Quality floor: material clauses must not be missed, and terms that are not in the document must not appear."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-013",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "业务不信人工审核速度，想让代理直接出结论。",
+        "en-US": "The business does not trust human review speed and wants the agent to issue conclusions directly."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-014",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "律师不信抽取；采购低估幻觉约定的风险。",
+        "en-US": "Counsel does not trust extraction; procurement underestimates the risk of an invented term."
+      },
+      "prerequisites": [
+        "du-013"
+      ],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-015",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "会漏掉关键条款。",
+        "en-US": "It misses material clauses."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    },
+    {
+      "id": "du-016",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "会幻觉不存在的约定。",
+        "en-US": "It hallucinates a term that does not exist."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    }
+  ],
+  "responsePolicies": [],
+  "privateConflicts": [],
+  "canary": "cd42305b5151b31849e0f086f82d3a31"
+}

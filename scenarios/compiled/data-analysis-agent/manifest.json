@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 2,
+  "id": "data-analysis-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "digest": "5d513b6952bd77b9331665b35845b9d26da024d5c6126eb9c84a1244aee32441",
+  "artifacts": [
+    {
+      "path": "public.json",
+      "sha256": "86fc1c214609deb72ab4be96d217c0bc6a484afcb06071b67128e4a3c19688c4",
+      "bytes": 3374,
+      "schemaVersion": 1
+    },
+    {
+      "path": "customer.json",
+      "sha256": "e5e700020029dee42c1fa2dc5f0adbee28e2b0a754c1ae88339e70b0fbd83b21",
+      "bytes": 12002,
+      "schemaVersion": 1
+    },
+    {
+      "path": "evaluator.json",
+      "sha256": "ec92241464445f170a330f2c91a2e12c29073176e10c80f40d2f26f2ed46d350",
+      "bytes": 21563,
+      "schemaVersion": 1
+    },
+    {
+      "path": "events.json",
+      "sha256": "462a544ed228de17da8be1142f045f7b64394d5fe346679a25041cf7df2acab6",
+      "bytes": 2135,
+      "schemaVersion": 1
+    }
+  ]
+}

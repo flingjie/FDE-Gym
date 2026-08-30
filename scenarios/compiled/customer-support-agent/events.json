@@ -1,0 +1,46 @@
+[
+  {
+    "id": "event-compliance-mandate",
+    "trigger": {
+      "kind": "on_stage_enter",
+      "phase": "DISCOVERY"
+    },
+    "prompt": {
+      "zh-CN": "【合规通知】合规官宣布：付款、退款和账户变更的写 API 一律禁止代理自行调用，必须先经人工确认。",
+      "en-US": "【Compliance Notice】The Compliance Officer announces that payment, refund, and account-change write APIs are strictly forbidden from agent self-calls and must wait for human confirmation."
+    }
+  },
+  {
+    "id": "event-budget-roi",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-business-impact"
+    },
+    "prompt": {
+      "zh-CN": "【财务要求】CFO要求：客服代理项目必须在下季度证明至少15%的投资回报，否则预算将被削减。",
+      "en-US": "【ROI Requirement】The CFO requires the support-agent project to prove at least 15% ROI next quarter, or the budget will be cut."
+    }
+  },
+  {
+    "id": "event-unsafe-automation",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-failure-modes"
+    },
+    "prompt": {
+      "zh-CN": "【事故报告】质量负责人通报：代理曾幻觉退款政策并真的调用了退款接口，客户因此获得错误承诺。",
+      "en-US": "【Incident Report】The quality lead reports that the agent hallucinated a refund policy and actually called the refund API, so customers received wrong commitments."
+    }
+  },
+  {
+    "id": "event-escalation-required",
+    "trigger": {
+      "kind": "after_question_count",
+      "count": 3
+    },
+    "prompt": {
+      "zh-CN": "【流程要求】客服总监要求：所有代理动作都必须保留转人工升级通道，退款接口超时不得被当成成功，任何自动回复都不能阻塞用户寻求人工帮助。",
+      "en-US": "【Escalation Required】The Support Director requires every agent action to keep a human escalation path, a timed-out refund API must not count as success, and no auto-reply may block a user from reaching a human."
+    }
+  }
+]

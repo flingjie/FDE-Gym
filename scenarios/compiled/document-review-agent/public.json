@@ -1,0 +1,68 @@
+{
+  "id": "document-review-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "openingRequest": {
+    "zh-CN": "请帮助我们设计一个文档审核代理，自动走完解析、条款抽取、规则检查和主数据比对，并在盖章或承诺性结论上保留律师或业务确认。",
+    "en-US": "Please help us design a document-review agent that runs parse, clause extraction, rule checks, and master-data match automatically, while keeping counsel or the business owner on sealed or commitment conclusions."
+  },
+  "visibleContext": {
+    "zh-CN": "我们是一家合同、报告和扫描件堆在一起的公司。管理层希望代理按解析、抽取、规则、主数据比对的顺序审核文件，而不是“让模型把 PDF 读一遍就算审过”。",
+    "en-US": "We are a company whose contracts, reports, and scans sit in one pile. Leadership wants an agent that reviews files in parse, extract, rule-check, then master-data-match order — not “let a model read the PDF and call it reviewed.”"
+  },
+  "visibleConstraints": [
+    {
+      "zh-CN": "盖章、对外承诺或“此件具约束力”的结论必须先经律师或业务确认（HITL）",
+      "en-US": "Seal, external-commitment, or “this is binding” conclusions require counsel or the business owner (HITL) first"
+    },
+    {
+      "zh-CN": "合同原文不得发送到境外的第三方大模型",
+      "en-US": "Contract source text must not be sent to offshore third-party LLMs"
+    },
+    {
+      "zh-CN": "代理不得写出原文里不存在的约定",
+      "en-US": "The agent must not write a term that is not in the source document"
+    },
+    {
+      "zh-CN": "允许调用的工具是解析/OCR 或视觉模型、条款抽取、规则引擎和主数据比对；代理不得在漏抽关键条款后仍给出通过结论",
+      "en-US": "Allowed tools are parse/OCR-or-VLM, clause extraction, the rule engine, and master-data match; the agent must not issue a pass after missing a material clause"
+    }
+  ],
+  "deliverables": [
+    {
+      "zh-CN": "文档审核代理方案设计文档",
+      "en-US": "Document-review agent design document"
+    },
+    {
+      "zh-CN": "抽取加规则与“模型通读 PDF”的权衡分析",
+      "en-US": "Extract-plus-rules vs. “the model just reads the PDF” trade-off analysis"
+    },
+    {
+      "zh-CN": "盖章与承诺性结论的人工确认（HITL）流程",
+      "en-US": "Human-in-the-loop (HITL) process for seal and commitment conclusions"
+    },
+    {
+      "zh-CN": "漏抽、幻觉约定与积压消化的度量体系",
+      "en-US": "Missed-clause, invented-term, and backlog-clearing measurement framework"
+    }
+  ],
+  "learnerRules": [
+    {
+      "zh-CN": "你只有12个问题预算来了解这家客户的文档审核代理现状",
+      "en-US": "You have a budget of 12 questions to understand this customer's document-review-agent situation"
+    },
+    {
+      "zh-CN": "每个问题必须指定由哪位干系人回答",
+      "en-US": "Each question must specify which stakeholder will answer"
+    },
+    {
+      "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实",
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    },
+    {
+      "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准",
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+    }
+  ],
+  "questionBudget": 12
+}

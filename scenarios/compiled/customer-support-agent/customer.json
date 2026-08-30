@@ -1,0 +1,319 @@
+{
+  "id": "customer-support-agent",
+  "schemaVersion": 1,
+  "stakeholders": [
+    {
+      "id": "support-director",
+      "role": {
+        "zh-CN": "客服总监",
+        "en-US": "Support Director"
+      },
+      "persona": {
+        "zh-CN": "44岁女性，负责整个支持中心的运营。关注质量、延迟与成本的平衡，希望工具型代理能闭环重复单，又担心写操作和工具超时伤害服务体验。",
+        "en-US": "44-year-old female, responsible for the entire support center's operations. Focuses on balancing quality, latency, and cost; wants a tool-calling agent to close repetitive tickets, and worries write actions and tool timeouts will harm the service experience."
+      },
+      "concerns": [
+        {
+          "zh-CN": "工具型代理能否真正缩短平均首响时间？",
+          "en-US": "Can a tool-calling agent actually reduce average first-response time?"
+        },
+        {
+          "zh-CN": "客户满意度会不会因代理胡编政策或乱调接口而下降？",
+          "en-US": "Will customer satisfaction drop if the agent fabricates policy or misfires tools?"
+        },
+        {
+          "zh-CN": "复杂工单的一次解决率如何保证？",
+          "en-US": "How do we protect first-contact resolution for complex tickets?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解代理平台工程师对 HITL 边界的忽视",
+          "en-US": "Does not know the agent-platform engineer overlooks HITL boundaries"
+        },
+        {
+          "zh-CN": "低估了一线客服绕过代理直接人工回复的抵触",
+          "en-US": "Underestimates frontline agents bypassing the agent to reply manually"
+        }
+      ]
+    },
+    {
+      "id": "compliance-officer",
+      "role": {
+        "zh-CN": "合规官",
+        "en-US": "Compliance Officer"
+      },
+      "persona": {
+        "zh-CN": "51岁男性，负责数据隐私与监管合规。坚持付款、退款和账户变更必须人工确认后才许调用写 API，对代理自动写操作持审慎态度。",
+        "en-US": "51-year-old male, responsible for data privacy and regulatory compliance. Insists payment, refund, and account-change writes may be called only after a human confirms, and is cautious about the agent performing write actions on its own."
+      },
+      "concerns": [
+        {
+          "zh-CN": "代理自动调用写 API 会不会违反数据隐私或支付合规？",
+          "en-US": "Could the agent calling write APIs on its own violate data-privacy or payment compliance?"
+        },
+        {
+          "zh-CN": "客户工单与 CRM 数据是否会被发送到境外模型？",
+          "en-US": "Will ticket and CRM data be sent to offshore models?"
+        },
+        {
+          "zh-CN": "如何审计代理每一次工具调用？",
+          "en-US": "How do we audit every tool call the agent makes?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "不了解工具闭环在非敏感重复单上的效率潜力",
+          "en-US": "Does not understand the efficiency potential of a tool loop on non-sensitive repetitive tickets"
+        },
+        {
+          "zh-CN": "低估了规则引擎加 FAQ 维护的隐性成本",
+          "en-US": "Underestimates the hidden cost of maintaining a rules engine plus FAQ"
+        }
+      ]
+    },
+    {
+      "id": "automation-engineer",
+      "role": {
+        "zh-CN": "代理平台工程师",
+        "en-US": "Agent-platform engineer"
+      },
+      "persona": {
+        "zh-CN": "33岁男性，负责代理平台。对工具调用能力充满信心，希望最大化自动处理比例，时常低估付款/退款/账户变更上的 HITL 约束。",
+        "en-US": "33-year-old male, owns the agent platform. Confident in tool-calling capability, wants to maximize auto-handling, and often underestimates HITL constraints on payment, refund, and account-change writes."
+      },
+      "concerns": [
+        {
+          "zh-CN": "能否把代理自动处理比例尽量推高？",
+          "en-US": "Can we push the agent's auto-handling rate as high as possible?"
+        },
+        {
+          "zh-CN": "工具调用和模型推理的延迟是否在预算内？",
+          "en-US": "Is tool-call and model-inference latency within budget?"
+        },
+        {
+          "zh-CN": "如何把规则引擎加 FAQ 逐步替换成会调 CRM/订单/退款接口的代理？",
+          "en-US": "How do we gradually replace the rules engine plus FAQ with an agent that calls CRM, order, and refund APIs?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "忽视付款、退款、账户变更写 API 的 HITL 红线",
+          "en-US": "Overlooks the HITL red line on payment, refund, and account-change write APIs"
+        },
+        {
+          "zh-CN": "不了解代理在不确定时会幻觉政策并真去调用退款接口的风险",
+          "en-US": "Does not understand the risk that the agent hallucinates policy and actually calls the refund API when uncertain"
+        }
+      ]
+    },
+    {
+      "id": "cfo",
+      "role": {
+        "zh-CN": "首席财务官",
+        "en-US": "Chief Financial Officer"
+      },
+      "persona": {
+        "zh-CN": "55岁男性，关注成本削减与投资回报。要求客服代理项目在下季度证明可量化的ROI，倾向激进的成本目标。",
+        "en-US": "55-year-old male, focused on cost reduction and ROI. Requires the support-agent project to prove quantifiable ROI next quarter and favors aggressive cost targets."
+      },
+      "concerns": [
+        {
+          "zh-CN": "工具闭环代理能节省多少人力成本？",
+          "en-US": "How much labor cost can a tool-loop agent save?"
+        },
+        {
+          "zh-CN": "ROI何时可以兑现？",
+          "en-US": "When will the ROI materialize?"
+        },
+        {
+          "zh-CN": "模型推理和工具调用成本会不会吃掉节省？",
+          "en-US": "Will model inference and tool-call cost eat the savings?"
+        }
+      ],
+      "blindSpots": [
+        {
+          "zh-CN": "过度乐观，低估 HITL 与工具失败对节省的约束",
+          "en-US": "Overly optimistic, underestimating how HITL and tool failure constrain savings"
+        },
+        {
+          "zh-CN": "不理解一线客服绕过代理会把账面上的节省吃掉",
+          "en-US": "Does not understand that frontline bypass of the agent can erase paper savings"
+        }
+      ]
+    }
+  ],
+  "disclosureUnits": [
+    {
+      "id": "du-001",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "代理先查 CRM 再查订单 API；每月约18万张工单，约55%可走工具闭环。",
+        "en-US": "The agent looks up CRM first, then the order API; about 180,000 tickets a month, about 55% can close in a tool loop."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-002",
+      "topic": "workflow",
+      "text": {
+        "zh-CN": "平均首响约4小时，高峰约9小时；无工具超时时的人工插队规则。",
+        "en-US": "Average first-response is about 4 hours, about 9 hours at peak; there is no human jump-the-queue rule when a tool times out."
+      },
+      "prerequisites": [
+        "du-001"
+      ],
+      "evidenceId": "ev-workflow"
+    },
+    {
+      "id": "du-003",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "人工成本占总支持预算约72%；一线年流失约38%。",
+        "en-US": "Labor is about 72% of the support budget; frontline annual attrition is about 38%."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-004",
+      "topic": "pain",
+      "text": {
+        "zh-CN": "复杂工单一次解决率约51%；客服从 CRM 来回切屏。",
+        "en-US": "First-contact resolution for complex tickets is about 51%; agents context-switch between the CRM and other screens."
+      },
+      "prerequisites": [
+        "du-003"
+      ],
+      "evidenceId": "ev-pain"
+    },
+    {
+      "id": "du-005",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "现网仍是规则引擎加 FAQ，不能调订单/退款 API。",
+        "en-US": "Production still runs a rules engine plus FAQ and cannot call the order or refund APIs."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-006",
+      "topic": "root-cause",
+      "text": {
+        "zh-CN": "用户换个说法就匹配失败；代理没有工具结果就改口编政策。",
+        "en-US": "A rephrased question fails to match; without a tool result the agent fabricates policy."
+      },
+      "prerequisites": [
+        "du-005"
+      ],
+      "evidenceId": "ev-root-cause"
+    },
+    {
+      "id": "du-007",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "因等待流失的终身价值约320美元/人，每月约900人。",
+        "en-US": "Lifetime value lost to wait-driven churn is about $320 per person; about 900 people a month."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-008",
+      "topic": "business-impact",
+      "text": {
+        "zh-CN": "管理层估计工具闭环覆盖约40%工单可年省约210万美元；工程师私下想把自动处理推到70%。",
+        "en-US": "Management estimates covering about 40% of tickets with a tool loop would save about $2.1 million a year; the engineer privately wants to push auto-handling to 70%."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-business-impact"
+    },
+    {
+      "id": "du-009",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "付款、退款、账户变更必须人工确认后才许调用写 API。",
+        "en-US": "Payment, refund, and account-change writes may be called only after a human confirms."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-010",
+      "topic": "constraints",
+      "text": {
+        "zh-CN": "工单与 CRM 数据不得出境到第三方大模型。",
+        "en-US": "Ticket and CRM data must not leave the region to a third-party LLM."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-constraints"
+    },
+    {
+      "id": "du-011",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "目标：自动闭环大部分重复单，首响从约4小时降到约1小时，人工成本降约35%。",
+        "en-US": "Goal: auto-close most repetitive tickets, cut first-response from about 4 hours to about 1 hour, and cut labor cost by about 35%."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-012",
+      "topic": "success-measures",
+      "text": {
+        "zh-CN": "质量红线：政策准确率不低于约92%，且退款 API 不得在超时后被当成成功。",
+        "en-US": "Quality floor: policy accuracy at least about 92%, and a timed-out refund API must not be treated as success."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-success-measures"
+    },
+    {
+      "id": "du-013",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "一线怕丢工作，绕过代理直接人工回复。",
+        "en-US": "Frontline staff fear losing their jobs and bypass the agent to reply manually."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-014",
+      "topic": "trust",
+      "text": {
+        "zh-CN": "高管以为可以一步全自动，低估 HITL 与工具失败。",
+        "en-US": "Executives think they can go fully automatic in one step and underestimate HITL and tool failure."
+      },
+      "prerequisites": [
+        "du-013"
+      ],
+      "evidenceId": "ev-trust"
+    },
+    {
+      "id": "du-015",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "不确定时会幻觉退款政策并调用退款 API。",
+        "en-US": "When uncertain, it hallucinates a refund policy and calls the refund API."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    },
+    {
+      "id": "du-016",
+      "topic": "failure-modes",
+      "text": {
+        "zh-CN": "高峰工具超时会把上万张单打进人工队列。",
+        "en-US": "Peak tool timeouts flood tens of thousands of tickets into the human queue."
+      },
+      "prerequisites": [],
+      "evidenceId": "ev-failure-modes"
+    }
+  ],
+  "responsePolicies": [],
+  "privateConflicts": [],
+  "canary": "cd42305b5151b31849e0f086f82d3a31"
+}

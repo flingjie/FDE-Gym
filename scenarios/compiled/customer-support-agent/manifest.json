@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 2,
+  "id": "customer-support-agent",
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "digest": "6689181184502d69443a2ba2baf0459f584b6b0343ed9888f5b3937c372cf9c4",
+  "artifacts": [
+    {
+      "path": "public.json",
+      "sha256": "a9e2ea749a475ca397d3b9147865e31fed488428ba1e62987e435e5702fc8839",
+      "bytes": 3242,
+      "schemaVersion": 1
+    },
+    {
+      "path": "customer.json",
+      "sha256": "5b47d2e55d5bd8cbd0e433b100763130092baf599146349804b3133cf6c0ca6d",
+      "bytes": 12653,
+      "schemaVersion": 1
+    },
+    {
+      "path": "evaluator.json",
+      "sha256": "46f88480760a81a415ece7ceeb4ec5a20918a42f0ab4f003b2e6d1dee6107a3f",
+      "bytes": 21170,
+      "schemaVersion": 1
+    },
+    {
+      "path": "events.json",
+      "sha256": "acc14c842abf019f3b39287383be222b9853b315a022c0117bca4eaa0bc8c4f9",
+      "bytes": 2086,
+      "schemaVersion": 1
+    }
+  ]
+}

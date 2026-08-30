@@ -1,0 +1,46 @@
+[
+  {
+    "id": "event-privacy-mandate",
+    "trigger": {
+      "kind": "on_stage_enter",
+      "phase": "DISCOVERY"
+    },
+    "prompt": {
+      "zh-CN": "【隐私通知】隐私负责人宣布：代理一律禁止写数仓，跨部门宽表必须先经人工批准，含个人字段的结果不得带出受控环境。",
+      "en-US": "【Privacy Notice】The privacy officer announces that the agent is strictly forbidden from writing the warehouse, cross-department wide tables must wait for human approval, and results with personal fields must not leave the controlled environment."
+    }
+  },
+  {
+    "id": "event-self-serve-pressure",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-business-impact"
+    },
+    "prompt": {
+      "zh-CN": "【自助压力】分析负责人要求：问数代理必须先让业务自助问数，行级安全和宽表批准可以后补。",
+      "en-US": "【Self-serve Pressure】The analytics lead requires the analysis agent to let the business self-serve first, with row-level security and wide-table approval allowed to wait."
+    }
+  },
+  {
+    "id": "event-pii-incident",
+    "trigger": {
+      "kind": "after_evidence_revealed",
+      "evidenceId": "ev-failure-modes"
+    },
+    "prompt": {
+      "zh-CN": "【事故报告】平台负责人通报：一次错误关联加上丢掉的过滤，把含手机号的明细打给了业务。",
+      "en-US": "【Incident Report】The platform owner reports that a wrong association plus a dropped filter dumped detail rows with mobile numbers to the business."
+    }
+  },
+  {
+    "id": "event-readonly-required",
+    "trigger": {
+      "kind": "after_question_count",
+      "count": 3
+    },
+    "prompt": {
+      "zh-CN": "【流程要求】数据平台要求：每一条生成的语句都必须是只读，语义层未覆盖的指标不得裸拼，任何写库尝试都必须失败并升级。",
+      "en-US": "【Process Required】The data platform requires every generated statement to be read-only, uncovered metrics must not be assembled raw, and any write attempt must fail and escalate."
+    }
+  }
+]

@@ -21,16 +21,16 @@ const SOURCE_YAML = join(
   process.cwd(),
   "scenarios",
   "source",
-  "manufacturing-alert-triage.yaml",
+  "customer-support-agent.yaml",
 );
 const PUBLIC_SNAPSHOT = join(
   process.cwd(),
   "tests",
   "fixtures",
-  "manufacturing-public.snapshot.json",
+  "customer-support-public.snapshot.json",
 );
 
-const scenarioId = "manufacturing-alert-triage";
+const scenarioId = "customer-support-agent";
 const canarySeed = "test-seed-2026-08-23";
 
 const BUNDLE_PATHS = ["public.json", "customer.json", "evaluator.json", "events.json"] as const;
@@ -180,9 +180,9 @@ describe("Scenario Compiler and Loader", () => {
       publicContent = JSON.parse(publicJson);
     });
 
-    it("contains no hidden fact text (e.g., 12,000 alerts/day, 80%)", () => {
-      expect(publicJson).not.toContain("12,000");
-      expect(publicJson).not.toContain("80%");
+    it("contains no hidden fact text (e.g., 180,000 tickets/month, 70%)", () => {
+      expect(publicJson).not.toContain("180,000");
+      expect(publicJson).not.toContain("70%");
     });
 
     it("contains no disclosure unit ids, evidence ids, or prerequisites", () => {
@@ -210,7 +210,7 @@ describe("Scenario Compiler and Loader", () => {
     });
 
     it("does contain the opening request and visible context", () => {
-      expect(publicContent.openingRequest["zh-CN"]).toMatch(/效率|efficiency/i);
+      expect(publicContent.openingRequest["zh-CN"]).toMatch(/客服代理/);
       expect(publicContent.visibleContext["zh-CN"]).toBeDefined();
       expect(publicContent.visibleContext["en-US"]).toBeDefined();
     });
@@ -245,7 +245,7 @@ describe("Scenario Compiler and Loader", () => {
     it("customer partition contains disclosureUnits with hidden facts", () => {
       expect(customerContent.disclosureUnits.length).toBeGreaterThan(0);
       const hasHiddenFact = customerContent.disclosureUnits.some(
-        (u: any) => u.text["zh-CN"].includes("12,000") || u.text["en-US"].includes("12,000"),
+        (u: any) => u.text["zh-CN"].includes("18万") || u.text["en-US"].includes("180,000"),
       );
       expect(hasHiddenFact).toBe(true);
     });
@@ -328,7 +328,7 @@ describe("Scenario Compiler and Loader", () => {
       const pub = loadPublicScenario(scenarioId);
       expect(pub.id).toBe(scenarioId);
       expect(JSON.stringify(pub)).not.toContain("canary");
-      expect(JSON.stringify(pub)).not.toContain("12,000");
+      expect(JSON.stringify(pub)).not.toContain("180,000");
     });
   });
 
@@ -580,7 +580,7 @@ describe("Scenario Compiler and Loader", () => {
       const ask = await askCommand(ctx, {
         runId: "run-provenance",
         question: "what changed?",
-        stakeholderId: "vp-operations",
+        stakeholderId: "support-director",
         commandId: "ask-1",
       });
       expect(ask.ok).toBe(false);

@@ -1,0 +1,502 @@
+{
+  "id": "enterprise-knowledge-agent",
+  "schemaVersion": 1,
+  "expectedEvidence": [
+    {
+      "id": "ev-workflow",
+      "category": "workflow",
+      "description": {
+        "zh-CN": "知识代理检索顺序（先文档索引再 ACL 目录，并补 wiki/工单）、答案是否常落在过期页面、一线今天实际找答案的途径",
+        "en-US": "Knowledge-agent retrieval order (document index then ACL directory, plus wiki/ticket lookup), whether answers often land on stale pages, and how the frontline actually finds answers today"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-001",
+        "du-002"
+      ]
+    },
+    {
+      "id": "ev-pain",
+      "category": "pain",
+      "description": {
+        "zh-CN": "知识问询痛点：问到人的负担、越权暴露、运营补洞压力、一线绕过知识库",
+        "en-US": "Knowledge-query pain: burden of asking people, unauthorized exposure, ops patching load, frontline bypass of the knowledge base"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-003",
+        "du-004"
+      ]
+    },
+    {
+      "id": "ev-root-cause",
+      "category": "root-cause",
+      "description": {
+        "zh-CN": "现网检索常不核权限、wiki 无新鲜度闸门；引用是事后拼接；工单与 wiki 未统一索引",
+        "en-US": "Production retrieval often skips permission checks and the wiki has no freshness gate; citations are stitched after the fact; tickets and wiki are not in one index"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-005",
+        "du-006"
+      ]
+    },
+    {
+      "id": "ev-business-impact",
+      "category": "business-impact",
+      "description": {
+        "zh-CN": "业务影响：错误内部答案导致对外口径漂移、安全把一次越权引用视为审计事件、知识负责人想先上线再补权限",
+        "en-US": "Business impact: wrong internal answers drift external wording, security treats one unauthorized quote as an audit event, the knowledge lead wants to ship first and add permissions later"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-007",
+        "du-008"
+      ]
+    },
+    {
+      "id": "ev-constraints",
+      "category": "constraints",
+      "description": {
+        "zh-CN": "实施限制：无权内容不得引用、对外口径须人工确认，内部文档与工单不得出境到第三方大模型",
+        "en-US": "Implementation constraints: no quoting of unauthorized content, human confirmation on external copy; internal documents and tickets must not go to offshore third-party models"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-009",
+        "du-010"
+      ]
+    },
+    {
+      "id": "ev-success-measures",
+      "category": "success-measures",
+      "description": {
+        "zh-CN": "成功指标：带引用的内部答案成为默认路径、一线不再只靠口口相传、引用抽查红线、检索必须先过权限",
+        "en-US": "Success metrics: cited internal answers as the default path, frontline no longer relying only on tribal channels, citation spot-check floor, retrieval must pass permissions first"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-011",
+        "du-012"
+      ]
+    },
+    {
+      "id": "ev-trust",
+      "category": "trust",
+      "description": {
+        "zh-CN": "信任问题：一线更信同事转述，安全不信检索守权，知识负责人低估权限闸门",
+        "en-US": "Trust issues: frontline prefers colleague word-of-mouth; security does not trust retrieval to honor permissions; the knowledge lead underestimates the permission gate"
+      },
+      "weight": 2,
+      "disclosureUnitIds": [
+        "du-013",
+        "du-014"
+      ]
+    },
+    {
+      "id": "ev-failure-modes",
+      "category": "failure-modes",
+      "description": {
+        "zh-CN": "失败模式：不确定时编造出处；检索不守权限并把无权内容拼进回答",
+        "en-US": "Failure modes: fabricating a source when uncertain; retrieval that does not honor permissions and splices unauthorized content into the answer"
+      },
+      "weight": 1,
+      "disclosureUnitIds": [
+        "du-015",
+        "du-016"
+      ]
+    }
+  ],
+  "rubric": {
+    "stages": [
+      {
+        "id": "framing",
+        "label": {
+          "zh-CN": "问题定义",
+          "en-US": "Problem Framing"
+        },
+        "criteria": [
+          {
+            "id": "f-c1",
+            "label": {
+              "zh-CN": "知识代理问题陈述清晰度",
+              "en-US": "Knowledge-Agent Problem Clarity"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "能否准确描述员工需要带引用、过权限的知识代理，而不是无出处的内部问答",
+              "en-US": "Can accurately describe why employees need a cited, permissioned knowledge agent rather than uncited internal Q&A"
+            }
+          },
+          {
+            "id": "f-c2",
+            "label": {
+              "zh-CN": "关键利益相关者识别",
+              "en-US": "Key Stakeholder Identification"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "是否识别了知识/IT负责人、安全/IAM、一线业务和知识库运营及其核心关切",
+              "en-US": "Has identified the knowledge/IT lead, security/IAM, frontline user, and knowledge-base ops owner with their core concerns"
+            }
+          },
+          {
+            "id": "f-c3",
+            "label": {
+              "zh-CN": "成功标准明确性",
+              "en-US": "Success Criteria Clarity"
+            },
+            "weight": 45,
+            "description": {
+              "zh-CN": "是否明确定义了可衡量的成功指标（带引用的默认路径、一线采用、引用抽查、检索先过权限）",
+              "en-US": "Are measurable success criteria (cited default path, frontline adoption, citation spot-check, retrieval passes permissions first) clearly defined"
+            }
+          }
+        ]
+      },
+      {
+        "id": "solution",
+        "label": {
+          "zh-CN": "方案设计",
+          "en-US": "Solution Design"
+        },
+        "criteria": [
+          {
+            "id": "s-c1",
+            "label": {
+              "zh-CN": "方案完整性",
+              "en-US": "Solution Completeness"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "方案是否覆盖文档索引/ACL 目录/wiki 工单检索、无权内容不得引用、对外口径 HITL 与编造引用处理",
+              "en-US": "Does the solution cover document-index/ACL/wiki-ticket retrieval, no quoting of unauthorized content, HITL on external copy, and fabricated-citation handling"
+            }
+          },
+          {
+            "id": "s-c2",
+            "label": {
+              "zh-CN": "带权限检索与无引用问答的权衡",
+              "en-US": "Permissioned retrieval vs. uncited Q&A Trade-off"
+            },
+            "weight": 35,
+            "description": {
+              "zh-CN": "方案是否清晰地权衡了必须过权限、必须带引用的代理与直接问答",
+              "en-US": "Does the solution clearly weigh a permissioned, cited agent against bare Q&A"
+            }
+          },
+          {
+            "id": "s-c3",
+            "label": {
+              "zh-CN": "权限与 HITL 兼容性",
+              "en-US": "Permission and HITL Compatibility"
+            },
+            "weight": 25,
+            "description": {
+              "zh-CN": "方案是否在无权内容不得引用与对外口径人工确认的限制内可行",
+              "en-US": "Is the solution feasible within no-unauthorized-quotes and human confirmation on external copy"
+            }
+          }
+        ]
+      },
+      {
+        "id": "challenge",
+        "label": {
+          "zh-CN": "挑战应对",
+          "en-US": "Challenge Response"
+        },
+        "criteria": [
+          {
+            "id": "ch-c1",
+            "label": {
+              "zh-CN": "编造引用与越权检索应对",
+              "en-US": "Fabricated Citation and ACL-bypass Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "能否有效应对编造引用、检索忽略 ACL 等不安全自动化",
+              "en-US": "Can effectively address unsafe automation such as fabricated citations and retrieval that ignores ACL"
+            }
+          },
+          {
+            "id": "ch-c2",
+            "label": {
+              "zh-CN": "对外口径与升级应对",
+              "en-US": "External-copy and Escalation Response"
+            },
+            "weight": 50,
+            "description": {
+              "zh-CN": "是否建立了对外口径必须人工确认的升级通道，且无权内容不得进入回答",
+              "en-US": "Has a reliable human path been established for external copy, and unauthorized content must not enter the answer"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pitch",
+        "label": {
+          "zh-CN": "方案表达",
+          "en-US": "Solution Presentation"
+        },
+        "criteria": [
+          {
+            "id": "p-c1",
+            "label": {
+              "zh-CN": "高层采用与审计适配",
+              "en-US": "Executive Adoption and Audit Adaptation"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "是否面向知识负责人的上线压力与安全的审计关切进行阐述，同时承认权限闸门会限制覆盖",
+              "en-US": "Does the presentation address the knowledge lead's ship pressure and security's audit concerns while acknowledging the permission gate limits coverage"
+            }
+          },
+          {
+            "id": "p-c2",
+            "label": {
+              "zh-CN": "清晰度和说服力",
+              "en-US": "Clarity and Persuasiveness"
+            },
+            "weight": 60,
+            "description": {
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向",
+              "en-US": "Is the presentation clear, persuasive, and action-oriented"
+            }
+          }
+        ]
+      },
+      {
+        "id": "process",
+        "label": {
+          "zh-CN": "实施流程",
+          "en-US": "Implementation Process"
+        },
+        "criteria": [
+          {
+            "id": "pr-c1",
+            "label": {
+              "zh-CN": "分阶段上线合理性",
+              "en-US": "Phased Rollout Reasonableness"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "分阶段知识代理上线（先权限内只读检索与强制引用，再对外口径 HITL）是否合理、可实现",
+              "en-US": "Is the phased knowledge-agent rollout (entitled read retrieval with required citations first, then HITL on external copy) reasonable and achievable"
+            }
+          },
+          {
+            "id": "pr-c2",
+            "label": {
+              "zh-CN": "度量体系明确性",
+              "en-US": "Measurement Clarity"
+            },
+            "weight": 40,
+            "description": {
+              "zh-CN": "引用质量、权限命中与一线采用的度量体系是否明确",
+              "en-US": "Are citation quality, permission-hit, and frontline-adoption metrics clearly defined"
+            }
+          },
+          {
+            "id": "pr-c3",
+            "label": {
+              "zh-CN": "风险管理",
+              "en-US": "Risk Management"
+            },
+            "weight": 30,
+            "description": {
+              "zh-CN": "是否识别了编造引用、检索绕过权限、过期出处和一线继续问 Slack 等风险并制定了缓解计划",
+              "en-US": "Are risks such as fabricated citations, retrieval that bypasses permissions, stale sources, and frontline Slack bypass identified with mitigation plans"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "criticalContradictions": [
+    {
+      "id": "cc-001",
+      "statement": {
+        "zh-CN": "知识负责人想先上线检索再补权限，而安全要求无权内容不得被引用、检索必须先过 ACL",
+        "en-US": "The knowledge lead wants to ship retrieval first and add permissions later, while security requires that unauthorized content must not be quoted and retrieval must pass ACL first"
+      },
+      "expectedEvidenceIds": [
+        "ev-constraints",
+        "ev-business-impact"
+      ]
+    },
+    {
+      "id": "cc-002",
+      "statement": {
+        "zh-CN": "知识库运营希望 wiki 成为可引用的权威出处，而一线更信 Slack 口口相传、不信过期页面",
+        "en-US": "Knowledge-base ops wants the wiki to be the citable source of truth, while the frontline trusts tribal Slack and distrusts stale pages"
+      },
+      "expectedEvidenceIds": [
+        "ev-trust",
+        "ev-workflow"
+      ]
+    }
+  ],
+  "hintLadders": [
+    {
+      "id": "hl-workflow",
+      "topic": "workflow",
+      "hints": {
+        "1": {
+          "zh-CN": "在谈知识代理之前，员工现在是按什么路径问到内部答案的？",
+          "en-US": "Before proposing the knowledge agent, how do employees currently get to an internal answer?"
+        },
+        "2": {
+          "zh-CN": "去找检索顺序、引用是不是检索带来的，以及一线今天实际找答案的方式。",
+          "en-US": "Look for retrieval order, whether citations ride with the hit, and how the frontline actually finds answers today."
+        },
+        "3": {
+          "zh-CN": "员工提问后，代理会按什么顺序使用文档索引、权限目录和 wiki/工单？一线现在主要靠什么途径问到答案？",
+          "en-US": "After an employee asks, in what order does the agent use the document index, the permission directory, and wiki/tickets? How does the frontline mainly get answers today?"
+        }
+      }
+    },
+    {
+      "id": "hl-pain",
+      "topic": "pain",
+      "hints": {
+        "1": {
+          "zh-CN": "内部问不到答案，组织最疼的是哪一类摩擦？",
+          "en-US": "When internal answers are hard to get, which kind of friction hurts the organization most?"
+        },
+        "2": {
+          "zh-CN": "去找问询负担、不该命中的暴露，以及一线是否还在绕过知识库。",
+          "en-US": "Look for asking-around burden, exposure of hits that should not have landed, and whether the frontline still bypasses the knowledge base."
+        },
+        "3": {
+          "zh-CN": "员工今天要费多大劲才能问到内部业务答案？检索一旦碰到不该看的内容，一线和运营分别会看到什么？",
+          "en-US": "How much effort does it take an employee to get an internal business answer today? If retrieval lands on something the asker should not see, what do the frontline and ops each observe?"
+        }
+      }
+    },
+    {
+      "id": "hl-root-cause",
+      "topic": "root-cause",
+      "hints": {
+        "1": {
+          "zh-CN": "现有检索卡住的是权限、新鲜度，还是索引本身？",
+          "en-US": "Is current retrieval stuck on permissions, freshness, or the index itself?"
+        },
+        "2": {
+          "zh-CN": "去找权限是否进检索路径、内容新鲜度闸门，以及引用从哪来。",
+          "en-US": "Look for whether permissions sit on the retrieval path, whether a freshness gate exists, and where citations come from."
+        },
+        "3": {
+          "zh-CN": "现网检索实际怎么过权限？wiki 有没有新鲜度控制？引用是检索命中带来的，还是事后补上的？",
+          "en-US": "How does production retrieval actually pass permissions, is there a freshness control on the wiki, and do citations arrive with the hit or get added afterward?"
+        }
+      }
+    },
+    {
+      "id": "hl-business-impact",
+      "topic": "business-impact",
+      "hints": {
+        "1": {
+          "zh-CN": "错误内部答案和越权引用，分别打在客户口径还是审计上？",
+          "en-US": "Do wrong internal answers and unauthorized quotes hit customer wording, audit, or both?"
+        },
+        "2": {
+          "zh-CN": "去找口径不一致的业务代价，以及安全对一次越权引用的态度。",
+          "en-US": "Look for the business cost of drifted wording and security's stance on a single unauthorized quote."
+        },
+        "3": {
+          "zh-CN": "内部答案出错时，对外口径会怎样？一次越权引用会触发什么？知识负责人还想先上线吗？",
+          "en-US": "When an internal answer is wrong, what happens to external wording? What does one unauthorized quote trigger? Does the knowledge lead still want to ship first?"
+        }
+      }
+    },
+    {
+      "id": "hl-constraints",
+      "topic": "constraints",
+      "hints": {
+        "1": {
+          "zh-CN": "权限和对外口径，分别被什么拦住？",
+          "en-US": "What stops quoting on permissions versus what stops external wording from going out?"
+        },
+        "2": {
+          "zh-CN": "去找不得引用的内容范围，以及对外口径要不要人工，文档能否出境。",
+          "en-US": "Look for the scope of content that must not be quoted, whether external wording needs a human, and whether documents may leave the region."
+        },
+        "3": {
+          "zh-CN": "员工无权阅读的内容能不能被引用？对外口径要不要经人工确认？内部文档和工单能不能送到境外模型？",
+          "en-US": "May content the employee is not entitled to be quoted, must external customer-facing copy wait for a human, and may internal documents and tickets go to an offshore model?"
+        }
+      }
+    },
+    {
+      "id": "hl-success",
+      "topic": "success-measures",
+      "hints": {
+        "1": {
+          "zh-CN": "管理层用引用质量、权限还是一线习惯来宣布知识代理成功？",
+          "en-US": "Will leadership call this knowledge agent a win on citation quality, permissions, or frontline habit?"
+        },
+        "2": {
+          "zh-CN": "去找默认问询路径、引用抽查，以及检索过权限的质量红线。",
+          "en-US": "Look for the default asking path, citation spot-checks, and the quality floor that retrieval must pass permissions."
+        },
+        "3": {
+          "zh-CN": "怎样才算一线不再只靠口口相传？引用质量有没有抽查红线？检索必须先过哪一层权限？",
+          "en-US": "What would it take for the frontline to stop relying only on word-of-mouth, is there a citation-quality floor from spot-checks, and which permission layer must retrieval pass first?"
+        }
+      }
+    },
+    {
+      "id": "hl-trust",
+      "topic": "trust",
+      "hints": {
+        "1": {
+          "zh-CN": "一线和安全对同一套知识代理，分别怕什么、信什么？",
+          "en-US": "What do the frontline versus security fear or trust about the same knowledge agent?"
+        },
+        "2": {
+          "zh-CN": "去找一线是否绕过知识库问人，以及安全对检索守权的预期。",
+          "en-US": "Look for frontline workarounds that bypass the knowledge base and security's expectation that retrieval will honor permissions."
+        },
+        "3": {
+          "zh-CN": "一线更信同事转述还是知识库代理？安全是否相信检索会守住权限？",
+          "en-US": "Does the frontline trust colleague word-of-mouth or the knowledge-base agent more, and does security believe retrieval will honor permissions?"
+        }
+      }
+    },
+    {
+      "id": "hl-failure-modes",
+      "topic": "failure-modes",
+      "hints": {
+        "1": {
+          "zh-CN": "说错出处和把不该看的内容漏出去，哪种更可能把知识代理打穿？",
+          "en-US": "Which failure punches through first: a wrong source, or leaking something the asker should not see?"
+        },
+        "2": {
+          "zh-CN": "去找不确定时的胡编行为，以及检索不核对权限时回答会怎样。",
+          "en-US": "Look for fabrication under uncertainty and what the answer looks like if retrieval does not check permissions."
+        },
+        "3": {
+          "zh-CN": "模型没把握时会怎么给出处？检索如果没过权限，回答里会出现什么？",
+          "en-US": "When the model is unsure, how does it give a source? If retrieval never passed permissions, what shows up in the answer?"
+        }
+      }
+    }
+  ],
+  "passGates": [
+    {
+      "id": "pg-001",
+      "description": {
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个包含文档索引/ACL/wiki 工单检索、无权内容不得引用与对外口径 HITL 的完整方案",
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete plan with document-index/ACL/wiki-ticket retrieval, no quoting of unauthorized content, and HITL on external copy"
+      }
+    },
+    {
+      "id": "pg-002",
+      "description": {
+        "zh-CN": "在PITCH阶段，学员必须面向管理层展示可量化的采用与审计收益，并化解一线绕过、编造引用与检索绕过权限等安全顾虑",
+        "en-US": "In the PITCH phase, the learner must present quantifiable adoption and audit value to leadership and address frontline bypass, fabricated citations, and retrieval that bypasses permissions"
+      }
+    }
+  ],
+  "canary": "eafa2abd7af7896604bd202ca5b5c93b"
+}
