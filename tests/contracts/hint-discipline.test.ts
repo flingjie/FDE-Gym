@@ -134,13 +134,49 @@ describe("collectHintDisciplineIssues", () => {
     const messages = issues.map((i) => i.message);
 
     expect(messages).toContain(
-      "L3 must not contain an answer banner (关键发现 / Key discovery)",
+      "must not contain an answer banner (关键发现 / Key discovery)",
     );
     expect(messages.some((m) => m.includes("repeats hidden numeric token: 18"))).toBe(
       true,
     );
     expect(messages.some((m) => m.includes("repeats hidden numeric token: 180000"))).toBe(
       true,
+    );
+  });
+
+  it("flags L1 answer banners", () => {
+    const doc = minimalAuthoring({
+      hintLadders: [
+        {
+          id: "h1",
+          topic: "workflow",
+          hints: {
+            "1": {
+              "zh-CN": "关键发现：工单很多。",
+              "en-US": "Key discovery: there are many tickets.",
+            },
+            "2": neutralText,
+            "3": {
+              "zh-CN": "现在每月工单量是多少？",
+              "en-US": "What is monthly ticket volume?",
+            },
+          },
+        },
+      ],
+    });
+
+    const issues = collectHintDisciplineIssues(doc);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["evaluator", "hintLadders", 0, "hints", "1", "zh-CN"],
+          message: "must not contain an answer banner (关键发现 / Key discovery)",
+        }),
+        expect.objectContaining({
+          path: ["evaluator", "hintLadders", 0, "hints", "1", "en-US"],
+          message: "must not contain an answer banner (关键发现 / Key discovery)",
+        }),
+      ]),
     );
   });
 
@@ -285,6 +321,29 @@ describe("production source ladders", () => {
       const raw = readFileSync(join(process.cwd(), "scenarios", "source", `${id}.yaml`), "utf8");
       const doc = ScenarioAuthoringSchema.parse(parse(raw));
       expect(collectHintDisciplineIssues(doc)).toEqual([]);
+    });
+  }
+});
+
+describe("committed compiled ladders", () => {
+  for (const id of SOURCES) {
+    it(`${id} compiled evaluator ladders match source and L3 is Socratic`, () => {
+      const sourceDoc = ScenarioAuthoringSchema.parse(
+        parse(readFileSync(join(process.cwd(), "scenarios", "source", `${id}.yaml`), "utf8")),
+      );
+      const compiled = JSON.parse(
+        readFileSync(join(process.cwd(), "scenarios", "compiled", id, "evaluator.json"), "utf8"),
+      ) as { hintLadders: typeof sourceDoc.evaluator.hintLadders };
+
+      expect(compiled.hintLadders).toEqual(sourceDoc.evaluator.hintLadders);
+
+      for (const ladder of compiled.hintLadders) {
+        for (const locale of ["zh-CN", "en-US"] as const) {
+          const l3 = ladder.hints["3"][locale];
+          expect(l3.includes("?") || l3.includes("？")).toBe(true);
+          expect(l3).not.toMatch(/关键发现|key discovery/i);
+        }
+      }
     });
   }
 });

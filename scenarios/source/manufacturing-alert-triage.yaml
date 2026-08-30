@@ -522,8 +522,8 @@ evaluator:
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "误报太多和夜间自动抑制，哪种更可能把安全打穿？"
-          "en-US": "Which failure punches through first: too many false positives, or automatic night suppression?"
+          "zh-CN": "告警体系失手时，该先从信噪、覆盖时段还是别的维度去想失败怎么打穿？"
+          "en-US": "If the alert system fails, should you first think along signal-to-noise, coverage hours, or another dimension?"
         "2":
           "zh-CN": "去找高误报导致全盘忽略的风险，以及夜间抑制对紧急问题的掩盖。"
           "en-US": "Look for the risk that a high false-positive rate makes engineers ignore everything, and what night suppression hides."

@@ -154,4 +154,45 @@ describe("hintCommand ledger and journal", () => {
     expect(fresh.ok).toBe(false);
     if (!fresh.ok) expect(fresh.code).toBe("INVALID_PHASE_COMMAND");
   });
+
+  it("concurrent auto hints grant distinct levels from the locked ledger", async () => {
+    const { ctx: commandCtx, runId } = ctx();
+    expect(
+      (
+        await startCommand(commandCtx, {
+          runId,
+          scenarioId: "scn-hint",
+          locale: "zh-CN",
+          commandId: "cmd-start",
+        })
+      ).ok,
+    ).toBe(true);
+    const requests = [
+      { commandId: "cmd-race-a" },
+      { commandId: "cmd-race-b" },
+    ] as const;
+    const raced = await Promise.all(
+      requests.map((r) =>
+        hintCommand(commandCtx, { runId, topic: "workflow", commandId: r.commandId }),
+      ),
+    );
+    const levels: Array<1 | 2 | 3> = [];
+    for (let i = 0; i < raced.length; i++) {
+      const result = raced[i];
+      if (result.ok) {
+        levels.push(result.data.level);
+        continue;
+      }
+      // withRunLock fail-closes on live-owner contention instead of queueing.
+      expect(result.code).toBe("RUN_LOCKED");
+      const retried = await hintCommand(commandCtx, {
+        runId,
+        topic: "workflow",
+        commandId: requests[i].commandId,
+      });
+      expect(retried.ok).toBe(true);
+      if (retried.ok) levels.push(retried.data.level);
+    }
+    expect(new Set(levels)).toEqual(new Set([1, 2]));
+  });
 });

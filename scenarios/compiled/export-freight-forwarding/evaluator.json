@@ -454,8 +454,8 @@
           "en-US": "What do frontline staff versus executives fear or expect from the same AI?"
         },
         "2": {
-          "zh-CN": "去找一线是否绕过系统继续用手工台账，以及高管对一步到位全自动制单报关的预期。",
-          "en-US": "Look for frontline workarounds around the system and executive expectations of one-step full automation of documentation and customs."
+          "zh-CN": "去找一线实际作业用什么记录、是否绕过系统，以及高管对自动化一步到位的预期。",
+          "en-US": "Look for what frontline staff actually record work in, whether they bypass the system, and executive expectations of one-step automation."
         },
         "3": {
           "zh-CN": "一线操作和单证员会不会抵制建议、继续沿用手工台账？高管有没有把合规和差错约束想得太容易？",
@@ -468,8 +468,8 @@
       "topic": "failure-modes",
       "hints": {
         "1": {
-          "zh-CN": "AI 编造申报信息和旺季突然停，哪种更可能把货代打穿？",
-          "en-US": "Which failure punches through first: the AI inventing declaration facts, or the system stopping at peak?"
+          "zh-CN": "货代自动化失手时，该先从内容准确性、可用性还是别的维度去想失败怎么打穿？",
+          "en-US": "If freight automation fails, should you first think along content accuracy, availability, or another dimension?"
         },
         "2": {
           "zh-CN": "去找不确定时对 HS 编码或原产地规则的胡编，以及旺季失效时订舱报关积压会怎样。",

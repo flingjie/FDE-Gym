@@ -56,10 +56,10 @@ export function collectHintDisciplineIssues(doc: ScenarioAuthoring): HintDiscipl
       for (const locale of ["zh-CN", "en-US"] as const) {
         const value = text[locale];
         const path = ["evaluator", "hintLadders", i, "hints", level, locale];
+        if (ANSWER_BANNER.test(value)) {
+          issues.push({ path, message: "must not contain an answer banner (关键发现 / Key discovery)" });
+        }
         if (level === "3") {
-          if (ANSWER_BANNER.test(value)) {
-            issues.push({ path, message: "L3 must not contain an answer banner (关键发现 / Key discovery)" });
-          }
           if (!value.includes("?") && !value.includes("？")) {
             issues.push({ path, message: "L3 must be a question (contain ? or ？)" });
           }

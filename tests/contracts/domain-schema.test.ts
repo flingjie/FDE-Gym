@@ -302,6 +302,15 @@ describe("scenario authoring cross-references and hint completeness", () => {
     expect(ScenarioAuthoringSchema.safeParse(authoring).success).toBe(false);
   });
 
+  it("rejects an L1 answer banner", () => {
+    const authoring = validAuthoring();
+    authoring.evaluator.hintLadders[0].hints["1"] = {
+      "zh-CN": "关键发现：工厂效率很低。",
+      "en-US": "Key discovery: the plant is inefficient.",
+    };
+    expect(ScenarioAuthoringSchema.safeParse(authoring).success).toBe(false);
+  });
+
   it("accepts a fully valid authoring document", () => {
     expect(ScenarioAuthoringSchema.safeParse(validAuthoring()).success).toBe(true);
   });

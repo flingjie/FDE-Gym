@@ -311,7 +311,7 @@ async function driveJourney(
     const unit = pack.customerCapsule.disclosureUnits.find((u) => u.topic === "workflow");
     if (unit) {
       for (const token of numericTokens(unit.text[locale])) {
-        expect(body.split(/[^\d.]+/)).not.toContain(token);
+        expect(numericTokens(body)).not.toContain(token);
       }
     }
   }

@@ -3,7 +3,7 @@
   "id": "manufacturing-alert-triage",
   "schemaVersion": 1,
   "locale": "zh-CN",
-  "digest": "8c60c41c0b4e2954a8dd086ed63d3443221912c421dfd84a16561303710db06f",
+  "digest": "a83ccffa8da49e8de8308a23c86e72f24d247a8136ec645d260ce78aec78ab76",
   "artifacts": [
     {
       "path": "public.json",
@@ -19,8 +19,8 @@
     },
     {
       "path": "evaluator.json",
-      "sha256": "49c0fff0639cbf4dfe8b2be82122895b4e6491bf3e55aed6f5f8bc01ac52db27",
-      "bytes": 18551,
+      "sha256": "c5e6dc42b1c91eb0905945f3c1810617a4492abaedf32b219cea15ab757ad2ad",
+      "bytes": 18597,
       "schemaVersion": 1
     },
     {

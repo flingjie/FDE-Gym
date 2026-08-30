@@ -483,6 +483,7 @@ export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<
       commandId: args.commandId,
       request: { type: "hint", topic: args.topic, level: args.level ?? null },
       store: { baseDir: ctx.baseDir },
+      canaries: [scenario.evaluator.canary],
       prepare: async () => {
         const recorded = await loadEvents(args.runId, { baseDir: ctx.baseDir });
         const events = recorded.map(stripEnvelope);

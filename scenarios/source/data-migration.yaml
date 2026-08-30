@@ -463,11 +463,11 @@ evaluator:
       topic: root-cause
       hints:
         "1":
-          "zh-CN": "数据质量问题到底卡在系统年代、应急改过，还是没人说得清字段？"
-          "en-US": "Is the quality problem stuck on system age, undocumented patches, or missing field definitions?"
+          "zh-CN": "数据质量问题到底卡在系统年代、变更记录，还是字段定义？"
+          "en-US": "Is the quality problem stuck on system age, change history, or field definitions?"
         "2":
-          "zh-CN": "去找遗留库的年龄与未记录修改，以及数据字典是否存在、字段含义靠谁记。"
-          "en-US": "Look for how old the legacy database is, how many unrecorded emergency changes it took, and whether a data dictionary exists."
+          "zh-CN": "去找库龄、变更记录是否完整，以及字段含义有没有书面依据。"
+          "en-US": "Look for database age, whether change history is complete, and whether field meanings have a written source."
         "3":
           "zh-CN": "遗留库用了多久、中间有过多少次没记下的应急修改？有没有数据字典，字段含义现在靠谁记得住？"
           "en-US": "How old is the legacy database, how many undocumented emergency changes has it seen, and is there a data dictionary — or do field meanings live in a few people's heads?"
@@ -514,8 +514,8 @@ evaluator:
           "zh-CN": "项目经理、技术负责人和数据负责人，对同一条上线线分别怕什么、坚持什么？"
           "en-US": "What do the project manager, technical lead, and data owner each fear or insist on for the same go-live?"
         "2":
-          "zh-CN": "去找对原定上线窗口的公开争执，以及数据负责人是否在关键问题上含糊其辞。"
-          "en-US": "Look for open conflict over the original go-live window, and whether the data owner hedges on critical issues."
+          "zh-CN": "去找各方对上线窗口的立场是否一致，以及关键问题上回答的完整程度。"
+          "en-US": "Look for whether go-live-window positions align, and how complete answers are on the hard questions."
         "3":
           "zh-CN": "项目经理还在不在坚持原定上线？技术负责人是否认为数据质量还不够安全？数据负责人会不会回避关键问题？"
           "en-US": "Does the project manager still insist on the original go-live, does the technical lead believe quality is unsafe for cutover, and does the data owner dodge hard questions?"
@@ -523,8 +523,8 @@ evaluator:
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "迟到的回滚和静默丢数据，哪种失败类型更可能把迁移打穿？"
-          "en-US": "Which failure class punches through first: a late rollback, or silent data loss?"
+          "zh-CN": "迁移失手时，该先从时效、完整性还是可观测性去想失败怎么打穿？"
+          "en-US": "If the migration fails, should you first think along timing, integrity, or observability?"
         "2":
           "zh-CN": "去找回滚超时的影响，以及超长字段是否被现有校验覆盖。"
           "en-US": "Look for rollback-timeout effects, and whether over-length fields are caught by current validation."
