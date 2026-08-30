@@ -3,7 +3,7 @@
   "id": "support-automation",
   "schemaVersion": 1,
   "locale": "zh-CN",
-  "digest": "874359fc6b4a008711413501740b04e6449774461e2d18cbac66c40e1d9e7bcf",
+  "digest": "1581fd92b4e635c8f776b6e2e35c01cbdd9be69906d99c503c4364ef44302c18",
   "artifacts": [
     {
       "path": "public.json",
@@ -13,14 +13,14 @@
     },
     {
       "path": "customer.json",
-      "sha256": "689adb7d8d2fd082a40d08ea29d7cd1ba6dab85d0f78dfb79f13a3e07344f781",
+      "sha256": "ef3613a4204900bdf2576c37a4220f91f1698d05d86c52e95f63d66efffd23e5",
       "bytes": 12205,
       "schemaVersion": 1
     },
     {
       "path": "evaluator.json",
-      "sha256": "7f68b6ea2e9f59fcb883be2e978cd4d984191f57c09d576ae2440cf93e5a9246",
-      "bytes": 17408,
+      "sha256": "901e0aec0e8fe84e79fd3914901424cccefb039337de6d5dae868ff29e1f0922",
+      "bytes": 18068,
       "schemaVersion": 1
     },
     {

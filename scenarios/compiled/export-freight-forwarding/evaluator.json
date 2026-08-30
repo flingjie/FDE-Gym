@@ -342,16 +342,16 @@
       "topic": "workflow",
       "hints": {
         "1": {
-          "zh-CN": "思考货代业务的起点：每月处理多少订舱？数据如何在系统间流转？",
-          "en-US": "Think about the freight forwarding starting point: how many bookings a month, and how does data move between systems?"
+          "zh-CN": "在谈自动化之前，订舱和单证现在是怎么进系统、又是怎么在系统间被搬的？",
+          "en-US": "Before proposing automation, how do bookings currently enter the systems and how does documentation move between them?"
         },
         "2": {
-          "zh-CN": "关注跨系统重复录入的比例与单证制作环节数量。",
-          "en-US": "Focus on the share of cross-system re-keying and the number of documentation steps."
+          "zh-CN": "去找月订舱体量、跨系统重复录入占比，以及一份提单要过多少手工环节、制单要多久。",
+          "en-US": "Look for monthly booking volume, the share of cross-system re-keying, and how many manual steps a bill of lading takes."
         },
         "3": {
-          "zh-CN": "关键发现：每月约4,200票订舱，65%重复录入，一份提单经过约7个手工环节。",
-          "en-US": "Key discovery: about 4,200 bookings a month, 65% re-keyed, and one bill of lading passes through about 7 manual steps."
+          "zh-CN": "每月大概处理多少票海运出口订舱？其中多少需要在 TMS、报关系统和表格之间重复录入？一份提单要经过多少手工环节，制单周期大概多久？",
+          "en-US": "What is monthly ocean-export booking volume, what share is re-keyed across the TMS, customs system, and spreadsheets, how many manual steps does one bill of lading take, and how long is the documentation cycle?"
         }
       }
     },
@@ -360,16 +360,16 @@
       "topic": "pain",
       "hints": {
         "1": {
-          "zh-CN": "货代业务的主要痛点是什么？",
-          "en-US": "What are the main pain points in the freight forwarding business?"
+          "zh-CN": "货代现在最疼的是单证出错，还是报价太慢把客户拖走？",
+          "en-US": "Is the forwarder hurting most on documentation errors, or on slow quotes driving churn?"
         },
         "2": {
-          "zh-CN": "单证出错和报价响应慢分别带来什么成本？",
-          "en-US": "What costs do documentation errors and slow quoting each bring?"
+          "zh-CN": "去找单证差错率与单次改单或滞港成本，以及旺季报价时长和因此流失的客户。",
+          "en-US": "Look for documentation error rate and cost per amendment or demurrage, plus peak quote time and churn from slow response."
         },
         "3": {
-          "zh-CN": "关键发现：差错率约4.8%，每次差错平均约280美元，旺季报价平均6小时且每月约5%客户流失。",
-          "en-US": "Key discovery: error rate about 4.8%, each error about $280, peak quotes average 6 hours, and about 5% of customers churn monthly."
+          "zh-CN": "单证差错率大概多少，每出错一次平均要付出什么成本？旺季标准报价要多久，每月有多少客户因为响应慢而走？",
+          "en-US": "What is the documentation error rate, what does each error cost on average, how long do peak-season standard quotes take, and what share of customers leave monthly because of slow response?"
         }
       }
     },
@@ -378,16 +378,16 @@
       "topic": "root-cause",
       "hints": {
         "1": {
-          "zh-CN": "现有系统与流程的根本缺陷是什么？",
-          "en-US": "What is the fundamental defect of the current systems and process?"
+          "zh-CN": "现有流程到底卡在系统不通，还是知识只在老人脑子里？",
+          "en-US": "Is the process stuck on systems that do not talk, or on knowledge that lives only with veterans?"
         },
         "2": {
-          "zh-CN": "TMS与报关系统之间如何同步数据？新员工如何学会制单？",
-          "en-US": "How is data synced between the TMS and customs system? How do new staff learn documentation?"
+          "zh-CN": "去找 TMS 与报关系统是否自动同步，以及有没有统一单证知识库。",
+          "en-US": "Look for whether the TMS and customs system sync automatically, and whether a unified documentation knowledge base exists."
         },
         "3": {
-          "zh-CN": "关键发现：系统之间没有自动同步，缺少统一知识库，新员工依赖老员工经验。",
-          "en-US": "Key discovery: systems are not automatically synced, there is no unified knowledge base, and new staff rely on veterans' experience."
+          "zh-CN": "TMS 和报关系统之间有没有自动同步，客户资料和 HS 编码靠谁维护？新员工制单是靠统一知识库，还是靠老人带？",
+          "en-US": "Is there automatic data sync between the TMS and the customs system, who maintains customer data and HS codes, and do new staff learn from a shared knowledge base or from veterans?"
         }
       }
     },
@@ -396,16 +396,16 @@
       "topic": "business-impact",
       "hints": {
         "1": {
-          "zh-CN": "差错和低效对财务结果有什么影响？",
-          "en-US": "What impact do errors and inefficiency have on financial results?"
+          "zh-CN": "差错成本和自动化能省下的人工，分别打在哪张账上？",
+          "en-US": "Do documentation errors and automation savings hit the same P&L line, or different ones?"
         },
         "2": {
-          "zh-CN": "自动化能带来多大的可量化节省？",
-          "en-US": "How much quantifiable savings can automation bring?"
+          "zh-CN": "去找改单、滞港和罚款的年损失，以及自动化单证与报价后可节省的人工成本份额。",
+          "en-US": "Look for annual amendment, demurrage, and penalty losses, and the labor-cost share that automating documentation and quoting could save."
         },
         "3": {
-          "zh-CN": "关键发现：每年约94万美元差错损失，自动化单证与报价可年省约38%人工成本。",
-          "en-US": "Key discovery: about $940,000 a year in error losses, and automating documentation and quoting could save about 38% of labor cost."
+          "zh-CN": "因单证差错产生的改单费、滞港费和客户罚款一年大约多少？自动化单证与报价后，每年能省下多大比例的人工处理成本？",
+          "en-US": "What is the annual cost of amendment fees, demurrage, and customer penalties from documentation errors, and what share of labor processing cost could automating documentation and quoting save?"
         }
       }
     },
@@ -414,16 +414,16 @@
       "topic": "constraints",
       "hints": {
         "1": {
-          "zh-CN": "自动化在合规与数据隐私上有哪些限制？",
-          "en-US": "What compliance and data-privacy limits constrain automation?"
+          "zh-CN": "自动化在合规复核和数据放哪里跑，分别被什么拦住？",
+          "en-US": "What stops automation on compliance review versus where the model is allowed to run?"
         },
         "2": {
-          "zh-CN": "哪些单证必须人工复核？数据可以出境吗？",
-          "en-US": "Which documents require human review? Can data leave the region?"
+          "zh-CN": "去找必须人工复核的单证类型，以及客户与舱单数据能否出境。",
+          "en-US": "Look for document types that require human review and whether customer and manifest data may leave the region."
         },
         "3": {
-          "zh-CN": "关键发现：受控货物、制裁名单与出口许可证单证必须人工复核，客户与舱单数据不得出境。",
-          "en-US": "Key discovery: controlled goods, sanctions, and export-license documents need human review, and customer and manifest data must not leave the region."
+          "zh-CN": "哪些单证绝对不能自动生成、必须人工复核？客户和舱单数据能不能送到境外第三方大模型？",
+          "en-US": "Which documents must never be auto-generated and need human review, and may customer and manifest data go to an offshore third-party model?"
         }
       }
     },
@@ -432,16 +432,16 @@
       "topic": "success-measures",
       "hints": {
         "1": {
-          "zh-CN": "管理层希望达到什么具体指标？",
-          "en-US": "What specific metrics does management hope to achieve?"
+          "zh-CN": "管理层用差错、制单速度、报价速度还是舱位利用率来宣布成功？",
+          "en-US": "Will leadership call this a win on errors, documentation speed, quote speed, or capacity utilization?"
         },
         "2": {
-          "zh-CN": "差错率、制单周期、报价响应和舱位利用率的目标分别是什么？",
-          "en-US": "What are the targets for error rate, documentation cycle, quote response, and capacity utilization?"
+          "zh-CN": "去找单证差错率与制单周期目标，以及标准报价时长和旺季舱位利用率目标。",
+          "en-US": "Look for targets on documentation error rate and cycle time, plus standard quote turnaround and peak-season utilization."
         },
         "3": {
-          "zh-CN": "关键发现：差错率降到1.5%以下、制单周期3天变1天、报价6小时变1小时、旺季利用率提升12%。",
-          "en-US": "Key discovery: error rate below 1.5%, documentation 3 days to 1 day, quotes 6 hours to 1 hour, and peak utilization up 12%."
+          "zh-CN": "单证差错率和制单周期要改到什么程度才算达标？标准报价要多快，旺季舱位利用率要提升多少？",
+          "en-US": "What documentation error rate and cycle time count as success, how fast must standard quotes turn, and how much should peak-season capacity utilization rise?"
         }
       }
     },
@@ -450,16 +450,16 @@
       "topic": "trust",
       "hints": {
         "1": {
-          "zh-CN": "一线员工和高管对AI各持什么态度？",
-          "en-US": "What attitudes do frontline employees and executives hold toward AI?"
+          "zh-CN": "一线和高管对同一套 AI，分别怕什么、盼什么？",
+          "en-US": "What do frontline staff versus executives fear or expect from the same AI?"
         },
         "2": {
-          "zh-CN": "一线员工为什么抵触AI？高管的期望是否现实？",
-          "en-US": "Why do frontline employees resist AI? Are executives' expectations realistic?"
+          "zh-CN": "去找一线是否绕过系统继续用手工台账，以及高管对一步到位全自动制单报关的预期。",
+          "en-US": "Look for frontline workarounds around the system and executive expectations of one-step full automation of documentation and customs."
         },
         "3": {
-          "zh-CN": "关键发现：一线员工怕丢工作并继续用Excel台账，高管期望一步到位全自动而低估合规与差错约束。",
-          "en-US": "Key discovery: frontline employees fear job loss and keep Excel ledgers, while executives expect one-step full automation and underestimate compliance and error constraints."
+          "zh-CN": "一线操作和单证员会不会抵制建议、继续沿用手工台账？高管有没有把合规和差错约束想得太容易？",
+          "en-US": "Will frontline operations and documentation staff resist suggestions and keep spreadsheet ledgers, and are executives underestimating compliance and error constraints?"
         }
       }
     },
@@ -468,16 +468,16 @@
       "topic": "failure-modes",
       "hints": {
         "1": {
-          "zh-CN": "如果AI出错或失效，最坏情况是什么？",
-          "en-US": "If the AI errs or fails, what is the worst case?"
+          "zh-CN": "AI 编造申报信息和旺季突然停，哪种更可能把货代打穿？",
+          "en-US": "Which failure punches through first: the AI inventing declaration facts, or the system stopping at peak?"
         },
         "2": {
-          "zh-CN": "AI在不确定时会做什么？旺季失效会带来什么？",
-          "en-US": "What does the AI do when uncertain? What happens if it fails at peak?"
+          "zh-CN": "去找不确定时对 HS 编码或原产地规则的胡编，以及旺季失效时订舱报关积压会怎样。",
+          "en-US": "Look for fabrication of HS codes or origin rules under uncertainty, and what happens to bookings and customs if automation fails at peak."
         },
         "3": {
-          "zh-CN": "关键发现：AI会自信编造HS编码或原产地规则导致退单；旺季失效会造成积压、延误和索赔。",
-          "en-US": "Key discovery: the AI confidently fabricates HS codes or origin rules causing rejections, and peak failure causes backlog, delays, and claims."
+          "zh-CN": "模型没把握时会怎么填 HS 编码或原产地规则？旺季一旦停摆，订舱和报关侧会看到什么？",
+          "en-US": "What does the model put on HS codes or origin rules when it is unsure, and what does operations see if it dies during peak season?"
         }
       }
     }
@@ -498,5 +498,5 @@
       }
     }
   ],
-  "canary": "7f14e8de28e5228f352896f2ac6fb381"
+  "canary": "eafa2abd7af7896604bd202ca5b5c93b"
 }

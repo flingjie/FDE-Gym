@@ -27,6 +27,11 @@ const text = {
   "en-US": "Improve factory operational efficiency",
 };
 
+const l3Question = {
+  "zh-CN": "该问客户哪一句？",
+  "en-US": "What should you ask the customer?",
+};
+
 function validPublicScenario() {
   return {
     id: "manufacturing-alert-triage",
@@ -210,7 +215,7 @@ describe("scenario authoring cross-references and hint completeness", () => {
           { id: "c1", statement: text, expectedEvidenceIds: ["e1"] },
         ],
         hintLadders: [
-          { id: "h1", topic: "workflow", hints: { "1": text, "2": text, "3": text } },
+          { id: "h1", topic: "workflow", hints: { "1": text, "2": text, "3": l3Question } },
         ],
         passGates: [],
       },
@@ -282,10 +287,19 @@ describe("scenario authoring cross-references and hint completeness", () => {
     authoring.evaluator.hintLadders.push({
       id: "h2",
       topic: "workflow",
-      hints: { "1": text, "2": text, "3": text },
+      hints: { "1": text, "2": text, "3": l3Question },
     });
     const parsed = ScenarioAuthoringSchema.safeParse(authoring);
     expect(parsed.success).toBe(false);
+  });
+
+  it("rejects an L3 answer banner", () => {
+    const authoring = validAuthoring();
+    authoring.evaluator.hintLadders[0].hints["3"] = {
+      "zh-CN": "关键发现：工厂效率很低。",
+      "en-US": "Key discovery: the plant is inefficient.",
+    };
+    expect(ScenarioAuthoringSchema.safeParse(authoring).success).toBe(false);
   });
 
   it("accepts a fully valid authoring document", () => {

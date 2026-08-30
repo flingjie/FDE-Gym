@@ -5,6 +5,7 @@ import {
   LocaleSchema,
   RunPhaseSchema,
 } from "../core/domain.js";
+import { collectHintDisciplineIssues } from "./hint-discipline.js";
 
 /**
  * FDE Gym — scenario authoring schema and the three compiled role partitions.
@@ -385,7 +386,6 @@ export const ScenarioAuthoringSchema = z
     });
 
     const hintLadderIds = new Set<string>();
-    const hintLadderTopics = new Set<string>();
     doc.evaluator.hintLadders.forEach((ladder, i) => {
       if (hintLadderIds.has(ladder.id)) {
         ctx.addIssue({
@@ -395,14 +395,6 @@ export const ScenarioAuthoringSchema = z
         });
       }
       hintLadderIds.add(ladder.id);
-      if (hintLadderTopics.has(ladder.topic)) {
-        ctx.addIssue({
-          code: "custom",
-          message: `duplicate hint ladder topic: ${ladder.topic}`,
-          path: ["evaluator", "hintLadders", i, "topic"],
-        });
-      }
-      hintLadderTopics.add(ladder.topic);
     });
 
     const eventIds = new Set<string>();
@@ -435,5 +427,13 @@ export const ScenarioAuthoringSchema = z
         });
       }
     });
+
+    for (const issue of collectHintDisciplineIssues(doc)) {
+      ctx.addIssue({
+        code: "custom",
+        message: issue.message,
+        path: issue.path,
+      });
+    }
   });
 export type ScenarioAuthoring = z.infer<typeof ScenarioAuthoringSchema>;
