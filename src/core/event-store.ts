@@ -26,8 +26,8 @@ import { withRunLock, type RunLock } from "../storage/run-lock.js";
  * `${FDE_GYM_HOME}/runs/<run-id>/events.jsonl` (default `${FDE_GYM_HOME}` is the
  * project-local `.fde-gym` directory).
  * The domain event payload is written verbatim; the envelope (`seq`,
- * `logicalTime`, `previousHash`, `hash`) is layered on top here so `decide()`
- * and `reduce()` stay pure of wall-clock and hashing.
+ * `logicalTime`, `previousHash`, `hash`) is layered on top here so the
+ * `prepare*` event authors and `reduce()` stay pure of wall-clock and hashing.
  */
 
 const FIRST_PREVIOUS_HASH = "";

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { RunCommand, RunEvent } from "../../src/core/domain";
+import type { RunEvent } from "../../src/core/domain";
 import {
   EVENT_CHAIN_INVALID,
   INVALID_RESOURCE_ID,
@@ -12,9 +12,11 @@ import {
   RUN_NOT_FOUND,
   UNSUPPORTED_SCHEMA_VERSION,
 } from "../../src/core/errors";
-import { createInitialRunState, reduce } from "../../src/core/reducer";
 import { appendEvents, assertSafeResourceId, loadEvents, loadRun } from "../../src/core/event-store";
-import { decide } from "../../src/core/state-machine";
+import {
+  buildPhaseChangedEvent,
+  buildRunStartedEvents,
+} from "../../src/core/state-machine";
 
 const RUN_ID = "run-1";
 
@@ -32,18 +34,18 @@ function eventsFile(): string {
   return join(baseDir, "runs", RUN_ID, "events.jsonl");
 }
 
-/** Drive decide() + reduce() to produce a deterministic 4-event journey (start, accept, frame). */
+/** Build a deterministic 4-event journey (start, accept, frame) via the event helpers. */
 function journeyEvents(runId: string): RunEvent[] {
-  const out: RunEvent[] = [];
-  let s = createInitialRunState(runId);
-  const step = (command: RunCommand): void => {
-    out.push(...decide(s, command));
-    s = out.reduce(reduce, createInitialRunState(runId));
-  };
-  step({ type: "start", commandId: "c0", scenarioId: "s1", locale: "zh-CN" });
-  step({ type: "accept", commandId: "c1" });
-  step({ type: "frame", commandId: "c2" });
-  return out;
+  return [
+    ...buildRunStartedEvents(runId, {
+      type: "start",
+      commandId: "c0",
+      scenarioId: "s1",
+      locale: "zh-CN",
+    }),
+    buildPhaseChangedEvent(runId, "c1", "SCENARIO", "DISCOVERY"),
+    buildPhaseChangedEvent(runId, "c2", "DISCOVERY", "PROBLEM_FRAMING"),
+  ];
 }
 
 async function expectCode(promise: Promise<unknown>, code: string): Promise<void> {

@@ -71,11 +71,11 @@ SCENARIO --accept--> DISCOVERY --frame--> PROBLEM_FRAMING
 ```
 
 Cross-phase commands are rejected with `INVALID_PHASE_COMMAND` and emit no
-event. The structural gates (`submit-brief`, `submit-design`,
-`respond-challenge`, `submit-pitch`) are layered on top of the pure `decide()`
-in `src/core/state-machine.ts`; each validates its artifact and only then emits
-its `*.submitted`/`*.responded` event plus a `phase.changed` when the gate
-passes.
+event. Phase legality lives in `assertCommandPhase` (`src/core/state-machine.ts`);
+event authorship lives in the `prepare*` functions. The structural gates
+(`submit-brief`, `submit-design`, `respond-challenge`, `submit-pitch`) each
+validate their artifact and only then emit their
+`*.submitted`/`*.responded` event plus a `phase.changed` when the gate passes.
 
 ## The `AgentRuntime` boundary + context firewall
 
@@ -110,9 +110,11 @@ and `previousHash` chains to the prior event (empty for the first). `loadRun` /
 Determinism is the product's core invariant. Four claims are precise, and the
 verification suite asserts each one:
 
-1. **Same committed events → same state.** `decide()`/`reduce()` are pure folds
-   over events (no wall-clock, no `Math.random`), so folding the same event log
-   always rebuilds the same aggregate.
+1. **Same committed events → same state.** Phase legality is enforced by
+   `assertCommandPhase` and event authorship by the `prepare*` functions;
+   `reduce` remains a minimal, pure phase fold over the committed events (no
+   wall-clock, no `Math.random`), so folding the same event log always rebuilds
+   the same aggregate.
 2. **Same scenario bundle digest + seed + trigger context → same scheduled
    event order.** The only randomness is a seeded `mulberry32` PRNG
    (`src/simulation/rng.ts`), consumed solely to order the deterministic

@@ -608,7 +608,8 @@ export type RunCommand = z.infer<typeof RunCommandSchema>;
 // ---------------------------------------------------------------------------
 // Run events (discriminated union)
 //
-// Domain events emitted by `decide()` in Task 4. They carry `runId` and the
+// Domain events produced by the `prepare*` functions (Task 4). They carry
+// `runId` and the
 // `commandId` that produced them. The event-store envelope (`seq`,
 // `logicalTime`, `previousHash`, `hash`) is layered on top by Task 4 as
 // `RecordedEvent` — kept out of the domain payload so wall-clock and hashing
@@ -902,8 +903,8 @@ export type RunEvent = z.infer<typeof RunEventSchema>;
 
 /**
  * Event-store envelope layered on top of a domain event by Task 4. The domain
- * event itself never carries hashing metadata; `decide()` and `reduce()` stay
- * pure.
+ * event itself never carries hashing metadata; `assertCommandPhase` and
+ * `reduce` stay pure.
  */
 export interface EventEnvelope {
   seq: number;

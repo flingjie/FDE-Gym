@@ -48,10 +48,14 @@ import type {
   TranscriptTurn,
 } from "./domain.js";
 import { InvalidPhaseCommandError } from "./errors.js";
-import { decide } from "./state-machine.js";
+import {
+  assertCommandPhase,
+  buildPhaseChangedEvent,
+  buildRunStartedEvents,
+} from "./state-machine.js";
 import type { StoreOptions } from "./event-store.js";
 import type { CommandEffect } from "./command-transaction.js";
-import { createInitialRunState, type RunState } from "./reducer.js";
+import type { RunState } from "./reducer.js";
 
 /**
  * FDE Gym — discovery turn orchestrator (the wiring layer for Tasks 8–10).
@@ -208,11 +212,16 @@ export async function prepareDiscoveryTurn(
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
 
-  // Step 1: record learner question. `decide` enforces the DISCOVERY phase.
-  // (decide only reads runId + phase; seq is not consulted for `ask`.)
-  const runState: RunState = { runId, phase: state.phase, seq: 0 };
-  const questionEvents = decide(runState, { type: "ask", commandId, question });
-  const questionEvent = questionEvents[0];
+  // Step 1: record learner question. `assertCommandPhase` enforces the
+  // DISCOVERY phase; the `question.asked` event is authored here explicitly.
+  assertCommandPhase(state.phase, "ask");
+  const questionEvent: RunEvent = {
+    type: "question.asked",
+    runId,
+    commandId,
+    questionId: commandId,
+    question,
+  };
 
   const aggQuestion: RunAggregate = { ...state, pendingQuestion: { question, stakeholderId } };
 
@@ -407,10 +416,9 @@ export async function prepareFramingGate(input: FramingGateInput): Promise<Frami
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
 
-  // Phase guard: `decide` enforces PROBLEM_FRAMING and throws otherwise. Its
-  // phase-changed collapse is superseded by the multi-step gate below.
-  const runState: RunState = { runId, phase: state.phase, seq: 0 };
-  decide(runState, { type: "submit-brief", commandId, brief });
+  // Phase guard: `assertCommandPhase` enforces PROBLEM_FRAMING and throws
+  // otherwise. Event authorship is the multi-step gate below.
+  assertCommandPhase(state.phase, "submit-brief");
 
   // (a) Zod validation.
   ProblemBriefSchema.parse(brief);
@@ -534,9 +542,11 @@ export async function prepareClarification(
   }
 
   const runId = state.runId;
-  const runState: RunState = { runId, phase: state.phase, seq: 0 };
-  // Phase guard + the `phase.changed` event (PROBLEM_FRAMING -> DISCOVERY).
-  const events = decide(runState, { type: "clarify", commandId });
+  // Phase guard + the explicit `phase.changed` event (PROBLEM_FRAMING -> DISCOVERY).
+  assertCommandPhase(state.phase, "clarify");
+  const events: RunEvent[] = [
+    buildPhaseChangedEvent(runId, commandId, "PROBLEM_FRAMING", "DISCOVERY"),
+  ];
 
   return {
     runId,
@@ -582,10 +592,9 @@ export async function prepareSolutionDesign(
   const { state, proposal, commandId } = input;
   const runId = state.runId;
 
-  // Phase guard: `decide` enforces SOLUTION_DESIGN and throws otherwise. Its
-  // phase-changed collapse is superseded by our explicit events below.
-  const runState: RunState = { runId, phase: state.phase, seq: 0 };
-  decide(runState, { type: "submit-design", commandId, proposal });
+  // Phase guard: `assertCommandPhase` enforces SOLUTION_DESIGN and throws
+  // otherwise. Event authorship is our explicit events below.
+  assertCommandPhase(state.phase, "submit-design");
 
   // Re-validate (structural gate). Throws before any event is emitted.
   SolutionProposalSchema.parse(proposal);
@@ -687,8 +696,9 @@ export async function prepareChallengeInjection(
 
   // Phase guard: only legal once the run has entered CHALLENGE.
   if (state.phase !== "CHALLENGE") {
-    // `decide` has no `challenge.injected` command; enforce the phase here with
-    // the same stable error code the rest of the pipeline uses.
+    // `assertCommandPhase` has no `challenge.injected` command type; enforce
+    // the phase here with the same stable error code the rest of the pipeline
+    // uses.
     throw new OrchestratorError(
       "INVALID_PHASE_COMMAND",
       `challenge injection is not valid in phase ${state.phase ?? "UNSTARTED"}`,
@@ -754,7 +764,7 @@ export interface RespondToChallengeResult {
 }
 
 /**
- * Record a Challenge Response and decide whether the learner has addressed
+ * Record a Challenge Response and determine whether the learner has addressed
  * every mandatory challenge. Emits `challenge.responded`; when (and only when)
  * every mandatory challenge id has a recorded response, it additionally emits
  * `phase.changed` (CHALLENGE -> PITCH).
@@ -774,8 +784,7 @@ export async function prepareRespondToChallenge(
   const runId = state.runId;
 
   // Phase guard (discard the unconditional CHALLENGE -> PITCH collapse).
-  const runState: RunState = { runId, phase: state.phase, seq: 0 };
-  decide(runState, { type: "respond-challenge", commandId, response });
+  assertCommandPhase(state.phase, "respond-challenge");
 
   // Re-validate (structural gate). Throws before any event is emitted.
   ChallengeResponseSchema.parse(response);
@@ -832,8 +841,7 @@ export async function preparePitch(input: SubmitPitchInput): Promise<SubmitPitch
   const runId = state.runId;
 
   // Phase guard.
-  const runState: RunState = { runId, phase: state.phase, seq: 0 };
-  decide(runState, { type: "submit-pitch", commandId, pitch });
+  assertCommandPhase(state.phase, "submit-pitch");
 
   // Re-validate (structural gate). Throws before any event is emitted.
   PitchArtifactSchema.parse(pitch);
@@ -930,8 +938,7 @@ export async function prepareRetry(
   const commandId = options.commandId;
 
   // Fresh run: `start` (SCENARIO) then `accept` (SCENARIO -> DISCOVERY).
-  const fresh = createInitialRunState(newRunId);
-  const startEvents = decide(fresh, {
+  const startEvents = buildRunStartedEvents(newRunId, {
     type: "start",
     commandId,
     scenarioId,
@@ -941,10 +948,9 @@ export async function prepareRetry(
       ? { scenarioBundleDigest: options.scenarioBundleDigest }
       : {}),
   });
-  const acceptEvents = decide(
-    { runId: newRunId, phase: "SCENARIO", seq: startEvents.length },
-    { type: "accept", commandId: `${commandId}:accept` },
-  );
+  const acceptEvents = [
+    buildPhaseChangedEvent(newRunId, `${commandId}:accept`, "SCENARIO", "DISCOVERY"),
+  ];
   // The retry focus summaries are committed to the CHILD so a process restart
   // can fold `previousAttemptReview` without re-invoking the parent's review
   // model. Grouped with the start command for idempotency.
@@ -1045,9 +1051,8 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
 
-  // Phase guard: `decide` enforces REVIEW (and emits nothing for `review`).
-  const runState: RunState = { runId, phase: state.phase, seq: 0 };
-  decide(runState, { type: "review", commandId });
+  // Phase guard: `assertCommandPhase` enforces REVIEW (and emits nothing).
+  assertCommandPhase(state.phase, "review");
 
   // 1. Coach final-review through the firewall (public-only input).
   const { review, invocationId, modelId } = await runFinalReview({

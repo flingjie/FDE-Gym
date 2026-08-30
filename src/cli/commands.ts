@@ -16,8 +16,11 @@ import type {
   RunPhase,
   SolutionProposal,
 } from "../core/domain.js";
-import { decide } from "../core/state-machine.js";
-import { createInitialRunState } from "../core/reducer.js";
+import {
+  assertCommandPhase,
+  buildPhaseChangedEvent,
+  buildRunStartedEvents,
+} from "../core/state-machine.js";
 import { executeCommandTransaction } from "../core/command-transaction.js";
 import {
   assertFrameAllowed,
@@ -324,18 +327,16 @@ export async function startCommand(
       },
       store: { baseDir: ctx.baseDir },
       prepare: async () => {
-        const initial = createInitialRunState(args.runId);
-        const startEvents = decide(initial, {
+        const startEvents = buildRunStartedEvents(args.runId, {
           type: "start",
           commandId: args.commandId,
           scenarioId: args.scenarioId,
           locale: args.locale,
           ...(resolved.bundleDigest !== undefined ? { scenarioBundleDigest: resolved.bundleDigest } : {}),
         });
-        const acceptEvents = decide(
-          { runId: args.runId, phase: "SCENARIO", seq: startEvents.length },
-          { type: "accept", commandId: `${args.commandId}:accept` },
-        );
+        const acceptEvents = [
+          buildPhaseChangedEvent(args.runId, `${args.commandId}:accept`, "SCENARIO", "DISCOVERY"),
+        ];
         return {
           events: [...startEvents, ...acceptEvents],
           result: { scenario: resolved.public, phase: "DISCOVERY" as const },
@@ -361,10 +362,10 @@ export async function frameCommand(ctx: CommandContext, args: FrameArgs): Promis
       request: { type: "frame" },
       store: { baseDir: ctx.baseDir },
       prepare: async () => {
-        const events = decide(
-          { runId: args.runId, phase: loaded.phase, seq: 0 },
-          { type: "frame", commandId: args.commandId },
-        );
+        assertCommandPhase(loaded.phase, "frame");
+        const events = [
+          buildPhaseChangedEvent(args.runId, args.commandId, "DISCOVERY", "PROBLEM_FRAMING"),
+        ];
         return { events, result: { phase: "PROBLEM_FRAMING" as const } };
       },
     });
