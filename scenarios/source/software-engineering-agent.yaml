@@ -521,14 +521,14 @@ evaluator:
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "测过但行为不对，和秘密进到评审文本，哪种更可能把编码代理打穿？"
-          "en-US": "Which failure punches through first: tests that pass on the wrong behavior, or a secret that reaches review text?"
+          "zh-CN": "流水线看起来都过了，和敏感东西离开沙箱，哪种更可能把编码代理打穿？"
+          "en-US": "Which failure punches through first: a pipeline that looks fine, or something sensitive leaving the sandbox?"
         "2":
-          "zh-CN": "去找绿测仍被撤回时改了什么，以及秘密如何出现在 PR 文本里。"
-          "en-US": "Look for what changed when a green test was still reverted, and how a secret shows up in PR text."
+          "zh-CN": "去找绿测实际锁住的是什么，以及评审文本能带上什么。"
+          "en-US": "Look for what a green test actually locks, and what review text can carry."
         "3":
-          "zh-CN": "测试已经绿的时候，行为还可能怎样偏掉？开 PR 时描述或 diff 里曾出现过什么不该出现的东西？"
-          "en-US": "When tests are already green, how can behavior still drift? What that should not have appeared has shown up in a PR description or diff?"
+          "zh-CN": "测试已经绿的时候，还需要确认什么？开 PR 时描述里会带上什么？"
+          "en-US": "When tests are already green, what still needs confirming? What can a PR description carry when it is opened?"
   passGates:
     - id: pg-001
       description:
