@@ -277,6 +277,17 @@ describe("scenario authoring cross-references and hint completeness", () => {
     expect(ScenarioAuthoringSchema.safeParse(authoring).success).toBe(false);
   });
 
+  it("rejects duplicate hint ladder topics", () => {
+    const authoring = validAuthoring();
+    authoring.evaluator.hintLadders.push({
+      id: "h2",
+      topic: "workflow",
+      hints: { "1": text, "2": text, "3": text },
+    });
+    const parsed = ScenarioAuthoringSchema.safeParse(authoring);
+    expect(parsed.success).toBe(false);
+  });
+
   it("accepts a fully valid authoring document", () => {
     expect(ScenarioAuthoringSchema.safeParse(validAuthoring()).success).toBe(true);
   });

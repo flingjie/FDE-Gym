@@ -385,6 +385,7 @@ export const ScenarioAuthoringSchema = z
     });
 
     const hintLadderIds = new Set<string>();
+    const hintLadderTopics = new Set<string>();
     doc.evaluator.hintLadders.forEach((ladder, i) => {
       if (hintLadderIds.has(ladder.id)) {
         ctx.addIssue({
@@ -394,6 +395,14 @@ export const ScenarioAuthoringSchema = z
         });
       }
       hintLadderIds.add(ladder.id);
+      if (hintLadderTopics.has(ladder.topic)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `duplicate hint ladder topic: ${ladder.topic}`,
+          path: ["evaluator", "hintLadders", i, "topic"],
+        });
+      }
+      hintLadderTopics.add(ladder.topic);
     });
 
     const eventIds = new Set<string>();
