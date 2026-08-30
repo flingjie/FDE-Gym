@@ -10,7 +10,7 @@ import type { DirectModelRuntimeConfig } from "./direct-runtime.js";
  * Priority: explicit env vars, then the Codex `~/.codex/config.toml` (the
  * `model` + the custom provider's `base_url` the user already configured for
  * Codex). Returns `null` when neither yields a usable endpoint — the caller
- * then falls back to `CodexAgentRuntime`.
+ * then fails closed with `MODEL_ENDPOINT_REQUIRED`.
  *
  * FDE Gym never reads, copies, or prints the provider auth token: the local
  * cc-switch proxy manages it, so the direct runtime needs only `baseUrl` +

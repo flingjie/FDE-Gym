@@ -188,7 +188,7 @@ export type RoleInput =
   | { kind: "final-review"; input: FinalReviewInput };
 
 /**
- * The role's strict INPUT schema, used by `CodexAgentRuntime` to fail closed on
+ * The role's strict INPUT schema, used by the role runtime to fail closed on
  * a caller who hands a role an input (e.g. an evaluator capsule) it must never
  * see. The coach accepts exactly one of its three input shapes.
  */

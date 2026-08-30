@@ -21,7 +21,6 @@ export const AGENT_OUTPUT_INVALID = "AGENT_OUTPUT_INVALID" as const;
 export const AGENT_OUTPUT_MALFORMED = "AGENT_OUTPUT_MALFORMED" as const;
 export const AGENT_TIMEOUT = "AGENT_TIMEOUT" as const;
 export const AGENT_SPAWN_ERROR = "AGENT_SPAWN_ERROR" as const;
-export const AGENT_PROCESS_ERROR = "AGENT_PROCESS_ERROR" as const;
 export const AGENT_INPUT_INVALID = "AGENT_INPUT_INVALID" as const;
 
 /** The raw, unvalidated payload produced by one agent invocation. */

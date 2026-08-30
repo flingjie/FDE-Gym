@@ -1,19 +1,16 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-import { CodexAgentRuntime } from "../integrations/codex/codex-runtime.js";
 import { installSkillCommand } from "../integrations/codex/install-skill.js";
 import { DirectModelRuntime } from "../integrations/direct/direct-runtime.js";
 import { resolveDirectModelConfig } from "../integrations/direct/config.js";
+import { UnconfiguredModelRuntime } from "../agents/unconfigured-runtime.js";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import { LocaleSchema, type Locale } from "../core/domain.js";
 import {
   askCommand,
   clarifyCommand,
-  doctorCommand,
   frameCommand,
   hintCommand,
   listCommand,
@@ -48,7 +45,6 @@ import {
  */
 
 const COMMAND_NAMES = [
-  "doctor",
   "list",
   "start",
   "status",
@@ -70,24 +66,17 @@ const COMMAND_NAMES = [
 
 type CommandName = (typeof COMMAND_NAMES)[number];
 
-function resolveDefaultCodex(): string {
-  const candidates = [process.env.CODEX_BIN, join(homedir(), ".local", "bin", "codex"), "codex"];
-  for (const candidate of candidates) {
-    if (candidate && candidate.length > 0) return candidate;
-  }
-  return "codex";
-}
-
 /**
- * Prefer the direct chat-completions runtime (the "model-as-a-function" path),
- * falling back to the Codex CLI only when no model endpoint is discoverable
- * (see ADR-0001). The `doctor` command still probes Codex directly and is
- * unaffected by this choice.
+ * Resolve the single role runtime. Roles run only through the direct
+ * chat-completions runtime (the "model-as-a-function" path, ADR-0001); when no
+ * model endpoint is discoverable, an `UnconfiguredModelRuntime` fails closed
+ * with `MODEL_ENDPOINT_REQUIRED` on the first role invocation, so read-only
+ * commands still work without an endpoint.
  */
 function resolveDefaultRuntime(): AgentRuntime {
   const direct = resolveDirectModelConfig();
   if (direct) return new DirectModelRuntime(direct);
-  return new CodexAgentRuntime({ executable: resolveDefaultCodex() });
+  return new UnconfiguredModelRuntime();
 }
 
 function readStdinJson(): unknown {
@@ -116,7 +105,6 @@ function usage(): string {
     "Usage: fde-gym <command> [options]",
     "",
     "Commands:",
-    "  doctor            probe the Codex CLI capability surface",
     "  list              list all runs",
     "  start             start a new run (--run-id --scenario --locale)",
     "  status            show a run's phase summary (--run-id)",
@@ -169,11 +157,9 @@ async function main(): Promise<void> {
       "seed": { type: "string" },
       "new-run-id": { type: "string" },
       "base-dir": { type: "string" },
-      "codex-bin": { type: "string" },
       "dry-run": { type: "boolean" },
       "json": { type: "boolean" },
       "human": { type: "boolean" },
-      "require-safe": { type: "boolean" },
     },
   });
   const flags = parsed.values as Record<string, string | boolean | undefined>;
@@ -191,14 +177,6 @@ async function main(): Promise<void> {
 
   let result: CliResult<unknown>;
   switch (commandName) {
-    case "doctor": {
-      result = await doctorCommand(ctx, {
-        locale,
-        executable: typeof flags["codex-bin"] === "string" ? flags["codex-bin"] : undefined,
-        requireSafe: flags["require-safe"] === true,
-      });
-      break;
-    }
     case "list": {
       result = await listCommand(ctx, { locale });
       break;

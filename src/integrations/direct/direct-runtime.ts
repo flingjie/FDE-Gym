@@ -36,8 +36,7 @@ import {
  *     `sanitizeAgentResult` (which is exactly what it already does).
  *
  * Single-shot: no repair/retry loop. The callers re-drive through the same
- * stable error codes (`AGENT_TIMEOUT`, `AGENT_OUTPUT_MALFORMED`, …) as
- * `CodexAgentRuntime`.
+ * stable error codes (`AGENT_TIMEOUT`, `AGENT_OUTPUT_MALFORMED`, …).
  */
 
 export interface DirectModelRuntimeConfig {
@@ -107,7 +106,7 @@ export class DirectModelRuntime implements AgentRuntime {
     input: TInput,
     options: AgentInvokeOptions<TOutput>,
   ): Promise<AgentInvocationResult<TOutput>> {
-    // Fail closed on the INPUT side, exactly like CodexAgentRuntime: a role must
+    // Fail closed on the INPUT side: a role must
     // never receive an input outside its strict role schema.
     const inputCheck = roleInputSchema(role).safeParse(input);
     if (!inputCheck.success) {

@@ -3,10 +3,6 @@ import { join } from "node:path";
 import { ZodError } from "zod";
 
 import type { AgentRuntime } from "../agents/agent-runtime.js";
-import type { CodexCapabilityReport } from "../integrations/codex/capability-probe.js";
-import {
-  probeCodexCapabilities,
-} from "../integrations/codex/capability-probe.js";
 import { resolveBaseDir } from "../core/event-store.js";
 import { loadEvents } from "../core/event-store.js";
 import type { RecordedEvent } from "../core/domain.js";
@@ -171,10 +167,6 @@ export interface ListData {
 export interface StartData {
   scenario: PublicScenario;
   phase: RunPhase;
-}
-
-export interface DoctorData {
-  report: CodexCapabilityReport;
 }
 
 // ---------------------------------------------------------------------------
@@ -888,26 +880,4 @@ export async function listCommand(ctx: CommandContext, args: ListArgs): Promise<
     summaries.sort((a, b) => a.runId.localeCompare(b.runId));
     return ok("", null, args.locale, { runs: summaries });
   });
-}
-
-export interface DoctorArgs {
-  locale: Locale;
-  executable?: string;
-  requireSafe?: boolean;
-}
-
-export async function doctorCommand(ctx: CommandContext, args: DoctorArgs): Promise<CliResult<DoctorData>> {
-  return guard(args.locale, async () => {
-    const report = await probeCodexCapabilities({ executable: args.executable ?? defaultCodexExecutable() });
-    if (args.requireSafe && !report.safeForStrictMode) {
-      // A release gate, not a diagnostic: reduce to a stable learner-safe code
-      // and never serialize the report (which could carry raw probe state).
-      throw { code: "CODEX_STRICT_MODE_UNSAFE" };
-    }
-    return ok("", null, args.locale, { report });
-  });
-}
-
-function defaultCodexExecutable(): string {
-  return process.env.CODEX_BIN || join(process.env.HOME ?? "", ".local", "bin", "codex");
 }

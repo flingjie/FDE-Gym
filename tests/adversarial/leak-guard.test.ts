@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, mkdirSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   AGENT_OUTPUT_INVALID,
@@ -11,13 +10,9 @@ import {
   sanitizeAgentResult,
 } from "../../src/security/sanitizer";
 import { projectPublic } from "../../src/security/public-projection";
-import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
-import { CodexAgentRuntime } from "../../src/integrations/codex/codex-runtime";
 import { CustomerOutputSchema, FinalReviewOutputSchema } from "../../src/agents/contracts";
 import { appendEvents } from "../../src/core/event-store";
 import type { RunEvent } from "../../src/core/domain";
-
-const fakeCodexRuntime = fileURLToPath(new URL("../contracts/fake-codex-runtime.mjs", import.meta.url));
 
 const CUSTOMER_CANARY = "CUSTOMER_CANARY_7f3a9c1e2b4d";
 const EVALUATOR_CANARY = "EVALUATOR_CANARY_9d4f2a7b1c3e";
@@ -179,123 +174,5 @@ describe("leak guard — replay (event store)", () => {
     });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.failure.code).toBe(LEAK_GUARD_TRIGGERED);
-  });
-});
-
-describe("leak guard — CodexAgentRuntime stdout/stderr scan", () => {
-  const FAKE_KEYS = ["FAKE_RUNTIME_MODE", "FAKE_RUNTIME_CANARY", "FAKE_RUNTIME_COUNT_FILE", "FAKE_RUNTIME_SLEEP_MS"];
-  let tempRoots: string[] = [];
-
-  function validStakeholder() {
-    return { id: "s1", role: text, persona: text, concerns: [text], blindSpots: [text] };
-  }
-  function validDisclosureUnit() {
-    return { id: "d1", topic: "workflow", text, prerequisites: [], evidenceId: "e1" };
-  }
-  function validGraph() {
-    return {
-      version: 0,
-      nodes: [
-        { id: "ev-a", kind: "fact", claim: text, status: "active", sourceTranscriptIds: ["t1"], weight: 1, version: 0 },
-      ],
-      edges: [],
-    };
-  }
-  function aggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
-    return {
-      runId: "r1",
-      scenarioId: "scn-1",
-      locale: "zh-CN",
-      phase: "DISCOVERY",
-      transcript: [{ turnId: "t1", seq: 0, question: "每天有多少告警？", customerReply: text, stakeholderId: "s1" }],
-      graph: validGraph(),
-      disclosedDisclosureUnitIds: [],
-      grantedHints: [],
-      pendingQuestion: { question: "每天有多少告警？", stakeholderId: "s1" },
-      hintRequest: null,
-      coachTask: "hint",
-      brief: null,
-      proposal: null,
-      pitch: null,
-      challengeResponses: [],
-      ...overrides,
-    };
-  }
-  function customerInput() {
-    const out = buildRoleInput("customer", aggregate(), {
-      id: "scn-1",
-      schemaVersion: 1,
-      stakeholders: [validStakeholder()],
-      disclosureUnits: [validDisclosureUnit()],
-      responsePolicies: [],
-      privateConflicts: [],
-      canary: "CUSTOMER_CANARY",
-    });
-    if (out.kind !== "customer") throw new Error("expected customer input");
-    return out.input;
-  }
-
-  function makeRuntime(mode: string) {
-    const workRoot = mkdtempSync(join(tmpdir(), "fde-leak-rt-"));
-    const countFile = join(workRoot, "count.txt");
-    const strictHome = join(workRoot, "strict-home");
-    mkdirSync(strictHome, { recursive: true });
-    tempRoots.push(workRoot);
-    process.env.FDE_GYM_CODEX_HOME = strictHome;
-    process.env.FAKE_RUNTIME_MODE = mode;
-    process.env.FAKE_RUNTIME_CANARY = CUSTOMER_CANARY;
-    process.env.FAKE_RUNTIME_COUNT_FILE = countFile;
-    process.env.FAKE_RUNTIME_SLEEP_MS = "0";
-    const rt = new CodexAgentRuntime({
-      executable: fakeCodexRuntime,
-      workRoot,
-      timeoutMs: 10_000,
-      canaries: [CUSTOMER_CANARY, EVALUATOR_CANARY],
-      envExtraAllow: FAKE_KEYS,
-    });
-    return { rt };
-  }
-
-  afterEach(() => {
-    for (const key of FAKE_KEYS) delete process.env[key];
-    delete process.env.FDE_GYM_CODEX_HOME;
-    for (const dir of tempRoots) {
-      try {
-        rmSync(dir, { recursive: true, force: true });
-      } catch {
-        /* ignore */
-      }
-    }
-    tempRoots = [];
-  });
-
-  it("catches a canary emitted only in raw stdout (reasoning), not in parsed output", async () => {
-    const { rt } = makeRuntime("stdout-leak");
-    const error = await rt
-      .invoke("customer", customerInput(), {
-        runId: "r1",
-        invocationId: "inv-1",
-        freshContext: true,
-        tools: "disabled",
-        outputSchema: CustomerOutputSchema,
-        timeoutMs: 10_000,
-      })
-      .catch((e) => e);
-    expect(error.code).toBe(LEAK_GUARD_TRIGGERED);
-    expect(String(error.message)).not.toContain(CUSTOMER_CANARY);
-    expect(JSON.stringify(error)).not.toContain(CUSTOMER_CANARY);
-  });
-
-  it("recovers when the stdout leak disappears on the fresh-context retry", async () => {
-    const { rt } = makeRuntime("stdout-leak-once");
-    const res = await rt.invoke("customer", customerInput(), {
-      runId: "r1",
-      invocationId: "inv-1",
-      freshContext: true,
-      tools: "disabled",
-      outputSchema: CustomerOutputSchema,
-      timeoutMs: 10_000,
-    });
-    expect(res.output.reply["zh-CN"]).toBe("好的");
   });
 });

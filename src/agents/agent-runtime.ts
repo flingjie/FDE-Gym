@@ -33,8 +33,9 @@ export interface AgentInvokeOptions<TOutput> {
 
 /**
  * Stable contract for the three logical model roles. Implementations are
- * `FixtureAgentRuntime` (deterministic tests) and `CodexAgentRuntime` (real
- * runs) in Task 6; the orchestrator depends only on this interface.
+ * `FixtureAgentRuntime` (deterministic tests), `DirectModelRuntime` (real
+ * runs), and `UnconfiguredModelRuntime` (fail-closed when no endpoint); the
+ * orchestrator depends only on this interface.
  */
 export interface AgentRuntime {
   invoke<TInput, TOutput>(
