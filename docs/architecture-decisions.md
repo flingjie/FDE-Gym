@@ -133,3 +133,28 @@ release gate (`doctor --require-safe` intermittently failing with
   subprocess, no MCP inventory, no `--ephemeral` session to audit).
 - The flaky `doctor:strict` gate is gone; the release gate is deterministic.
 - `FDE_GYM_CODEX_HOME` is no longer read by the product.
+
+## ADR-0003: Socratic production hint ladders
+
+- **Status:** Accepted
+- **Date:** 2026-08-30
+
+### Context
+
+The deterministic selector and evaluator-only partition were correct, but
+production L3 texts stated disclosure-unit facts ("Key discovery"), so a
+learner could buy the answer with `--level 3`.
+
+### Decision
+
+- L1 is a thinking dimension, L2 a missing-evidence category, L3 one
+  actionable question without the answer.
+- Selection remains `requestHint`. Skip-ahead stays allowed.
+- `ScenarioAuthoringSchema` rejects answer banners and hidden numeric tokens
+  in hint text.
+- Runtime generation of hints is not a supported path.
+
+### Consequences
+
+- Production YAML must be rewritten when hidden numbers change.
+- Hint grants still do not enter the evidence graph.

@@ -79,14 +79,20 @@ trigger text, and canaries.
 
 ### Hint ladder discipline (L1/2/3)
 
-Escalation is enforced by `src/simulation/hints.ts`, not by model behavior:
+Escalation is enforced by `src/simulation/hints.ts`, not by model behavior.
+Selection remains `requestHint`; skip-ahead stays allowed. A lower level never
+leaks a higher level's text. Do not put answers (or near-answers) in L1/L2.
 
-- **L1** — metacognitive dimension only (how to think, no facts).
-- **L2** — missing evidence **category** only (what to look for).
-- **L3** — one actionable **question**, without its answer.
+| Level | Allowed | Forbidden |
+|---|---|---|
+| **L1** | A thinking **dimension** or an open question with **no hidden fact** (no quantities, thresholds, dollar amounts, or unique operational counts from disclosure units). | Answers; 「关键发现」; copying disclosure-unit numbers. |
+| **L2** | The **category** of missing evidence (volume, cost share, constraint class). May name *kinds* of metric. | The metric's value; the same numbers as L3 answers. |
+| **L3** | **Exactly one** actionable **question** (or one tight compound question) that a learner could put to a stakeholder. Must be a question in both locales. | The answer; 「关键发现」 / `Key discovery`; any numeric or currency token that appears in that scenario's disclosure-unit or expected-evidence text. |
 
-The same discipline is applied when selecting hints: a lower level never leaks
-a higher level's text. Do not put answers (or near-answers) in L1/L2.
+Compile-time checks (`ScenarioAuthoringSchema`): L3 must not contain `关键发现`
+or `Key discovery`; L3 must contain `?` or `？` in both locales; hint text at
+any level must not repeat numeric tokens from `disclosureUnits[].text` or
+`expectedEvidence[].description`.
 
 ## Deterministic events (the 5 trigger kinds)
 
@@ -257,13 +263,13 @@ evaluator:
       hints:
         "1": { "zh-CN": "入职流程从哪里开始？", "en-US": "Where does onboarding start?" }
         "2": { "zh-CN": "关注流程中的手工步骤数量。", "en-US": "Focus on the number of manual steps." }
-        "3": { "zh-CN": "【占位：不含答案的单一问题】", "en-US": "[PLACEHOLDER: one actionable question, no answer]" }
+        "3": { "zh-CN": "入职流程目前包含哪些手工步骤，先后顺序是怎样的？", "en-US": "Which manual steps does onboarding currently include, and in what order?" }
     - id: hl-pain
       topic: pain
       hints:
         "1": { "zh-CN": "入职周期对业务有什么影响？", "en-US": "How does onboarding time affect the business?" }
         "2": { "zh-CN": "关注流失率。", "en-US": "Focus on the dropout rate." }
-        "3": { "zh-CN": "【占位：不含答案的单一问题】", "en-US": "[PLACEHOLDER: one actionable question, no answer]" }
+        "3": { "zh-CN": "平均入职周期有多长，首周流失情况如何？", "en-US": "How long is the average onboarding cycle, and what does first-week dropout look like?" }
   passGates:
     - id: pg-001
       description:

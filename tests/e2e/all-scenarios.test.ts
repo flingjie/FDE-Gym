@@ -10,6 +10,7 @@ import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime.js";
 import {
   askCommand,
   frameCommand,
+  hintCommand,
   respondChallengeCommand,
   retryCommand,
   reviewCommand,
@@ -21,6 +22,7 @@ import {
   replayCommand,
   type CommandContext,
 } from "../../src/cli/commands.js";
+import { numericTokens } from "../../src/scenarios/hint-discipline";
 import type {
   ChallengeResponse,
   LocalizedText,
@@ -295,6 +297,24 @@ async function driveJourney(
   const ok = (r: { ok: boolean }) => expect(r.ok).toBe(true);
 
   ok(await startCommand(ctx, { runId, scenarioId: id, locale, commandId: "start" }));
+  const hint = await hintCommand(ctx, {
+    runId,
+    topic: "workflow",
+    level: 3,
+    commandId: `cmd-hint-l3-${id}-${locale}`,
+  });
+  expect(hint.ok).toBe(true);
+  if (hint.ok) {
+    const body = hint.data.hint[locale];
+    expect(body.includes("?") || body.includes("？")).toBe(true);
+    expect(body).not.toMatch(/关键发现|Key discovery/i);
+    const unit = pack.customerCapsule.disclosureUnits.find((u) => u.topic === "workflow");
+    if (unit) {
+      for (const token of numericTokens(unit.text[locale])) {
+        expect(body.split(/[^\d.]+/)).not.toContain(token);
+      }
+    }
+  }
   const plan = ASK_PLANS[id];
   for (let i = 0; i < plan.length; i++) {
     ok(
@@ -360,9 +380,7 @@ describe("all-scenarios end-to-end loop (both locales, byte-stable)", () => {
         for (const evidence of pack.evaluatorCapsule.expectedEvidence) {
           expect(serialized).not.toContain(evidence.description["zh-CN"]);
         }
-        for (const ladder of pack.evaluatorCapsule.hintLadders) {
-          expect(serialized).not.toContain(ladder.hints["3"]["zh-CN"]);
-        }
+        expect(serialized).not.toContain("关键发现");
         expect(serialized).not.toContain(pack.customerCapsule.canary);
         expect(serialized).not.toContain(pack.evaluatorCapsule.canary);
         for (const key of ["canary", "disclosureUnit", "chainOfThought", "systemPrompt", "rubric"]) {
