@@ -115,7 +115,6 @@ function aggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
     disclosedDisclosureUnitIds: ["du-pain"],
     grantedHints: [],
     pendingQuestion: null,
-    hintRequest: null,
     coachTask: "brief-validation",
     brief: null,
     proposal: null,

@@ -5,13 +5,10 @@ import { fileURLToPath } from "node:url";
 import type { AgentRuntime } from "./agent-runtime.js";
 import {
   BriefValidationOutputSchema,
-  CoachHintOutputSchema,
   FinalReviewOutputSchema,
 } from "./contracts.js";
 import type {
   BriefValidationInput,
-  CoachHintInput,
-  CoachHintOutput,
   FinalReviewInput,
 } from "./contracts.js";
 import type { BriefValidationResult, FinalReviewResult, LocalizedText, ProblemBrief } from "../core/domain.js";
@@ -31,16 +28,19 @@ import {
  * sanitized against the evaluator canary before returning a schema-validated
  * result:
  *
- *   - `requestHint(context)`        -> `CoachHintOutput` (`{ level, hint }`)
  *   - `validateProblemBrief(context)` -> `BriefValidationResult`
  *     (the semantic entailment classification; `entailments` +
  *     `missingCategories` + `unsupportedClaimIds` + `feedback`)
+ *   - `runFinalReview(context)`        -> `FinalReviewInvocation`
+ *     (`review` + safe invocation metadata)
  *
- * The Coach NEVER receives the customer capsule — `buildRoleInput("coach_evaluator", …)`
- * rejects a customer capsule (`FIREWALL_CAPSULE_FORBIDDEN`) and builds only from
- * the evaluator capsule plus the public aggregate. For brief validation the
- * coach sees ONLY `{ locale, brief, graph, transcript }`; for hints it sees
- * `{ locale, topic, requestedLevel, grantedLevels, hintLadders }`.
+ * Hints are NOT a model path: they flow only through the deterministic authored
+ * ladder in `src/simulation/hints.ts` (ADR-0003). The Coach NEVER receives the
+ * customer capsule — `buildRoleInput("coach_evaluator", …)` rejects a customer
+ * capsule (`FIREWALL_CAPSULE_FORBIDDEN`) and builds only from the evaluator
+ * capsule plus the public aggregate. For brief validation the coach sees ONLY
+ * `{ locale, brief, graph, transcript }`; for final review it additionally sees
+ * the public proposal, pitch, challenge responses, and the hint ledger.
  */
 
 const PROMPT_PATH = join(
@@ -59,8 +59,8 @@ function loadPromptTemplate(): string {
   return cachedPrompt;
 }
 
-/** The three coach input shapes the prompt template must render. */
-export type CoachPromptInput = CoachHintInput | BriefValidationInput | FinalReviewInput;
+/** The two coach input shapes the prompt template must render. */
+export type CoachPromptInput = BriefValidationInput | FinalReviewInput;
 
 function wrapLocalized(text: LocalizedText): LocalizedText {
   return {
@@ -115,7 +115,7 @@ export function renderCoachPrompt(input: CoachPromptInput): string {
 
 export interface CoachContext {
   runtime: AgentRuntime;
-  /** Must carry `coachTask` (+ `hintRequest` or `brief`) for the chosen task. */
+  /** Must carry `coachTask` (+ `brief`) for the chosen task. */
   state: RunAggregate;
   capsule: EvaluatorCapsule;
   invocationId: string;
@@ -134,36 +134,6 @@ export class CoachError extends Error {
     this.name = "CoachError";
     this.code = code;
   }
-}
-
-/** Build `CoachHintInput` via the firewall (`coachTask="hint"`) and invoke the Coach. */
-export async function requestHint(context: CoachContext): Promise<CoachHintOutput> {
-  const built = buildRoleInput("coach_evaluator", context.state, context.capsule);
-  if (built.kind !== "hint") {
-    throw new CoachError(COACH_OUTPUT_REJECTED, "coach firewall built the wrong role");
-  }
-  const input = built.input;
-
-  const canaries = context.canaries ?? [context.capsule.canary];
-
-  const result = await context.runtime.invoke("coach_evaluator", input, {
-    runId: context.state.runId,
-    invocationId: context.invocationId,
-    freshContext: true,
-    tools: "disabled",
-    prompt: renderCoachPrompt(input),
-    canaries,
-    outputSchema: CoachHintOutputSchema,
-    timeoutMs: context.timeoutMs,
-  });
-
-  const safe = sanitizeAgentResult("coach_evaluator", result, CoachHintOutputSchema, {
-    canaries,
-  });
-  if (!safe.ok) {
-    throw new CoachError(safe.failure.code, safe.failure.message);
-  }
-  return safe.output;
 }
 
 /** Build `BriefValidationInput` via the firewall (`coachTask="brief-validation"`) and invoke the Coach. */

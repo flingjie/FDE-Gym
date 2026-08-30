@@ -6,8 +6,6 @@ import {
   CustomerOutputSchema,
   EvidenceTrackerInputSchema,
   EvidenceTrackerOutputSchema,
-  CoachHintInputSchema,
-  CoachHintOutputSchema,
   BriefValidationInputSchema,
   BriefValidationOutputSchema,
   FinalReviewInputSchema,
@@ -28,10 +26,6 @@ function validStakeholder() {
 
 function validDisclosureUnit() {
   return { id: "d1", topic: "workflow", text, prerequisites: [], evidenceId: "e1" };
-}
-
-function validHintLadder() {
-  return { id: "h1", topic: "workflow", hints: { "1": text, "2": text, "3": text } };
 }
 
 function validGraph() {
@@ -142,21 +136,6 @@ describe("role input/output contracts", () => {
     expect(EvidenceTrackerOutputSchema.safeParse(output).success).toBe(false);
   });
 
-  it("validates CoachHint input/output and enforces hint levels", () => {
-    const input = {
-      locale: "zh-CN",
-      topic: "workflow",
-      requestedLevel: 2,
-      grantedLevels: [{ topic: "workflow", level: 1 }],
-      hintLadders: [validHintLadder()],
-    };
-    expect(CoachHintInputSchema.safeParse(input).success).toBe(true);
-    expect(CoachHintInputSchema.safeParse({ ...input, requestedLevel: 4 }).success).toBe(false);
-
-    const output = { level: 2, hint: text };
-    expect(CoachHintOutputSchema.safeParse(output).success).toBe(true);
-  });
-
   it("validates BriefValidationInput/Output and cross-references evidence ids", () => {
     const input = {
       locale: "zh-CN",
@@ -242,7 +221,6 @@ describe("prohibited output fields", () => {
   const outputSchemas: Record<string, z.ZodType> = {
     CustomerOutputSchema,
     EvidenceTrackerOutputSchema,
-    CoachHintOutputSchema,
     BriefValidationOutputSchema,
     FinalReviewOutputSchema,
   };

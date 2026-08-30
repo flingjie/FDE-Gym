@@ -4,11 +4,9 @@ import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime";
 import type { AgentRuntime } from "../../src/agents/agent-runtime";
 import {
   renderCoachPrompt,
-  requestHint,
   validateProblemBrief,
   type CoachContext,
 } from "../../src/agents/coach";
-import { CoachHintOutputSchema } from "../../src/agents/contracts";
 import {
   AGENT_OUTPUT_DOMAIN_INVALID,
   validateBriefValidationOutput,
@@ -23,18 +21,6 @@ const text = (zh: string, en: string) => ({ "zh-CN": zh, "en-US": en });
 
 const CANARY = "EVALUATOR_CANARY_SECRET_9d4f2a7b";
 
-function hintLadder() {
-  return {
-    id: "hl-workflow",
-    topic: "workflow",
-    hints: {
-      "1": text("想一想流程的起点。", "Think about the start of the process."),
-      "2": text("关注数据量这个类别。", "Focus on the data-volume category."),
-      "3": text("真正需要关注的告警占多大比例？", "What share of alerts actually need attention?"),
-    },
-  };
-}
-
 function evaluatorCapsule(overrides: Partial<EvaluatorCapsule> = {}): EvaluatorCapsule {
   return {
     id: "scn-1",
@@ -42,7 +28,7 @@ function evaluatorCapsule(overrides: Partial<EvaluatorCapsule> = {}): EvaluatorC
     expectedEvidence: [],
     rubric: { stages: [] },
     criticalContradictions: [],
-    hintLadders: [hintLadder()],
+    hintLadders: [],
     passGates: [],
     canary: CANARY,
     ...overrides,
@@ -121,7 +107,6 @@ function aggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
     disclosedDisclosureUnitIds: [],
     grantedHints: [],
     pendingQuestion: null,
-    hintRequest: null,
     coachTask: "brief-validation",
     brief: brief(),
     proposal: null,
@@ -265,34 +250,6 @@ describe("coach agent — problem brief validation", () => {
     const error = await validateProblemBrief(context(runtime)).catch((e) => e);
     expect((error as { code?: string }).code).toBe(LEAK_GUARD_TRIGGERED);
     expect(JSON.stringify(error)).not.toContain(CANARY);
-  });
-});
-
-describe("coach agent — hints", () => {
-  it("builds the hint input through the firewall and returns { level, hint }", async () => {
-    const runtime = new FixtureAgentRuntime({
-      fixtures: {
-        "coach_evaluator:inv-hint": {
-          level: 2,
-          hint: text("关注数据量这个类别。", "Focus on the data-volume category."),
-        },
-      },
-    });
-
-    const out = await requestHint(
-      context(runtime, {
-        invocationId: "inv-hint",
-        state: aggregate({
-          coachTask: "hint",
-          brief: null,
-          hintRequest: { topic: "workflow", level: 2 },
-        }),
-      }),
-    );
-
-    expect(CoachHintOutputSchema.safeParse(out).success).toBe(true);
-    expect(out.level).toBe(2);
-    expect(out.hint["zh-CN"]).toContain("数据量");
   });
 });
 

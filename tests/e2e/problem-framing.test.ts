@@ -91,7 +91,6 @@ function framingAggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
     disclosedDisclosureUnitIds: [],
     grantedHints: [],
     pendingQuestion: null,
-    hintRequest: null,
     coachTask: "brief-validation",
     brief: null,
     proposal: null,

@@ -76,7 +76,6 @@ function parentAggregate(): RunAggregate {
     disclosedDisclosureUnitIds: ["du-secret"],
     grantedHints: [{ topic: "workflow", level: 1 }],
     pendingQuestion: null,
-    hintRequest: null,
     coachTask: "brief-validation",
     brief: null,
     proposal: null,

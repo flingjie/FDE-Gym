@@ -76,7 +76,6 @@ function aggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
     disclosedDisclosureUnitIds: ["du-1"],
     grantedHints: [],
     pendingQuestion: null,
-    hintRequest: null,
     coachTask: "final-review",
     brief: null,
     proposal: null,

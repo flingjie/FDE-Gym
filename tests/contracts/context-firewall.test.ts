@@ -10,7 +10,6 @@ import {
 } from "../../src/security/context-firewall";
 import {
   BriefValidationInputSchema,
-  CoachHintInputSchema,
   CustomerInputSchema,
   EvidenceTrackerInputSchema,
   FinalReviewInputSchema,
@@ -140,8 +139,7 @@ function validAggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
     disclosedDisclosureUnitIds: [],
     grantedHints: [],
     pendingQuestion: { question: "每天有多少告警？", stakeholderId: "s1" },
-    hintRequest: null,
-    coachTask: "hint",
+    coachTask: "brief-validation",
     brief: null,
     proposal: null,
     pitch: null,
@@ -229,12 +227,13 @@ describe("role context firewall — per-role allowlist", () => {
       customerSessionId: "SESSION_SENTINEL_888",
       rawCustomerOutput: "RAW_SENTINEL_999",
       chainOfThought: "COT_SENTINEL_aaa",
-      hintRequest: { topic: "workflow", level: 2 },
+      coachTask: "brief-validation",
+      brief: validBrief(),
     });
 
     const out = buildRoleInput("coach_evaluator", state, validEvaluatorCapsule());
-    expect(out.kind).toBe("hint");
-    expect(CoachHintInputSchema.safeParse(out.input).success).toBe(true);
+    expect(out.kind).toBe("brief-validation");
+    expect(BriefValidationInputSchema.safeParse(out.input).success).toBe(true);
 
     const serialized = JSON.stringify(out);
     for (const sentinel of [
@@ -247,15 +246,7 @@ describe("role context firewall — per-role allowlist", () => {
     }
   });
 
-  it("builds all three coach input kinds from the aggregate", () => {
-    const hint = buildRoleInput(
-      "coach_evaluator",
-      validAggregate({ coachTask: "hint", hintRequest: { topic: "workflow", level: 2 } }),
-      validEvaluatorCapsule(),
-    );
-    expect(hint.kind).toBe("hint");
-    expect(CoachHintInputSchema.safeParse(hint.input).success).toBe(true);
-
+  it("builds both coach input kinds from the aggregate", () => {
     const bv = buildRoleInput(
       "coach_evaluator",
       validAggregate({ coachTask: "brief-validation", brief: validBrief() }),

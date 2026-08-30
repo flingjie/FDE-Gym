@@ -18,7 +18,6 @@ import {
 } from "../core/domain.js";
 import {
   DisclosureUnitSchema,
-  HintLadderSchema,
   ResponsePolicySchema,
   StakeholderSchema,
 } from "../scenarios/schema.js";
@@ -88,7 +87,7 @@ export const EvidenceTrackerOutputSchema = z
 export type EvidenceTrackerOutput = z.infer<typeof EvidenceTrackerOutputSchema>;
 
 // ---------------------------------------------------------------------------
-// Coach — hints
+// Coach — hint ledger
 // ---------------------------------------------------------------------------
 
 export const HintLedgerEntrySchema = z
@@ -98,26 +97,6 @@ export const HintLedgerEntrySchema = z
   })
   .strict();
 export type HintLedgerEntry = z.infer<typeof HintLedgerEntrySchema>;
-
-export const CoachHintInputSchema = z
-  .object({
-    locale: LocaleSchema,
-    topic: z.string().min(1),
-    requestedLevel: HintLevelSchema,
-    /** Previously granted hints, for escalation discipline (1 → 2 → 3). */
-    grantedLevels: z.array(HintLedgerEntrySchema),
-    hintLadders: z.array(HintLadderSchema),
-  })
-  .strict();
-export type CoachHintInput = z.infer<typeof CoachHintInputSchema>;
-
-export const CoachHintOutputSchema = z
-  .object({
-    level: HintLevelSchema,
-    hint: LocalizedTextSchema,
-  })
-  .strict();
-export type CoachHintOutput = z.infer<typeof CoachHintOutputSchema>;
 
 // ---------------------------------------------------------------------------
 // Coach — problem brief validation

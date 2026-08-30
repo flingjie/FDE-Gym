@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   ChallengeResponseSchema,
   EvidenceGraphSchema,
-  HintLevelSchema,
   LocaleSchema,
   PitchArtifactSchema,
   ProblemBriefSchema,
@@ -12,7 +11,6 @@ import {
   type AgentRole,
   type ChallengeResponse,
   type EvidenceGraph,
-  type HintLevel,
   type Locale,
   type PitchArtifact,
   type ProblemBrief,
@@ -22,13 +20,11 @@ import {
 } from "../core/domain.js";
 import {
   BriefValidationInputSchema,
-  CoachHintInputSchema,
   CustomerInputSchema,
   EvidenceTrackerInputSchema,
   FinalReviewInputSchema,
   HintLedgerEntrySchema,
   type BriefValidationInput,
-  type CoachHintInput,
   type CustomerInput,
   type EvidenceTrackerInput,
   type FinalReviewInput,
@@ -72,7 +68,7 @@ export class ContextFirewallError extends Error {
 // ---------------------------------------------------------------------------
 
 /** The coach's concrete task, which selects which coach INPUT schema to build. */
-export const COACH_TASKS = ["hint", "brief-validation", "final-review"] as const;
+export const COACH_TASKS = ["brief-validation", "final-review"] as const;
 export type CoachTask = (typeof COACH_TASKS)[number];
 export const CoachTaskSchema = z.enum(COACH_TASKS);
 
@@ -97,7 +93,6 @@ export interface RunAggregate {
   grantedHints: HintLedgerEntry[];
   /** The learner's current question (targets a specific stakeholder). */
   pendingQuestion: { question: string; stakeholderId: string } | null;
-  hintRequest: { topic: string; level: HintLevel } | null;
   coachTask: CoachTask;
   brief: ProblemBrief | null;
   proposal: SolutionProposal | null;
@@ -131,10 +126,6 @@ export const RunAggregateSchema = z
     grantedHints: z.array(HintLedgerEntrySchema),
     pendingQuestion: z
       .object({ question: z.string().min(1), stakeholderId: z.string().min(1) })
-      .strict()
-      .nullable(),
-    hintRequest: z
-      .object({ topic: z.string().min(1), level: HintLevelSchema })
       .strict()
       .nullable(),
     coachTask: CoachTaskSchema,
@@ -183,14 +174,13 @@ function isCustomerCapsule(capsule: unknown): boolean {
 export type RoleInput =
   | { kind: "customer"; input: CustomerInput }
   | { kind: "evidence_tracker"; input: EvidenceTrackerInput }
-  | { kind: "hint"; input: CoachHintInput }
   | { kind: "brief-validation"; input: BriefValidationInput }
   | { kind: "final-review"; input: FinalReviewInput };
 
 /**
  * The role's strict INPUT schema, used by the role runtime to fail closed on
  * a caller who hands a role an input (e.g. an evaluator capsule) it must never
- * see. The coach accepts exactly one of its three input shapes.
+ * see. The coach accepts exactly one of its two input shapes.
  */
 export function roleInputSchema(role: AgentRole): z.ZodType<unknown> {
   switch (role) {
@@ -200,7 +190,6 @@ export function roleInputSchema(role: AgentRole): z.ZodType<unknown> {
       return EvidenceTrackerInputSchema;
     case "coach_evaluator":
       return z.union([
-        CoachHintInputSchema,
         BriefValidationInputSchema,
         FinalReviewInputSchema,
       ]);
@@ -299,24 +288,7 @@ export function buildRoleInput(
           "coach role requires the evaluator capsule (never the customer capsule)",
         );
       }
-      const evaluatorCapsule = capsule as EvaluatorCapsule;
       switch (agg.coachTask) {
-        case "hint": {
-          if (!agg.hintRequest) {
-            throw new ContextFirewallError(
-              FIREWALL_INVALID_STATE,
-              "coach hint task requires a hint request",
-            );
-          }
-          const input: CoachHintInput = {
-            locale: agg.locale,
-            topic: agg.hintRequest.topic,
-            requestedLevel: agg.hintRequest.level,
-            grantedLevels: agg.grantedHints,
-            hintLadders: evaluatorCapsule.hintLadders,
-          };
-          return { kind: "hint", input: CoachHintInputSchema.parse(input) };
-        }
         case "brief-validation": {
           if (!agg.brief) {
             throw new ContextFirewallError(
