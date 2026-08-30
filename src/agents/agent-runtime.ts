@@ -44,11 +44,14 @@ export interface AgentRuntime {
   ): Promise<AgentInvocationResult<TOutput>>;
 }
 
+/** A role invocation was attempted with no discoverable model endpoint. */
+export const MODEL_ENDPOINT_REQUIRED = "MODEL_ENDPOINT_REQUIRED" as const;
+
 /**
  * Stable runtime error shared by every `AgentRuntime` implementation
- * (`CodexAgentRuntime`, `DirectModelRuntime`, `FixtureAgentRuntime`). Carries a
- * machine-readable `code` (see `src/security/sanitizer.ts`) and never embeds
- * payload, prompt, or canary text.
+ * (`DirectModelRuntime`, `FixtureAgentRuntime`, `UnconfiguredModelRuntime`).
+ * Carries a machine-readable `code` and never embeds payload, prompt, or
+ * canary text.
  */
 export class AgentRuntimeError extends Error {
   readonly code: string;

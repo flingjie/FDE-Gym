@@ -397,6 +397,21 @@ const ERROR_TABLE: LocalizedError[] = [
     },
   },
   {
+    code: "MODEL_ENDPOINT_REQUIRED",
+    "zh-CN": {
+      message: "未配置模型端点。",
+      nextActions: [
+        "设置 FDE_GYM_MODEL_BASE_URL 与 FDE_GYM_MODEL（或在 ~/.codex/config.toml 中配置 model + base_url）。",
+      ],
+    },
+    "en-US": {
+      message: "No model endpoint is configured.",
+      nextActions: [
+        "Set FDE_GYM_MODEL_BASE_URL and FDE_GYM_MODEL (or configure model + base_url in ~/.codex/config.toml).",
+      ],
+    },
+  },
+  {
     code: "CODEX_STRICT_MODE_UNSAFE",
     "zh-CN": {
       message: "当前 Codex 客户端未通过严格模式安全探测。",
