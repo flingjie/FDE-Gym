@@ -314,6 +314,10 @@ const SOURCES = [
   "data-migration",
   "export-freight-forwarding",
   "customer-support-agent",
+  "enterprise-knowledge-agent",
+  "data-analysis-agent",
+  "document-review-agent",
+  "software-engineering-agent",
 ] as const;
 
 /** Compiled bundles for new ids land in Task 4; keep equality checks on existing trees. */

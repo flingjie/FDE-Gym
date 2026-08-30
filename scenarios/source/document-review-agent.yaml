@@ -1,0 +1,570 @@
+id: document-review-agent
+schemaVersion: 1
+locale: zh-CN
+
+public:
+  openingRequest:
+    "zh-CN": "请帮助我们设计一个文档审核代理，自动走完解析、条款抽取、规则检查和主数据比对，并在盖章或承诺性结论上保留律师或业务确认。"
+    "en-US": "Please help us design a document-review agent that runs parse, clause extraction, rule checks, and master-data match automatically, while keeping counsel or the business owner on sealed or commitment conclusions."
+  visibleContext:
+    "zh-CN": "我们是一家合同、报告和扫描件堆在一起的公司。管理层希望代理按解析、抽取、规则、主数据比对的顺序审核文件，而不是“让模型把 PDF 读一遍就算审过”。"
+    "en-US": "We are a company whose contracts, reports, and scans sit in one pile. Leadership wants an agent that reviews files in parse, extract, rule-check, then master-data-match order — not “let a model read the PDF and call it reviewed.”"
+  visibleConstraints:
+    - "zh-CN": "盖章、对外承诺或“此件具约束力”的结论必须先经律师或业务确认（HITL）"
+      "en-US": "Seal, external-commitment, or “this is binding” conclusions require counsel or the business owner (HITL) first"
+    - "zh-CN": "合同原文不得发送到境外的第三方大模型"
+      "en-US": "Contract source text must not be sent to offshore third-party LLMs"
+    - "zh-CN": "代理不得写出原文里不存在的约定"
+      "en-US": "The agent must not write a term that is not in the source document"
+    - "zh-CN": "允许调用的工具是解析/OCR 或视觉模型、条款抽取、规则引擎和主数据比对；代理不得在漏抽关键条款后仍给出通过结论"
+      "en-US": "Allowed tools are parse/OCR-or-VLM, clause extraction, the rule engine, and master-data match; the agent must not issue a pass after missing a material clause"
+  deliverables:
+    - "zh-CN": "文档审核代理方案设计文档"
+      "en-US": "Document-review agent design document"
+    - "zh-CN": "抽取加规则与“模型通读 PDF”的权衡分析"
+      "en-US": "Extract-plus-rules vs. “the model just reads the PDF” trade-off analysis"
+    - "zh-CN": "盖章与承诺性结论的人工确认（HITL）流程"
+      "en-US": "Human-in-the-loop (HITL) process for seal and commitment conclusions"
+    - "zh-CN": "漏抽、幻觉约定与积压消化的度量体系"
+      "en-US": "Missed-clause, invented-term, and backlog-clearing measurement framework"
+  learnerRules:
+    - "zh-CN": "你只有12个问题预算来了解这家客户的文档审核代理现状"
+      "en-US": "You have a budget of 12 questions to understand this customer's document-review-agent situation"
+    - "zh-CN": "每个问题必须指定由哪位干系人回答"
+      "en-US": "Each question must specify which stakeholder will answer"
+    - "zh-CN": "你需要在DISCOVERY阶段逐步发现隐藏的业务事实"
+      "en-US": "You need to gradually discover hidden business facts in the DISCOVERY phase"
+    - "zh-CN": "在PITCH阶段你需要向管理层展示方案并争取批准"
+      "en-US": "In the PITCH phase, you must present the solution to management for approval"
+  questionBudget: 12
+
+customer:
+  stakeholders:
+    - id: counsel
+      role:
+        "zh-CN": "法务律师"
+        "en-US": "Legal counsel"
+      persona:
+        "zh-CN": "49岁女性，公司法务。坚持盖章和承诺性结论必须律师或业务确认，对漏抽关键条款和幻觉约定零容忍。"
+        "en-US": "49-year-old female, company counsel. Insists seal and commitment conclusions need counsel or the business owner, and has zero tolerance for a missed material clause or an invented term."
+      concerns:
+        - "zh-CN": "代理会不会漏掉终止或赔偿条款？"
+          "en-US": "Could the agent miss a termination or indemnity clause?"
+        - "zh-CN": "模型会不会写出原文里没有的约定？"
+          "en-US": "Will the model write a term that is not in the source?"
+        - "zh-CN": "盖章结论能不能在没有律师确认时发出？"
+          "en-US": "Can a sealed conclusion go out without counsel confirmation?"
+      blindSpots:
+        - "zh-CN": "不了解业务清积压的速度压力"
+          "en-US": "Does not understand the business pressure to clear the pile"
+        - "zh-CN": "低估了扫描件解析失败对抽取的伤害"
+          "en-US": "Underestimates how failed scan parsing hurts extraction"
+    - id: business-owner
+      role:
+        "zh-CN": "业务负责人"
+        "en-US": "Business owner"
+      persona:
+        "zh-CN": "44岁男性，业务负责人。要速度，希望代理直接出结论清掉文件堆，时常低估幻觉约定会变成对外承诺。"
+        "en-US": "44-year-old male, business owner. Wants speed, hopes the agent will issue conclusions and clear the pile, and often underestimates that an invented term becomes an external commitment."
+      concerns:
+        - "zh-CN": "审核能不能跟上签约窗口？"
+          "en-US": "Can review keep up with the signing window?"
+        - "zh-CN": "每份都等律师会不会把交易拖死？"
+          "en-US": "Will waiting for counsel on every file kill the deal?"
+        - "zh-CN": "代理结论我能不能直接当业务意见用？"
+          "en-US": "Can I treat the agent conclusion as the business opinion?"
+      blindSpots:
+        - "zh-CN": "不了解漏掉要害条款会把公司锁进坏合同"
+          "en-US": "Does not know a missed material clause can lock the company into a bad contract"
+        - "zh-CN": "看不到文档运营处理扫描件失败的负担"
+          "en-US": "Cannot see the ops burden of failed scans"
+    - id: doc-ops
+      role:
+        "zh-CN": "文档运营负责人"
+        "en-US": "Document-operations owner"
+      persona:
+        "zh-CN": "36岁女性，负责文件堆与解析流水线。疲于处理扫描件和积压，希望解析到主数据比对能跑通，又担心模型在页缝补写。"
+        "en-US": "36-year-old female, owns the document pile and parse pipeline. Exhausted by scans and backlog, wants parse-through-master-data-match to run, and worries the model will invent text at page breaks."
+      concerns:
+        - "zh-CN": "扫描件解析失败时后面的抽取还能不能用？"
+          "en-US": "If scan parsing fails, can downstream extraction still be used?"
+        - "zh-CN": "积压要怎样才能开始下降？"
+          "en-US": "What would it take for the backlog to start falling?"
+        - "zh-CN": "规则引擎和主数据对不齐时运营怎么收场？"
+          "en-US": "How does ops recover when the rule engine and master data do not align?"
+      blindSpots:
+        - "zh-CN": "不了解律师对承诺性结论的红线"
+          "en-US": "Does not know counsel's red line on commitment conclusions"
+        - "zh-CN": "低估了采购会把代理输出当已审意见"
+          "en-US": "Underestimates that procurement will treat agent output as already reviewed"
+    - id: procurement-lead
+      role:
+        "zh-CN": "采购负责人"
+        "en-US": "Procurement lead"
+      persona:
+        "zh-CN": "41岁男性，采购。要供应商合同尽快过审，倾向相信抽取结果，低估幻觉约定和漏条款。"
+        "en-US": "41-year-old male, procurement. Wants vendor contracts cleared quickly, tends to trust extraction output, and underestimates invented terms and missed clauses."
+      concerns:
+        - "zh-CN": "供应商合同能不能在窗口内过审？"
+          "en-US": "Can vendor contracts clear inside the window?"
+        - "zh-CN": "主数据比对会不会把合格供应商卡住？"
+          "en-US": "Will master-data match block a qualified vendor?"
+        - "zh-CN": "代理标出来的风险我能不能当已确认？"
+          "en-US": "Can I treat risks the agent flagged as already confirmed?"
+      blindSpots:
+        - "zh-CN": "不了解盖章结论必须律师或业务确认"
+          "en-US": "Does not know sealed conclusions need counsel or the business owner"
+        - "zh-CN": "看不到页缝和表格处漏抽的规律"
+          "en-US": "Cannot see the pattern of misses at page breaks and tables"
+  disclosureUnits:
+    - id: du-001
+      topic: workflow
+      text:
+        "zh-CN": "文档进线后先解析或走 OCR/视觉模型，再做条款抽取。"
+        "en-US": "After a document arrives, it is parsed or run through OCR/VLM, then clause extraction."
+      prerequisites: []
+      evidenceId: ev-workflow
+    - id: du-002
+      topic: workflow
+      text:
+        "zh-CN": "抽取结果走规则引擎，再与主数据比对；积压约1.2万份。"
+        "en-US": "Extraction results go through the rule engine, then master-data match; the backlog is about 12,000 files."
+      prerequisites: ["du-001"]
+      evidenceId: ev-workflow
+    - id: du-003
+      topic: pain
+      text:
+        "zh-CN": "法务和业务都在等审核；抽查漏条款约9%。"
+        "en-US": "Counsel and the business are both waiting on review; spot checks miss about 9% of clauses."
+      prerequisites: []
+      evidenceId: ev-pain
+    - id: du-004
+      topic: pain
+      text:
+        "zh-CN": "采购要速度，律师要准确；扫描件经常解析失败。"
+        "en-US": "Procurement wants speed, counsel wants accuracy; scans often fail to parse."
+      prerequisites: ["du-003"]
+      evidenceId: ev-pain
+    - id: du-005
+      topic: root-cause
+      text:
+        "zh-CN": "规则只覆盖常见模板，非标合同条款对不齐。"
+        "en-US": "Rules only cover common templates; nonstandard contract clauses do not align."
+      prerequisites: []
+      evidenceId: ev-root-cause
+    - id: du-006
+      topic: root-cause
+      text:
+        "zh-CN": "模型会在页缝或表格处漏抽，也会补上文档里没有的约定。"
+        "en-US": "The model misses clauses at page breaks or tables, and also fills in terms that are not in the document."
+      prerequisites: ["du-005"]
+      evidenceId: ev-root-cause
+    - id: du-007
+      topic: business-impact
+      text:
+        "zh-CN": "漏掉终止或赔偿条款会把公司锁进坏合同。"
+        "en-US": "Missing a termination or indemnity clause locks the company into a bad contract."
+      prerequisites: []
+      evidenceId: ev-business-impact
+    - id: du-008
+      topic: business-impact
+      text:
+        "zh-CN": "业务负责人想先清积压；律师认为一次幻觉约定就会对外承诺。"
+        "en-US": "The business owner wants to clear the backlog first; counsel believes one invented term becomes an external commitment."
+      prerequisites: []
+      evidenceId: ev-business-impact
+    - id: du-009
+      topic: constraints
+      text:
+        "zh-CN": "盖章或承诺性结论必须律师或业务确认。"
+        "en-US": "Seal or commitment conclusions require confirmation from counsel or the business owner."
+      prerequisites: []
+      evidenceId: ev-constraints
+    - id: du-010
+      topic: constraints
+      text:
+        "zh-CN": "合同原文不得出境到第三方大模型。"
+        "en-US": "Contract source text must not leave the region to a third-party LLM."
+      prerequisites: []
+      evidenceId: ev-constraints
+    - id: du-011
+      topic: success-measures
+      text:
+        "zh-CN": "目标：解析到主数据比对成为默认审核路径，积压开始下降。"
+        "en-US": "Goal: parse-through-master-data-match becomes the default review path, and the backlog starts to fall."
+      prerequisites: []
+      evidenceId: ev-success-measures
+    - id: du-012
+      topic: success-measures
+      text:
+        "zh-CN": "质量红线：关键条款不得漏抽，不得出现文档中不存在的约定。"
+        "en-US": "Quality floor: material clauses must not be missed, and terms that are not in the document must not appear."
+      prerequisites: []
+      evidenceId: ev-success-measures
+    - id: du-013
+      topic: trust
+      text:
+        "zh-CN": "业务不信人工审核速度，想让代理直接出结论。"
+        "en-US": "The business does not trust human review speed and wants the agent to issue conclusions directly."
+      prerequisites: []
+      evidenceId: ev-trust
+    - id: du-014
+      topic: trust
+      text:
+        "zh-CN": "律师不信抽取；采购低估幻觉约定的风险。"
+        "en-US": "Counsel does not trust extraction; procurement underestimates the risk of an invented term."
+      prerequisites: ["du-013"]
+      evidenceId: ev-trust
+    - id: du-015
+      topic: failure-modes
+      text:
+        "zh-CN": "会漏掉关键条款。"
+        "en-US": "It misses material clauses."
+      prerequisites: []
+      evidenceId: ev-failure-modes
+    - id: du-016
+      topic: failure-modes
+      text:
+        "zh-CN": "会幻觉不存在的约定。"
+        "en-US": "It hallucinates a term that does not exist."
+      prerequisites: []
+      evidenceId: ev-failure-modes
+  responsePolicies: []
+  privateConflicts: []
+
+evaluator:
+  expectedEvidence:
+    - id: ev-workflow
+      category: workflow
+      description:
+        "zh-CN": "文档审核路径（解析或 OCR/视觉模型到条款抽取，再到规则引擎与主数据比对）、积压如何堆起来"
+        "en-US": "Document-review path (parse or OCR/VLM to clause extraction, then rule engine and master-data match) and how the backlog accumulates"
+      weight: 2
+      disclosureUnitIds: ["du-001", "du-002"]
+    - id: ev-pain
+      category: pain
+      description:
+        "zh-CN": "审核痛点：法务与业务等待、抽查缺口、采购要速度与律师要准确的冲突、扫描件解析失败"
+        "en-US": "Review pain: counsel and business waiting, spot-check gaps, speed versus accuracy tension, failed scan parsing"
+      weight: 2
+      disclosureUnitIds: ["du-003", "du-004"]
+    - id: ev-root-cause
+      category: root-cause
+      description:
+        "zh-CN": "规则只覆盖常见模板；页缝或表格处漏抽；模型会补上原文没有的约定"
+        "en-US": "Rules only cover common templates; misses at page breaks or tables; the model fills in terms that are not in the source"
+      weight: 2
+      disclosureUnitIds: ["du-005", "du-006"]
+    - id: ev-business-impact
+      category: business-impact
+      description:
+        "zh-CN": "业务影响：漏掉要害条款锁进坏合同、业务要先清积压、律师把一次补写约定视为对外承诺"
+        "en-US": "Business impact: a missed material clause locks in a bad contract, the business wants the backlog cleared first, counsel treats one invented term as an external commitment"
+      weight: 1
+      disclosureUnitIds: ["du-007", "du-008"]
+    - id: ev-constraints
+      category: constraints
+      description:
+        "zh-CN": "实施限制：盖章或承诺性结论须律师或业务确认，合同原文不得出境到第三方大模型"
+        "en-US": "Implementation constraints: seal or commitment conclusions need counsel or the business owner; contract source text must not go to offshore third-party models"
+      weight: 1
+      disclosureUnitIds: ["du-009", "du-010"]
+    - id: ev-success-measures
+      category: success-measures
+      description:
+        "zh-CN": "成功指标：解析到主数据比对成为默认路径、积压开始下降、关键条款不得漏、原文没有的约定不得出现"
+        "en-US": "Success metrics: parse-through-master-data-match as the default path, backlog starts to fall, material clauses must not be missed, terms absent from the source must not appear"
+      weight: 2
+      disclosureUnitIds: ["du-011", "du-012"]
+    - id: ev-trust
+      category: trust
+      description:
+        "zh-CN": "信任问题：业务想让代理直接出结论，律师不信抽取，采购低估补写约定的风险"
+        "en-US": "Trust issues: the business wants the agent to issue conclusions directly; counsel does not trust extraction; procurement underestimates invented-term risk"
+      weight: 2
+      disclosureUnitIds: ["du-013", "du-014"]
+    - id: ev-failure-modes
+      category: failure-modes
+      description:
+        "zh-CN": "失败模式：漏掉关键条款；写出文档中不存在的约定"
+        "en-US": "Failure modes: missing a material clause; writing a term that does not exist in the document"
+      weight: 1
+      disclosureUnitIds: ["du-015", "du-016"]
+  rubric:
+    stages:
+      - id: framing
+        label:
+          "zh-CN": "问题定义"
+          "en-US": "Problem Framing"
+        criteria:
+          - id: f-c1
+            label:
+              "zh-CN": "文档审核代理问题陈述清晰度"
+              "en-US": "Document-Review Agent Problem Clarity"
+            weight: 30
+            description:
+              "zh-CN": "能否准确描述需要解析到主数据比对的审核代理，而不是让模型通读 PDF"
+              "en-US": "Can accurately describe why review needs a parse-through-master-data-match agent, not a model that just reads the PDF"
+          - id: f-c2
+            label:
+              "zh-CN": "关键利益相关者识别"
+              "en-US": "Key Stakeholder Identification"
+            weight: 25
+            description:
+              "zh-CN": "是否识别了法务、业务负责人、文档运营和采购及其核心关切"
+              "en-US": "Has identified counsel, the business owner, document ops, and procurement with their core concerns"
+          - id: f-c3
+            label:
+              "zh-CN": "成功标准明确性"
+              "en-US": "Success Criteria Clarity"
+            weight: 45
+            description:
+              "zh-CN": "是否明确定义了可衡量的成功指标（默认审核路径、积压下降、不得漏抽、不得补写约定）"
+              "en-US": "Are measurable success criteria (default review path, falling backlog, no missed material clauses, no invented terms) clearly defined"
+      - id: solution
+        label:
+          "zh-CN": "方案设计"
+          "en-US": "Solution Design"
+        criteria:
+          - id: s-c1
+            label:
+              "zh-CN": "方案完整性"
+              "en-US": "Solution Completeness"
+            weight: 40
+            description:
+              "zh-CN": "方案是否覆盖解析/抽取/规则/主数据比对、盖章结论 HITL、漏抽与补写处理"
+              "en-US": "Does the solution cover parse/extract/rules/master-data match, HITL on sealed conclusions, and handling of misses and invented terms"
+          - id: s-c2
+            label:
+              "zh-CN": "抽取加规则与通读 PDF 的权衡"
+              "en-US": "Extract-plus-rules vs. Read-the-PDF Trade-off"
+            weight: 35
+            description:
+              "zh-CN": "方案是否清晰地权衡了条款抽取加规则引擎与让模型通读文件"
+              "en-US": "Does the solution clearly weigh clause extraction plus a rule engine against letting a model read the file"
+          - id: s-c3
+            label:
+              "zh-CN": "法务与 HITL 兼容性"
+              "en-US": "Counsel and HITL Compatibility"
+            weight: 25
+            description:
+              "zh-CN": "方案是否在盖章或承诺性结论必须律师或业务确认的限制内可行"
+              "en-US": "Is the solution feasible within HITL on seal or commitment conclusions"
+      - id: challenge
+        label:
+          "zh-CN": "挑战应对"
+          "en-US": "Challenge Response"
+        criteria:
+          - id: ch-c1
+            label:
+              "zh-CN": "漏抽与幻觉约定应对"
+              "en-US": "Missed-clause and Invented-term Response"
+            weight: 50
+            description:
+              "zh-CN": "能否有效应对漏掉关键条款或写出原文没有的约定等不安全自动化"
+              "en-US": "Can effectively address unsafe automation such as missing a material clause or writing a term that is not in the source"
+          - id: ch-c2
+            label:
+              "zh-CN": "盖章结论升级应对"
+              "en-US": "Sealed-conclusion Escalation Response"
+            weight: 50
+            description:
+              "zh-CN": "是否建立了盖章或承诺性结论必须律师或业务确认的升级通道"
+              "en-US": "Has a reliable path been established so seal or commitment conclusions wait for counsel or the business owner"
+      - id: pitch
+        label:
+          "zh-CN": "方案表达"
+          "en-US": "Solution Presentation"
+        criteria:
+          - id: p-c1
+            label:
+              "zh-CN": "高层速度与法律敞口适配"
+              "en-US": "Executive Speed and Legal-exposure Adaptation"
+            weight: 40
+            description:
+              "zh-CN": "是否面向业务清积压的速度与律师对对外承诺的关切进行阐述，同时承认 HITL 会限制吞吐"
+              "en-US": "Does the presentation address the business desire to clear the pile and counsel's concern about external commitments while acknowledging HITL limits throughput"
+          - id: p-c2
+            label:
+              "zh-CN": "清晰度和说服力"
+              "en-US": "Clarity and Persuasiveness"
+            weight: 60
+            description:
+              "zh-CN": "方案表达是否清晰、有说服力、行动导向"
+              "en-US": "Is the presentation clear, persuasive, and action-oriented"
+      - id: process
+        label:
+          "zh-CN": "实施流程"
+          "en-US": "Implementation Process"
+        criteria:
+          - id: pr-c1
+            label:
+              "zh-CN": "分阶段上线合理性"
+              "en-US": "Phased Rollout Reasonableness"
+            weight: 30
+            description:
+              "zh-CN": "分阶段审核代理上线（先解析加抽取只读标记，再 HITL 后的承诺性结论）是否合理、可实现"
+              "en-US": "Is the phased review-agent rollout (parse and extract as read-only flags first, then commitment conclusions after HITL) reasonable and achievable"
+          - id: pr-c2
+            label:
+              "zh-CN": "度量体系明确性"
+              "en-US": "Measurement Clarity"
+            weight: 40
+            description:
+              "zh-CN": "漏抽、补写约定与积压消化的度量体系是否明确"
+              "en-US": "Are missed-clause, invented-term, and backlog-clearing metrics clearly defined"
+          - id: pr-c3
+            label:
+              "zh-CN": "风险管理"
+              "en-US": "Risk Management"
+            weight: 30
+            description:
+              "zh-CN": "是否识别了漏抽、幻觉约定、扫描失败和业务绕过律师等风险并制定了缓解计划"
+              "en-US": "Are risks such as missed clauses, invented terms, failed scans, and the business bypassing counsel identified with mitigation plans"
+  criticalContradictions:
+    - id: cc-001
+      statement:
+        "zh-CN": "业务负责人想先清积压并让代理直接出结论，而律师要求盖章或承诺性结论必须律师或业务确认"
+        "en-US": "The business owner wants to clear the backlog first and let the agent issue conclusions, while counsel requires seal or commitment conclusions to wait for counsel or the business owner"
+      expectedEvidenceIds: ["ev-constraints", "ev-business-impact"]
+    - id: cc-002
+      statement:
+        "zh-CN": "采购要供应商合同尽快过审，而文档运营和律师不信抽取在页缝和表格处的完整与真实"
+        "en-US": "Procurement wants vendor contracts cleared quickly, while document ops and counsel do not trust extraction completeness or faithfulness at page breaks and tables"
+      expectedEvidenceIds: ["ev-trust", "ev-root-cause"]
+  hintLadders:
+    - id: hl-workflow
+      topic: workflow
+      hints:
+        "1":
+          "zh-CN": "在谈审核代理之前，一份文件现在是按什么步骤被看完的？"
+          "en-US": "Before proposing the review agent, what steps does a file currently go through before it is considered reviewed?"
+        "2":
+          "zh-CN": "去找解析、抽取、规则和主数据比对的顺序，以及积压是怎样堆起来的。"
+          "en-US": "Look for the order of parse, extract, rules, and master-data match, and how the backlog accumulates."
+        "3":
+          "zh-CN": "文档进线后，解析、条款抽取、规则引擎和主数据比对谁先谁后？积压现在大概有多深？"
+          "en-US": "After a document arrives, in what order do parse, clause extraction, the rule engine, and master-data match run? How deep is the backlog today?"
+    - id: hl-pain
+      topic: pain
+      hints:
+        "1":
+          "zh-CN": "文档审核现在最疼的是速度、准确，还是扫描质量？"
+          "en-US": "Is document review hurting most on speed, accuracy, or scan quality?"
+        "2":
+          "zh-CN": "去找等待成本、抽查缺口，以及解析失败对积压的影响。"
+          "en-US": "Look for waiting cost, spot-check gaps, and how parse failures feed the backlog."
+        "3":
+          "zh-CN": "法务和业务现在卡在哪类等待上？抽查看漏条款的情况怎样？扫描件解析失败时审核会怎样？"
+          "en-US": "What kind of waiting are counsel and the business stuck in, what do spot checks show about missed clauses, and what happens to review when a scan fails to parse?"
+    - id: hl-root-cause
+      topic: root-cause
+      hints:
+        "1":
+          "zh-CN": "现有审核卡住的是模板规则、版面解析，还是模型补写？"
+          "en-US": "Is current review stuck on template rules, layout parsing, or the model filling gaps?"
+        "2":
+          "zh-CN": "去找规则覆盖范围、版面或表格处的抽取表现，以及模型对缺失文本的处理方式。"
+          "en-US": "Look for rule coverage, extraction behavior at layout or table edges, and how the model treats missing text."
+        "3":
+          "zh-CN": "非标合同碰到现有规则会怎样？页缝或表格处的条款抽得怎样？模型遇到看不清的句子会怎么写？"
+          "en-US": "What happens when a nonstandard contract meets the current rules, how do clauses at page breaks or tables extract, and how does the model write a sentence it cannot see clearly?"
+    - id: hl-business-impact
+      topic: business-impact
+      hints:
+        "1":
+          "zh-CN": "审核失误打在法律敞口上，还是打在清堆速度上？"
+          "en-US": "Does a review miss hit legal exposure, pile-clearing speed, or both?"
+        "2":
+          "zh-CN": "去找漏掉要害条款的业务代价，以及业务要速度与律师要人工确认之间的张力。"
+          "en-US": "Look for the business cost of a missed material clause and the tension between speed and human confirmation."
+        "3":
+          "zh-CN": "漏掉终止或赔偿条款会把公司置于什么境地？业务负责人和律师对先清积压分别怎么看？"
+          "en-US": "What position does missing a termination or indemnity clause put the company in, and how do the business owner and counsel each view clearing the backlog first?"
+    - id: hl-constraints
+      topic: constraints
+      hints:
+        "1":
+          "zh-CN": "盖章结论和原文放哪里跑，分别被什么拦住？"
+          "en-US": "What stops a sealed conclusion versus where source text is allowed to run?"
+        "2":
+          "zh-CN": "去找必须人工确认的结论类型，以及合同原文能否出境。"
+          "en-US": "Look for conclusion types that require a human and whether contract source text may leave the region."
+        "3":
+          "zh-CN": "盖章或承诺性结论要不要律师或业务确认？合同原文能不能送到境外模型？"
+          "en-US": "Must seal or commitment conclusions wait for counsel or the business owner, and may contract source text go to an offshore model?"
+    - id: hl-success
+      topic: success-measures
+      hints:
+        "1":
+          "zh-CN": "管理层用吞吐、条款完整还是结论可辩护来宣布审核代理成功？"
+          "en-US": "Will leadership call this review agent a win on throughput, clause completeness, or defensible conclusions?"
+        "2":
+          "zh-CN": "去找默认审核路径、积压是否下降，以及不得漏抽、不得写进原文没有的约定这类红线。"
+          "en-US": "Look for the default review path, whether the backlog is falling, and the floors against missed clauses and terms that are not in the source."
+        "3":
+          "zh-CN": "怎样才算解析到主数据比对成为默认路径？关键条款和原文没有的约定，分别有没有不能碰的底线？"
+          "en-US": "What would make parse-through-master-data-match the default path, and is there a hard floor on missed material clauses and on terms that are not in the source?"
+    - id: hl-trust
+      topic: trust
+      hints:
+        "1":
+          "zh-CN": "业务、律师和采购对同一套审核代理，分别盼什么、怕什么？"
+          "en-US": "What do the business, counsel, and procurement hope or fear from the same review agent?"
+        "2":
+          "zh-CN": "去找业务是否想让代理直接出结论，以及律师对抽取可信度的态度。"
+          "en-US": "Look for whether the business wants the agent to issue conclusions directly and how counsel treats extraction trust."
+        "3":
+          "zh-CN": "业务会不会绕过律师直接采用代理结论？律师和采购对抽取错误的风险分别怎么看？"
+          "en-US": "Will the business bypass counsel and adopt the agent conclusion, and how do counsel and procurement each view extraction-error risk?"
+    - id: hl-failure-modes
+      topic: failure-modes
+      hints:
+        "1":
+          "zh-CN": "漏掉原文里有的东西，和写进原文里没有的东西，哪种更可能把审核代理打穿？"
+          "en-US": "Which failure punches through first: omitting something that is in the source, or writing something that is not?"
+        "2":
+          "zh-CN": "去找漏抽和补写在审核结论里分别长什么样。"
+          "en-US": "Look for how a miss versus a filled-in sentence shows up in the review conclusion."
+        "3":
+          "zh-CN": "关键条款没进入抽取结果时，下游规则会看到什么？模型对看不清的句子会怎么落笔？"
+          "en-US": "When a material clause never enters extraction, what do downstream rules see? How does the model put a hard-to-read sentence on the page?"
+  passGates:
+    - id: pg-001
+      description:
+        "zh-CN": "在SOLUTION阶段，学员必须展示一个包含解析/抽取/规则/主数据比对、盖章结论 HITL 与漏抽补写处理的完整方案"
+        "en-US": "In the SOLUTION phase, the learner must demonstrate a complete plan with parse/extract/rules/master-data match, HITL on sealed conclusions, and handling of misses and invented terms"
+    - id: pg-002
+      description:
+        "zh-CN": "在PITCH阶段，学员必须面向管理层展示可量化的清积压收益，并化解漏条款、幻觉约定与绕过律师等安全顾虑"
+        "en-US": "In the PITCH phase, the learner must present quantifiable backlog-clearing value to leadership and address missed clauses, invented terms, and bypassing counsel"
+
+events:
+  - id: event-counsel-mandate
+    trigger:
+      kind: on_stage_enter
+      phase: DISCOVERY
+    prompt:
+      "zh-CN": "【法务通知】律师宣布：盖章、对外承诺或“此件具约束力”的结论一律禁止代理自行发出，必须先经律师或业务确认。"
+      "en-US": "【Counsel Notice】Counsel announces that seal, external-commitment, or “this is binding” conclusions are strictly forbidden from agent self-issue and must wait for counsel or the business owner."
+  - id: event-backlog-pressure
+    trigger:
+      kind: after_evidence_revealed
+      evidenceId: ev-business-impact
+    prompt:
+      "zh-CN": "【清堆压力】业务负责人要求：审核代理必须先把积压打下去，承诺性结论的人工确认可以后补。"
+      "en-US": "【Pile Pressure】The business owner requires the review agent to drive the backlog down first, with human confirmation on commitment conclusions allowed to wait."
+  - id: event-invented-term
+    trigger:
+      kind: after_evidence_revealed
+      evidenceId: ev-failure-modes
+    prompt:
+      "zh-CN": "【事故报告】文档运营通报：代理漏掉了一条赔偿条款，并在结论里写进了原文没有的交货约定。"
+      "en-US": "【Incident Report】Document ops reports that the agent missed an indemnity clause and wrote a delivery term into the conclusion that was not in the source."
+  - id: event-hitl-required
+    trigger:
+      kind: after_question_count
+      count: 3
+    prompt:
+      "zh-CN": "【流程要求】律师要求：任何盖章或承诺性结论都必须保留律师或业务确认通道，漏抽不得被当成通过。"
+      "en-US": "【Process Required】Counsel requires every seal or commitment conclusion to keep a counsel-or-business confirmation path, and a missed clause must not count as a pass."
