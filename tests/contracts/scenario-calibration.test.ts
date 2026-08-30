@@ -188,15 +188,15 @@ const ASK_PLANS: Record<ScenarioId, AskPlan[]> = {
   ],
   "data-analysis-agent": [
     {
-      question: "业务怎么问数？代理怎么生成 SQL？",
+      question: "生成的 SQL 是谁执行的？行级安全按谁的账号算？",
       stakeholderId: "analytics-lead",
       duId: "du-001",
       reply: text(
-        "业务用自然语言对数仓提问，代理会先打 BI 语义层，再写出只读 SQL。",
-        "People on the business side query the warehouse in natural language. The agent goes to the BI semantic layer first, then writes read-only SQL.",
+        "代理自己从不跑语句，只把 SQL 交给分析师代跑，所以行级安全是按分析师账号展开的，提问者本人的权限从头到尾都没进来。",
+        "The agent never runs the statement itself. It hands the SQL to an analyst, so row-level security unfolds against that analyst's account and the person who asked never contributes their own permissions.",
       ),
       nodeId: "ev-n1",
-      nodeClaim: text("自然语言问数，先语义层再只读 SQL", "Natural-language asks hit the semantic layer, then read-only SQL"),
+      nodeClaim: text("SQL 由分析师代跑，行级安全绑在分析师账号上", "An analyst runs the SQL, so RLS binds to the analyst's account"),
     },
     {
       question: "错误查询出过什么泄漏？",
@@ -223,15 +223,15 @@ const ASK_PLANS: Record<ScenarioId, AskPlan[]> = {
   ],
   "document-review-agent": [
     {
-      question: "文档进来后怎么处理到条款抽取？",
+      question: "非标合同上，主数据比对和规则检查谁先跑？对不上的件去哪？",
       stakeholderId: "doc-ops",
       duId: "du-001",
       reply: text(
-        "文件进来后会先解析，或者送进 OCR/视觉模型，然后才抽条款。",
-        "Once a file arrives it is parsed, or sent through OCR/VLM, and only then does clause extraction run.",
+        "碰到不合模板的合同，主数据比对会先跑，规则检查要等比对结果回来才补。对不上的件就退回人工那边重新排队。",
+        "On contracts that do not fit the templates, the master-data match runs first and the rule check only gets backfilled after that result lands. Files the match cannot line up are sent back into a manual re-queue.",
       ),
       nodeId: "ev-n1",
-      nodeClaim: text("进线后先解析或 OCR，再抽条款", "Inbound files are parsed or OCR'd, then clauses are extracted"),
+      nodeClaim: text("非标件先比对主数据，对不上的退回人工重排队", "Off-template files match master data first; mismatches go to a manual re-queue"),
     },
     {
       question: "审核积压对法务和业务有什么影响？抽查漏条款怎样？",
@@ -255,15 +255,15 @@ const ASK_PLANS: Record<ScenarioId, AskPlan[]> = {
   ],
   "software-engineering-agent": [
     {
-      question: "代理怎么改代码并开 PR？",
+      question: "沙箱里跑的检查和 PR 之后重跑的是同一套吗？",
       stakeholderId: "eng-manager",
       duId: "du-001",
       reply: text(
-        "代理在隔离沙箱里拉取 Git 分支、改代码、跑测试，然后通过 PR 接口开评审。",
-        "Inside an isolated sandbox the agent checks out a Git branch, edits code, runs tests, and then opens a review through the PR API.",
+        "沙箱只跑裁剪过的本地测试，完整流水线要等 PR 开出来才在另一套环境里重跑，所以沙箱绿了流水线不一定绿。",
+        "The sandbox only runs a trimmed local suite. The full pipeline waits until the PR is open and then re-runs in a different environment, so a green sandbox often is not a green pipeline.",
       ),
       nodeId: "ev-n1",
-      nodeClaim: text("沙箱内改代码跑测试再经接口开 PR", "Sandbox edit-test-then-open-PR through the API"),
+      nodeClaim: text("沙箱绿不等于流水线绿，完整套件要等 PR 后重跑", "Sandbox-green is not pipeline-green; the full suite re-runs after the PR"),
     },
     {
       question: "绿测 PR 被 revert 的比例怎样？",

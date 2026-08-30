@@ -3,7 +3,7 @@
   "id": "data-analysis-agent",
   "schemaVersion": 1,
   "locale": "zh-CN",
-  "digest": "58c833096cf3574f14b2f482ffea2e1af6e12f5b610fbc39275084d10421c372",
+  "digest": "91e7ba331c459a0c18e966a3496409024814b28544c064b7670091be11ed7b69",
   "artifacts": [
     {
       "path": "public.json",
@@ -19,8 +19,8 @@
     },
     {
       "path": "evaluator.json",
-      "sha256": "132c34d3efb29b2c8ea1a23e4b0b1ecad5e9729bb4cf5e92aa35b0cffd1d8086",
-      "bytes": 21791,
+      "sha256": "f155cd54c49cb7dd964a13c896c40d58d25c31d4cbbe3354f6e74757d04c3b66",
+      "bytes": 21794,
       "schemaVersion": 1
     },
     {

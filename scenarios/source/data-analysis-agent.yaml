@@ -431,7 +431,7 @@ evaluator:
       statement:
         "zh-CN": "业务请求方想直接问宽表并马上贴进幻灯片，而 DBA 要求跨部门宽表必须先批准、代理不得写库"
         "en-US": "The business requester wants to ask wide tables directly and paste into slides immediately, while the DBA requires approval before cross-department wide tables and forbids warehouse writes"
-      expectedEvidenceIds: ["ev-trust", "ev-workflow"]
+      expectedEvidenceIds: ["ev-trust", "ev-constraints"]
   hintLadders:
     - id: hl-workflow
       topic: workflow
