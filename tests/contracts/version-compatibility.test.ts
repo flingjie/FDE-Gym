@@ -50,7 +50,6 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = join(HERE, "..", "fixtures", "runs", "v1", "manufacturing");
-const GOLDEN_DIR = join(HERE, "..", "golden", "fixtures");
 
 function stripEnvelope(recorded: RecordedEvent): RunEvent {
   const { seq: _seq, logicalTime: _lt, previousHash: _ph, hash: _hash, ...event } = recorded;
@@ -66,7 +65,7 @@ function readFixtureEvents(): RecordedEvent[] {
 }
 
 function goldenReplay(locale: "zh-CN" | "en-US"): string {
-  return readFileSync(join(GOLDEN_DIR, `manufacturing-replay.${locale}.json`), "utf8");
+  return readFileSync(join(FIXTURE_DIR, `replay.${locale}.json`), "utf8");
 }
 
 /** Copy the frozen v1 fixture into a real store layout and return the store root. */

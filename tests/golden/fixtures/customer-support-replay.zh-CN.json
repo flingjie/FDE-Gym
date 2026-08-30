@@ -1,0 +1,181 @@
+{
+  "mode": "recorded",
+  "runId": "run-golden",
+  "scenarioId": "customer-support-agent",
+  "locale": "zh-CN",
+  "phase": "REVIEW",
+  "stages": [
+    {
+      "from": "SCENARIO",
+      "to": "SCENARIO"
+    },
+    {
+      "from": "SCENARIO",
+      "to": "DISCOVERY"
+    },
+    {
+      "from": "DISCOVERY",
+      "to": "PROBLEM_FRAMING"
+    },
+    {
+      "from": "PROBLEM_FRAMING",
+      "to": "SOLUTION_DESIGN"
+    },
+    {
+      "from": "SOLUTION_DESIGN",
+      "to": "CHALLENGE"
+    },
+    {
+      "from": "CHALLENGE",
+      "to": "PITCH"
+    },
+    {
+      "from": "PITCH",
+      "to": "REVIEW"
+    }
+  ],
+  "transcript": [
+    {
+      "turnId": "cmd-ask-1:turn",
+      "seq": 0,
+      "question": "现在客服代理会按什么顺序调用业务系统？",
+      "customerReply": "代理先查 CRM 再查订单 API；每月约18万张工单，约55%可走工具闭环。",
+      "stakeholderId": "support-director"
+    },
+    {
+      "turnId": "cmd-ask-2:turn",
+      "seq": 1,
+      "question": "人工成本在总支持预算里大概占多少？",
+      "customerReply": "人工成本占总支持预算约72%；一线年流失约38%。",
+      "stakeholderId": "cfo"
+    }
+  ],
+  "graphDiffs": [
+    {
+      "patchId": "p-1",
+      "expectedVersion": 0,
+      "addNodes": [
+        {
+          "id": "ev-workflow",
+          "kind": "fact",
+          "claim": "代理先查 CRM 再查订单 API，约55%工单可走工具闭环",
+          "status": "active",
+          "sourceTranscriptIds": [
+            "cmd-ask-1:turn"
+          ],
+          "weight": 2
+        }
+      ],
+      "addEdges": [],
+      "invalidateNodeIds": []
+    },
+    {
+      "patchId": "p-2",
+      "expectedVersion": 1,
+      "addNodes": [
+        {
+          "id": "ev-pain",
+          "kind": "fact",
+          "claim": "人工成本占总支持预算约72%，一线年流失约38%",
+          "status": "active",
+          "sourceTranscriptIds": [
+            "cmd-ask-2:turn"
+          ],
+          "weight": 1
+        }
+      ],
+      "addEdges": [],
+      "invalidateNodeIds": []
+    }
+  ],
+  "questionMetrics": [
+    {
+      "turnId": "cmd-ask-1:turn",
+      "informationGain": 2,
+      "nodeCount": 1
+    },
+    {
+      "turnId": "cmd-ask-2:turn",
+      "informationGain": 1,
+      "nodeCount": 1
+    }
+  ],
+  "hints": [
+    {
+      "topic": "workflow",
+      "level": 1,
+      "hint": "在谈代理之前，它现在会按什么顺序去碰业务系统？"
+    }
+  ],
+  "eventInjections": [
+    {
+      "challengeId": "event-unsafe-automation",
+      "prompt": "【事故报告】质量负责人通报：代理曾幻觉退款政策并真的调用了退款接口，客户因此获得错误承诺。"
+    }
+  ],
+  "artifacts": {
+    "briefId": "brief-1",
+    "proposalId": "proposal-1",
+    "pitchId": "pitch-1",
+    "briefSubmissions": 1,
+    "proposalSubmissions": 1,
+    "pitchSubmissions": 1
+  },
+  "score": {
+    "coverage": 0.25,
+    "coveragePercent": 25,
+    "averageForm": 0.5,
+    "budgetFactor": 1,
+    "questionEfficiency": 20,
+    "discovery": 21.25,
+    "framing": 75,
+    "solution": 100,
+    "challenge": 100,
+    "pitch": 100,
+    "process": 97,
+    "raw": 66.8125,
+    "hintPenalty": 3,
+    "integrity": 0,
+    "final": 64,
+    "questions": [
+      {
+        "gq": 0.25,
+        "informationGain": 100,
+        "form": 1,
+        "efficiency": 100
+      },
+      {
+        "gq": 0,
+        "informationGain": 0,
+        "form": 0,
+        "efficiency": 0
+      }
+    ],
+    "passes": {
+      "finalScore": false,
+      "briefSupport": true,
+      "noUnacknowledgedCriticalContradiction": true,
+      "pitchExplicitAsk": true,
+      "noLeakGuardViolation": true
+    }
+  },
+  "strengths": [
+    "清晰的工具闭环问题定义"
+  ],
+  "weaknesses": [
+    "高峰超时插队规则未充分展开"
+  ],
+  "missedOpportunities": [
+    "未追问一线绕过代理"
+  ],
+  "decisionDivergencePoints": [
+    {
+      "id": "ddp-1",
+      "description": "选择了变更方案以强制退款HITL"
+    }
+  ],
+  "nextFocus": [
+    "强化HITL与超时失败处理",
+    "处理一线绕过代理"
+  ]
+}

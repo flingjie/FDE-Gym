@@ -18,19 +18,25 @@ import type { Locale, RecordedEvent, RunEvent } from "../../src/core/domain.js";
  */
 
 const FIXTURE_DIR = dirname(fileURLToPath(import.meta.url));
+const GOLDEN_FIXTURE_DIR = join(FIXTURE_DIR, "fixtures");
+const V1_FIXTURE_DIR = join(FIXTURE_DIR, "..", "fixtures", "runs", "v1", "manufacturing");
 
 const CANARY_SENTINEL = "CUSTOMER_CANARY_7f3a9c1e2b4d";
 
-function loadEvents(): RunEvent[] {
-  const raw = readFileSync(join(FIXTURE_DIR, "fixtures", "manufacturing-events.jsonl"), "utf8");
+function loadGoldenEvents(): RunEvent[] {
+  const raw = readFileSync(join(GOLDEN_FIXTURE_DIR, "customer-support-events.jsonl"), "utf8");
   return raw
     .split("\n")
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as RunEvent);
 }
 
-function loadSnapshot(locale: Locale): string {
-  return readFileSync(join(FIXTURE_DIR, "fixtures", `manufacturing-replay.${locale}.json`), "utf8");
+function loadGoldenSnapshot(locale: Locale): string {
+  return readFileSync(join(GOLDEN_FIXTURE_DIR, `customer-support-replay.${locale}.json`), "utf8");
+}
+
+function loadV1Snapshot(locale: Locale): string {
+  return readFileSync(join(V1_FIXTURE_DIR, `replay.${locale}.json`), "utf8");
 }
 
 function canonical(replay: ReturnType<typeof projectReplay>): string {
@@ -70,28 +76,32 @@ const HIDDEN_MARKERS = [
   '"commandId"',
 ];
 
-describe("golden replay: manufacturing", () => {
-  const events = loadEvents();
+describe("golden replay: customer-support-agent", () => {
+  const events = loadGoldenEvents();
 
   it("is byte-identical to the zh-CN snapshot across repeated runs", () => {
     const a = projectReplay(events, "zh-CN");
     const b = projectReplay(events, "zh-CN");
-    expect(canonical(a)).toBe(loadSnapshot("zh-CN"));
+    expect(canonical(a)).toBe(loadGoldenSnapshot("zh-CN"));
     expect(canonical(b)).toBe(canonical(a));
   });
 
   it("is byte-identical to the en-US snapshot across repeated runs", () => {
     const a = projectReplay(events, "en-US");
     const b = projectReplay(events, "en-US");
-    expect(canonical(a)).toBe(loadSnapshot("en-US"));
+    expect(canonical(a)).toBe(loadGoldenSnapshot("en-US"));
     expect(canonical(b)).toBe(canonical(a));
   });
 
   it("resolves localized text per locale", () => {
     const zh = projectReplay(events, "zh-CN");
     const en = projectReplay(events, "en-US");
-    expect(zh.transcript[0].customerReply).toBe("每天大约产生12,000条设备告警。");
-    expect(en.transcript[0].customerReply).toBe("About 12,000 equipment alerts are generated daily.");
+    expect(zh.transcript[0].customerReply).toBe(
+      "代理先查 CRM 再查订单 API；每月约18万张工单，约55%可走工具闭环。",
+    );
+    expect(en.transcript[0].customerReply).toBe(
+      "The agent looks up CRM first, then the order API; about 180,000 tickets a month, about 55% can close in a tool loop.",
+    );
   });
 
   it("includes the full required public field set", () => {
@@ -124,8 +134,6 @@ describe("golden replay: manufacturing", () => {
 });
 
 describe("golden replay: frozen v1 manufacturing run", () => {
-  const V1_FIXTURE_DIR = join(FIXTURE_DIR, "..", "fixtures", "runs", "v1", "manufacturing");
-
   function stripEnvelope(recorded: RecordedEvent): RunEvent {
     const { seq: _seq, logicalTime: _lt, previousHash: _ph, hash: _hash, ...event } = recorded;
     return event as RunEvent;
@@ -144,7 +152,7 @@ describe("golden replay: frozen v1 manufacturing run", () => {
       expect(replayEvents).toHaveLength(24);
 
       for (const locale of ["zh-CN", "en-US"] as const) {
-        expect(canonical(projectReplay(replayEvents, locale))).toBe(loadSnapshot(locale));
+        expect(canonical(projectReplay(replayEvents, locale))).toBe(loadV1Snapshot(locale));
       }
     } finally {
       rmSync(baseDir, { recursive: true, force: true });
