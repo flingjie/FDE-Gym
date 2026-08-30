@@ -14,7 +14,7 @@ import type {
   PublicScenario,
   ScenarioEventCandidate,
 } from "../scenarios/schema.js";
-import type { RunAggregate } from "../security/context-firewall.js";
+import type { RunAggregate } from "./aggregate.js";
 import { applyEvidencePatch, createEmptyEvidenceGraph } from "../evidence/graph.js";
 import {
   BRIEF_DANGLING_EVIDENCE_REFERENCE,

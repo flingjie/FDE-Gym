@@ -3,7 +3,8 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { DirectModelRuntime } from "../../src/integrations/direct/direct-runtime";
-import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
+import { buildRoleInput } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import {
   CustomerOutputSchema,
   EvidenceTrackerOutputSchema,

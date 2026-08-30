@@ -1,5 +1,5 @@
 import type { CriterionScores, QuestionAssessment, RunEvent } from "../core/domain.js";
-import type { RunAggregate } from "../security/context-firewall.js";
+import type { RunAggregate } from "../core/aggregate.js";
 import type {
   CustomerCapsule,
   EvaluatorCapsule,

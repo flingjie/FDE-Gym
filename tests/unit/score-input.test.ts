@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FinalReviewInput, FinalReviewResult, RunEvent } from "../../src/core/domain.js";
-import type { RunAggregate } from "../../src/security/context-firewall.js";
+import type { RunAggregate } from "../../src/core/aggregate.js";
 import type {
   CustomerCapsule,
   EvaluatorCapsule,

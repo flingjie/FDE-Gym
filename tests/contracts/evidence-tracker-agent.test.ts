@@ -13,7 +13,8 @@ import {
   validateEvidenceTrackerOutput,
 } from "../../src/agents/output-validation";
 import type { EvidenceTrackerInput } from "../../src/agents/contracts";
-import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
+import { buildRoleInput } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
 import { EvidenceGraphPatchSchema, EvidenceKindSchema } from "../../src/core/domain";
 
@@ -161,7 +162,6 @@ describe("evidence tracker agent — strict patch and assessment", () => {
     await extractEvidence(
       context(recording, {
         state: aggregate({
-          groundTruth: { expectedEvidence: "GROUND_SENTINEL" },
           rubric: { stages: "RUBRIC_SENTINEL" },
           score: { total: "SCORE_SENTINEL" },
         }),
@@ -173,7 +173,6 @@ describe("evidence tracker agent — strict patch and assessment", () => {
 
     const serialized = JSON.stringify(input);
     for (const sentinel of [
-      "GROUND_SENTINEL",
       "RUBRIC_SENTINEL",
       "SCORE_SENTINEL",
       "expectedEvidence",

@@ -6,7 +6,8 @@ import {
   renderCustomerPrompt,
   type AnswerDiscoveryQuestionContext,
 } from "../../src/agents/customer";
-import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
+import { buildRoleInput } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
 import type { CustomerCapsule } from "../../src/scenarios/schema";
 

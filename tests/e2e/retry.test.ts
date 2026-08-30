@@ -20,8 +20,8 @@ import {
   ContextFirewallError,
   FIREWALL_INVALID_STATE,
   buildRoleInput,
-  type RunAggregate,
 } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import type { CustomerCapsule } from "../../src/scenarios/schema";
 import { calculateScore } from "../../src/scoring/formulas";
 import type { RunEvent } from "../../src/core/domain";

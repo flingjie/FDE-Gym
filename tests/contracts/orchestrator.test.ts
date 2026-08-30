@@ -15,7 +15,7 @@ import {
 import { loadEvents, loadRun } from "../../src/core/event-store";
 import { commitPrepared } from "../helpers/commit-prepared";
 import { foldRunAggregate } from "../../src/replay/projector";
-import type { RunAggregate } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import type { CustomerCapsule } from "../../src/scenarios/schema";
 
 const text = (zh: string, en: string) => ({ "zh-CN": zh, "en-US": en });

@@ -12,7 +12,8 @@ import {
   validateCustomerOutput,
 } from "../../src/agents/output-validation";
 import type { CustomerInput, CustomerOutput } from "../../src/agents/contracts";
-import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
+import { buildRoleInput } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
 import type { CustomerCapsule } from "../../src/scenarios/schema";
 
@@ -289,7 +290,6 @@ describe("customer agent — discovery answers", () => {
         state: aggregate({
           score: { total: "SCORE_SENTINEL" },
           learnerProfile: { skill: "PROFILE_SENTINEL" },
-          groundTruth: { expectedEvidence: "GROUND_SENTINEL" },
           rubric: { stages: "RUBRIC_SENTINEL" },
           grantedHints: [{ topic: "HINT_SENTINEL", level: 1 }],
         }),
@@ -300,7 +300,6 @@ describe("customer agent — discovery answers", () => {
     for (const sentinel of [
       "SCORE_SENTINEL",
       "PROFILE_SENTINEL",
-      "GROUND_SENTINEL",
       "RUBRIC_SENTINEL",
       "HINT_SENTINEL",
       CANARY,

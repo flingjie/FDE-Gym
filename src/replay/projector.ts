@@ -9,7 +9,7 @@ import type {
   ScoreBreakdown,
 } from "../core/domain.js";
 import type { HintLedgerEntry } from "../agents/contracts.js";
-import type { RunAggregate } from "../security/context-firewall.js";
+import type { RunAggregate } from "../core/aggregate.js";
 import type { ScoreProvenance } from "../scoring/provenance.js";
 import { applyEvidencePatch, createEmptyEvidenceGraph } from "../evidence/graph.js";
 

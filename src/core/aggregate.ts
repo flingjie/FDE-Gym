@@ -1,0 +1,98 @@
+import { z } from "zod";
+import {
+  ChallengeResponseSchema,
+  EvidenceGraphSchema,
+  LocaleSchema,
+  PitchArtifactSchema,
+  ProblemBriefSchema,
+  RunPhaseSchema,
+  SolutionProposalSchema,
+  TranscriptTurnSchema,
+  type ChallengeResponse,
+  type EvidenceGraph,
+  type Locale,
+  type PitchArtifact,
+  type ProblemBrief,
+  type RunPhase,
+  type SolutionProposal,
+  type TranscriptTurn,
+} from "./domain.js";
+import { HintLedgerEntrySchema, type HintLedgerEntry } from "../agents/contracts.js";
+
+/**
+ * FDE Gym — the internal run aggregate.
+ *
+ * The domain's single source of truth for a run's in-flight state. It is
+ * consumed by the security firewall (`buildRoleInput`) and rebuilt on resume by
+ * `foldRunAggregate`. The trailing SENSITIVE fields (`score`, `learnerProfile`,
+ * `previousAttemptReview`, `rubric`) are RECOGNIZED by `RunAggregateSchema` (so
+ * they never trip the firewall's unrecognized-field guard) but are NEVER copied
+ * into any role input — the firewall builds each role input field-by-field from
+ * an explicit per-role allowlist.
+ */
+
+/** The coach's concrete task, which selects which coach INPUT schema to build. */
+export const COACH_TASKS = ["brief-validation", "final-review"] as const;
+export type CoachTask = (typeof COACH_TASKS)[number];
+export const CoachTaskSchema = z.enum(COACH_TASKS);
+
+export interface RunAggregate {
+  runId: string;
+  scenarioId: string;
+  locale: Locale;
+  phase: RunPhase | null;
+  /** Public dialogue (question + public reply per turn). */
+  transcript: TranscriptTurn[];
+  /** Public evidence graph state. */
+  graph: EvidenceGraph;
+  disclosedDisclosureUnitIds: string[];
+  grantedHints: HintLedgerEntry[];
+  /** The learner's current question (targets a specific stakeholder). */
+  pendingQuestion: { question: string; stakeholderId: string } | null;
+  coachTask: CoachTask;
+  brief: ProblemBrief | null;
+  proposal: SolutionProposal | null;
+  pitch: PitchArtifact | null;
+  challengeResponses: ChallengeResponse[];
+  /** Durable pending-evidence marker: the turn's id + a stable failure code (never a message). */
+  pendingEvidence: { turnId: string; code: string } | null;
+  /** Clarifications consumed this framing attempt, folded from committed phase changes. */
+  clarificationBudgetUsed: number;
+  // ---- Sensitive fields. Recognized, never projected into a role input. ----
+  score?: unknown;
+  learnerProfile?: unknown;
+  previousAttemptReview?: unknown;
+  rubric?: unknown;
+}
+
+export const RunAggregateSchema = z
+  .object({
+    runId: z.string().min(1),
+    scenarioId: z.string().min(1),
+    locale: LocaleSchema,
+    phase: RunPhaseSchema.nullable(),
+    transcript: z.array(TranscriptTurnSchema),
+    graph: EvidenceGraphSchema,
+    disclosedDisclosureUnitIds: z.array(z.string().min(1)),
+    grantedHints: z.array(HintLedgerEntrySchema),
+    pendingQuestion: z
+      .object({ question: z.string().min(1), stakeholderId: z.string().min(1) })
+      .strict()
+      .nullable(),
+    coachTask: CoachTaskSchema,
+    brief: ProblemBriefSchema.nullable(),
+    proposal: SolutionProposalSchema.nullable(),
+    pitch: PitchArtifactSchema.nullable(),
+    challengeResponses: z.array(ChallengeResponseSchema),
+    pendingEvidence: z
+      .object({ turnId: z.string().min(1), code: z.string().min(1) })
+      .strict()
+      .nullable()
+      .optional(),
+    clarificationBudgetUsed: z.number().int().nonnegative().optional(),
+    score: z.unknown().optional(),
+    learnerProfile: z.unknown().optional(),
+    previousAttemptReview: z.unknown().optional(),
+    rubric: z.unknown().optional(),
+  })
+  .strict();

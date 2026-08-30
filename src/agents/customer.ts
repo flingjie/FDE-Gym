@@ -8,7 +8,8 @@ import {
   type CustomerInput,
   type CustomerOutput,
 } from "./contracts.js";
-import { buildRoleInput, type RunAggregate } from "../security/context-firewall.js";
+import { buildRoleInput } from "../security/context-firewall.js";
+import type { RunAggregate } from "../core/aggregate.js";
 import { sanitizeAgentResult } from "../security/sanitizer.js";
 import { validateCustomerOutput } from "./output-validation.js";
 import type { CustomerCapsule } from "../scenarios/schema.js";

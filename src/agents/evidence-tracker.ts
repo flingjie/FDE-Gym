@@ -9,7 +9,8 @@ import {
   type QuestionAssessment,
 } from "./contracts.js";
 import type { EvidenceGraphPatch } from "../core/domain.js";
-import { buildRoleInput, type RunAggregate } from "../security/context-firewall.js";
+import { buildRoleInput } from "../security/context-firewall.js";
+import type { RunAggregate } from "../core/aggregate.js";
 import { sanitizeAgentResult } from "../security/sanitizer.js";
 import { validateEvidenceTrackerOutput } from "./output-validation.js";
 

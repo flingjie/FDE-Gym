@@ -12,7 +12,7 @@ import {
 } from "../../src/core/orchestrator";
 import { loadRun } from "../../src/core/event-store";
 import { commitPrepared } from "../helpers/commit-prepared";
-import type { RunAggregate } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import type { CustomerCapsule, ScenarioEventCandidate } from "../../src/scenarios/schema";
 import type { ChallengeResponse, PitchArtifact, SolutionProposal } from "../../src/core/domain";
 

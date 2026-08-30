@@ -1,34 +1,15 @@
 import { z } from "zod";
-import {
-  ChallengeResponseSchema,
-  EvidenceGraphSchema,
-  LocaleSchema,
-  PitchArtifactSchema,
-  ProblemBriefSchema,
-  RunPhaseSchema,
-  SolutionProposalSchema,
-  TranscriptTurnSchema,
-  type AgentRole,
-  type ChallengeResponse,
-  type EvidenceGraph,
-  type Locale,
-  type PitchArtifact,
-  type ProblemBrief,
-  type RunPhase,
-  type SolutionProposal,
-  type TranscriptTurn,
-} from "../core/domain.js";
+import type { AgentRole } from "../core/domain.js";
+import { RunAggregateSchema, type RunAggregate } from "../core/aggregate.js";
 import {
   BriefValidationInputSchema,
   CustomerInputSchema,
   EvidenceTrackerInputSchema,
   FinalReviewInputSchema,
-  HintLedgerEntrySchema,
   type BriefValidationInput,
   type CustomerInput,
   type EvidenceTrackerInput,
   type FinalReviewInput,
-  type HintLedgerEntry,
 } from "../agents/contracts.js";
 import type { CustomerCapsule, EvaluatorCapsule } from "../scenarios/schema.js";
 import { RUBRIC } from "../scoring/rubric.js";
@@ -62,94 +43,6 @@ export class ContextFirewallError extends Error {
     this.code = code;
   }
 }
-
-// ---------------------------------------------------------------------------
-// The internal run aggregate
-// ---------------------------------------------------------------------------
-
-/** The coach's concrete task, which selects which coach INPUT schema to build. */
-export const COACH_TASKS = ["brief-validation", "final-review"] as const;
-export type CoachTask = (typeof COACH_TASKS)[number];
-export const CoachTaskSchema = z.enum(COACH_TASKS);
-
-/**
- * The internal run aggregate consumed by the firewall. Public dialogue and the
- * learner's own artifacts live alongside forward-declared SENSITIVE fields
- * (`score`, `learnerProfile`, `groundTruth`, `rubric`, `chainOfThought`, …)
- * that later tasks populate. Those sensitive fields are RECOGNIZED here (so
- * they do not trip the unrecognized-field guard) but are NEVER copied into any
- * role input — the per-role builders below read only their explicit allowlist.
- */
-export interface RunAggregate {
-  runId: string;
-  scenarioId: string;
-  locale: Locale;
-  phase: RunPhase | null;
-  /** Public dialogue (question + public reply per turn). */
-  transcript: TranscriptTurn[];
-  /** Public evidence graph state. */
-  graph: EvidenceGraph;
-  disclosedDisclosureUnitIds: string[];
-  grantedHints: HintLedgerEntry[];
-  /** The learner's current question (targets a specific stakeholder). */
-  pendingQuestion: { question: string; stakeholderId: string } | null;
-  coachTask: CoachTask;
-  brief: ProblemBrief | null;
-  proposal: SolutionProposal | null;
-  pitch: PitchArtifact | null;
-  challengeResponses: ChallengeResponse[];
-  /** Durable pending-evidence marker: the turn's id + a stable failure code (never a message). */
-  pendingEvidence: { turnId: string; code: string } | null;
-  /** Clarifications consumed this framing attempt, folded from committed phase changes. */
-  clarificationBudgetUsed: number;
-  // ---- Sensitive fields (later tasks). Never projected into a role input. ----
-  score?: unknown;
-  learnerProfile?: unknown;
-  previousAttemptReview?: unknown;
-  groundTruth?: unknown;
-  rubric?: unknown;
-  customerPrompt?: unknown;
-  customerSessionId?: unknown;
-  rawCustomerOutput?: unknown;
-  chainOfThought?: unknown;
-}
-
-export const RunAggregateSchema = z
-  .object({
-    runId: z.string().min(1),
-    scenarioId: z.string().min(1),
-    locale: LocaleSchema,
-    phase: RunPhaseSchema.nullable(),
-    transcript: z.array(TranscriptTurnSchema),
-    graph: EvidenceGraphSchema,
-    disclosedDisclosureUnitIds: z.array(z.string().min(1)),
-    grantedHints: z.array(HintLedgerEntrySchema),
-    pendingQuestion: z
-      .object({ question: z.string().min(1), stakeholderId: z.string().min(1) })
-      .strict()
-      .nullable(),
-    coachTask: CoachTaskSchema,
-    brief: ProblemBriefSchema.nullable(),
-    proposal: SolutionProposalSchema.nullable(),
-    pitch: PitchArtifactSchema.nullable(),
-    challengeResponses: z.array(ChallengeResponseSchema),
-    pendingEvidence: z
-      .object({ turnId: z.string().min(1), code: z.string().min(1) })
-      .strict()
-      .nullable()
-      .optional(),
-    clarificationBudgetUsed: z.number().int().nonnegative().optional(),
-    score: z.unknown().optional(),
-    learnerProfile: z.unknown().optional(),
-    previousAttemptReview: z.unknown().optional(),
-    groundTruth: z.unknown().optional(),
-    rubric: z.unknown().optional(),
-    customerPrompt: z.unknown().optional(),
-    customerSessionId: z.unknown().optional(),
-    rawCustomerOutput: z.unknown().optional(),
-    chainOfThought: z.unknown().optional(),
-  })
-  .strict();
 
 // ---------------------------------------------------------------------------
 // Capsule discrimination (lightweight, structural — no full re-validation)

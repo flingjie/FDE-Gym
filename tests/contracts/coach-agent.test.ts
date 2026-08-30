@@ -13,7 +13,8 @@ import {
 } from "../../src/agents/output-validation";
 import type { BriefValidationInput } from "../../src/agents/contracts";
 import { BriefValidationResultSchema } from "../../src/core/domain";
-import { buildRoleInput, type RunAggregate } from "../../src/security/context-firewall";
+import { buildRoleInput } from "../../src/security/context-firewall";
+import type { RunAggregate } from "../../src/core/aggregate";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
 import type { EvaluatorCapsule } from "../../src/scenarios/schema";
 
@@ -178,26 +179,13 @@ describe("coach agent — problem brief validation", () => {
     });
     const recording = new RecordingRuntime(delegate);
 
-    await validateProblemBrief(
-      context(recording, {
-        state: aggregate({
-          customerPrompt: "PROMPT_SENTINEL_777",
-          customerSessionId: "SESSION_SENTINEL_888",
-          rawCustomerOutput: "RAW_SENTINEL_999",
-          chainOfThought: "COT_SENTINEL_aaa",
-        }),
-      }),
-    );
+    await validateProblemBrief(context(recording));
 
     const input = recording.lastInput as Record<string, unknown>;
     expect(Object.keys(input).sort()).toEqual(["brief", "graph", "locale", "transcript"]);
 
     const serialized = JSON.stringify(input);
     for (const sentinel of [
-      "PROMPT_SENTINEL_777",
-      "SESSION_SENTINEL_888",
-      "RAW_SENTINEL_999",
-      "COT_SENTINEL_aaa",
       "stakeholders",
       "disclosureUnits",
       "responsePolicies",

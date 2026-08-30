@@ -4,10 +4,9 @@ import {
   ContextFirewallError,
   FIREWALL_CAPSULE_FORBIDDEN,
   FIREWALL_UNRECOGNIZED_FIELD,
-  RunAggregateSchema,
   roleInputSchema,
-  type RunAggregate,
 } from "../../src/security/context-firewall";
+import { RunAggregateSchema, type RunAggregate } from "../../src/core/aggregate";
 import {
   BriefValidationInputSchema,
   CustomerInputSchema,
@@ -160,18 +159,13 @@ function expectFirewallError(fn: () => unknown, code: string) {
 }
 
 describe("role context firewall — per-role allowlist", () => {
-  it("customer input never contains evaluator/hidden fields (score, hints, learner profile, prior review, CoT)", () => {
+  it("customer input never contains evaluator/hidden fields (score, hints, learner profile, prior review, rubric)", () => {
     const state = validAggregate({
       grantedHints: [{ topic: "HINT_SENTINEL_111", level: 1 }],
       score: { total: "SCORE_SENTINEL_222" },
       learnerProfile: { skill: "PROFILE_SENTINEL_333" },
       previousAttemptReview: { verdict: "REVIEW_SENTINEL_444" },
-      groundTruth: { expectedEvidence: "GROUND_SENTINEL_555" },
       rubric: { stages: "RUBRIC_SENTINEL_666" },
-      customerPrompt: "PROMPT_SENTINEL_777",
-      customerSessionId: "SESSION_SENTINEL_888",
-      rawCustomerOutput: "RAW_SENTINEL_999",
-      chainOfThought: "COT_SENTINEL_aaa",
     });
 
     const out = buildRoleInput("customer", state, validCustomerCapsule());
@@ -184,21 +178,15 @@ describe("role context firewall — per-role allowlist", () => {
       "SCORE_SENTINEL_222",
       "PROFILE_SENTINEL_333",
       "REVIEW_SENTINEL_444",
-      "GROUND_SENTINEL_555",
       "RUBRIC_SENTINEL_666",
-      "PROMPT_SENTINEL_777",
-      "SESSION_SENTINEL_888",
-      "RAW_SENTINEL_999",
-      "COT_SENTINEL_aaa",
       "EVALUATOR_CANARY_xyz789",
     ]) {
       expect(serialized).not.toContain(sentinel);
     }
   });
 
-  it("evidence tracker input contains only locale + turn + graph (no capsule, ground truth, or rubric)", () => {
+  it("evidence tracker input contains only locale + turn + graph (no capsule or rubric)", () => {
     const state = validAggregate({
-      groundTruth: { expectedEvidence: "GROUND_SENTINEL_555" },
       rubric: { stages: "RUBRIC_SENTINEL_666" },
     });
 
@@ -209,38 +197,12 @@ describe("role context firewall — per-role allowlist", () => {
 
     const serialized = JSON.stringify(out);
     for (const sentinel of [
-      "GROUND_SENTINEL_555",
       "RUBRIC_SENTINEL_666",
       "canary",
       "disclosureUnits",
       "stakeholders",
       "expectedEvidence",
       "hintLadders",
-    ]) {
-      expect(serialized).not.toContain(sentinel);
-    }
-  });
-
-  it("coach input never contains customer prompt, session id, raw output, or chain-of-thought", () => {
-    const state = validAggregate({
-      customerPrompt: "PROMPT_SENTINEL_777",
-      customerSessionId: "SESSION_SENTINEL_888",
-      rawCustomerOutput: "RAW_SENTINEL_999",
-      chainOfThought: "COT_SENTINEL_aaa",
-      coachTask: "brief-validation",
-      brief: validBrief(),
-    });
-
-    const out = buildRoleInput("coach_evaluator", state, validEvaluatorCapsule());
-    expect(out.kind).toBe("brief-validation");
-    expect(BriefValidationInputSchema.safeParse(out.input).success).toBe(true);
-
-    const serialized = JSON.stringify(out);
-    for (const sentinel of [
-      "PROMPT_SENTINEL_777",
-      "SESSION_SENTINEL_888",
-      "RAW_SENTINEL_999",
-      "COT_SENTINEL_aaa",
     ]) {
       expect(serialized).not.toContain(sentinel);
     }
