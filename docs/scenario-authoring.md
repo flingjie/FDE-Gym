@@ -9,7 +9,7 @@ compiled partitions land in `scenarios/compiled/<id>/`.
 ## Top-level shape
 
 ```yaml
-id: <string>            # scenario id, e.g. "manufacturing-alert-triage"
+id: <string>            # scenario id, e.g. "customer-support-agent"
 schemaVersion: 1        # frozen; anything else is rejected at load time
 locale: zh-CN           # default locale for the run (still fully bilingual)
 public: { ... }         # learner-visible content

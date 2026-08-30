@@ -1,7 +1,8 @@
 # Design: Replace the training catalog with five AI-agent scenarios
 
 - **Date:** 2026-08-30
-- **Status:** Proposed (awaiting implementation)
+- **Status:** Accepted (D1 catalog implemented 2026-08-30)
+- **Implementation plan:** [plan](../plans/2026-08-30-ai-agent-scenario-catalog.md)
 - **Follows:** scenario authoring contract (`docs/scenario-authoring.md`),
   Socratic hint ladders (ADR-0003)
 

@@ -158,3 +158,28 @@ learner could buy the answer with `--level 3`.
 
 - Production YAML must be rewritten when hidden numbers change.
 - Hint grants still do not enter the evidence graph.
+
+## ADR-0004: Production catalog is five AI-agent scenarios
+
+- **Status:** Accepted
+- **Date:** 2026-08-30
+
+### Context
+
+The previous catalog mixed ETL, alert classification, and document-fill AI
+with one support-automation scenario. The product trains FDEs to sell
+tool-using agents with HITL and explicit failure modes.
+
+### Decision
+
+- Production ids: `enterprise-knowledge-agent`, `customer-support-agent`,
+  `data-analysis-agent`, `document-review-agent`, `software-engineering-agent`.
+- Retired: `support-automation`, `manufacturing-alert-triage`,
+  `data-migration`, `export-freight-forwarding` (no aliases).
+- Tools exist only as authored facts. Gym does not execute CRM, SQL, Git, or OCR.
+
+### Consequences
+
+- Old runs against retired bundle digests fail `SCENARIO_BUNDLE_MISMATCH`.
+- Golden projector fixtures follow `customer-support-agent`; v1 manufacturing
+  event logs remain a format-compatibility fixture.
