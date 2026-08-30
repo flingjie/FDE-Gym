@@ -327,7 +327,7 @@ git commit -m "chore: retire the doctor release gate"
 ### Task 4: Update the living docs
 
 **Files:**
-- Modify: `docs/architecture.md`, `docs/security-model.md`, `README.md`, `docs/architecture-decisions.md`, `skills/fde-gym/SKILL.md`, `skills/fde-gym/references/commands.md`, `skills/fde-gym/references/security-boundaries.md`, `tests/contracts/skill-package.test.ts`
+- Modify: `docs/architecture.md`, `docs/security-model.md`, `README.md`, `docs/architecture-decisions.md`, `skills/fde-gym/SKILL.md`, `skills/fde-gym/references/commands.md`, `skills/fde-gym/references/security-boundaries.md`, `tests/contracts/skill-package.test.ts`, `scripts/release-gate.mjs`
 
 - [ ] **Step 1: `docs/architecture.md`**
 
@@ -478,7 +478,20 @@ release gate (`doctor --require-safe` intermittently failing with
 
 `tests/contracts/skill-package.test.ts` — delete the `it("instructs doctor before the first strict run and to stop when isolation is unavailable", ...)` test (lines 84–87), which asserts the now-removed doctor instruction; the Skill no longer references `doctor` or `safeForStrictMode`.
 
-- [ ] **Step 6: Verify and commit**
+- [ ] **Step 6: `scripts/release-gate.mjs` stale comment**
+
+Replace the file-header doc comment (lines 5–8) so it no longer claims a `doctor:strict` hard gate:
+
+```js
+/**
+ * FDE Gym release gate.
+ *
+ * Runs the full verification chain sequentially and stops at the FIRST failure,
+ * printing the exact failed command and its exit code.
+ */
+```
+
+- [ ] **Step 7: Verify and commit**
 
 Run: `npm run typecheck && npm test`
 Expected: both pass (docs-only changes; the suite must stay green).
