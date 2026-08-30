@@ -2,7 +2,7 @@
 
 ## ADR-0001: Extract the role runtime from Codex to a direct chat-completions runtime
 
-- **Status:** Proposed (implementation started: `DirectModelRuntime` + contract test exist; CLI wiring pending)
+- **Status:** Accepted
 - **Date:** 2026-08-29
 
 ### Context
@@ -98,3 +98,38 @@ already does) is sufficient for structured output.
 4. (Pending) A full-flow test driving `ask`/`frame`/`review` with the fake
    chat-completions server, complementing the existing `FixtureAgentRuntime`
    journey in `tests/e2e/cli-flow.test.ts`.
+
+## ADR-0002: Remove the Codex role-runtime fallback; direct-only runtime
+
+- **Status:** Accepted
+- **Date:** 2026-08-30
+- **Supersedes:** ADR-0001's Codex fallback
+
+### Context
+
+ADR-0001 made `DirectModelRuntime` the default but kept `CodexAgentRuntime` as a
+fallback for when no model endpoint was discoverable. That fallback was the last
+consumer of the Codex strict-mode machinery (`codex-runtime.ts`,
+`codex-process.ts`, `strict-policy.ts`, `capability-probe.ts`, the `doctor`
+command, and the `FDE_GYM_CODEX_HOME` gate). It was also the source of the flaky
+release gate (`doctor --require-safe` intermittently failing with
+`ROLE_CANARY_LEAKED`).
+
+### Decision
+
+- **Remove the fallback.** Roles run only through `DirectModelRuntime`.
+- **Fail closed lazily.** When no endpoint is discoverable, the CLI resolves an
+  `UnconfiguredModelRuntime` whose `invoke()` throws the stable
+  `MODEL_ENDPOINT_REQUIRED` error. Read-only commands (`list`, `status`,
+  `profile`, `replay`, `install-skill`) never call `invoke()` and are unaffected.
+- **Retire the `doctor` release gate.** `npm run release:gate` becomes
+  `npm ci → typecheck → build → test`.
+- **Keep the learner-facing Codex Skill** (`install-skill`), which remains the
+  conversational front end.
+
+### Consequences
+
+- The canary-leak surface of the Codex path disappears structurally (no
+  subprocess, no MCP inventory, no `--ephemeral` session to audit).
+- The flaky `doctor:strict` gate is gone; the release gate is deterministic.
+- `FDE_GYM_CODEX_HOME` is no longer read by the product.

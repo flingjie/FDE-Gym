@@ -27,8 +27,6 @@ bounds.
 
 ## The Skill must
 
-- Run `fde-gym doctor` before the first strict run and STOP if
-  `safeForStrictMode` is not `true`.
 - Pass learner payloads as JSON on stdin (no shell interpolation).
 - Render only the returned envelope, verbatim, on success and on failure.
 

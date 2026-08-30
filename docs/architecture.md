@@ -17,12 +17,13 @@ Exactly three logical model roles exist (`AGENT_ROLES`):
 | `coach_evaluator` | `locale`, the public brief/proposal/pitch/challenge responses/graph/transcript/hint ledger, plus the **evaluator capsule** (for the active task: `hint` → hint ladders; `brief-validation` → brief+graph+transcript; `final-review` → brief+proposal+pitch+responses+graph+transcript+hint ledger). | The customer capsule (hidden facts, stakeholders, disclosure units), the learner's score/profile, ground truth. |
 
 Each role runs through the same `AgentRuntime` interface
-(`invoke(role, input, { freshContext, tools: "disabled", outputSchema })`). Two
-implementations exist: `DirectModelRuntime` (the default — one structured
-chat-completions call with **no tools at all**) and `CodexAgentRuntime` (the
-fallback — a fresh, ephemeral, non-resumed `codex exec` session with tools
-disabled via `--disable shell_tool --disable unified_exec`). See
-`docs/architecture-decisions.md` (ADR-0001).
+(`invoke(role, input, { freshContext, tools: "disabled", outputSchema })`). A
+single implementation exists: `DirectModelRuntime` — one structured
+chat-completions call with **no tools, no MCP, and no session**. When no model
+endpoint is discoverable, the CLI resolves an `UnconfiguredModelRuntime` that
+fails closed with `MODEL_ENDPOINT_REQUIRED` on the first role invocation
+(read-only commands are unaffected). See `docs/architecture-decisions.md`
+(ADR-0001).
 
 ## The three scenario partitions
 
@@ -90,32 +91,10 @@ the aggregate or a capsule. Three properties make it fail-closed:
 3. Handing a role the wrong capsule throws `FIREWALL_CAPSULE_FORBIDDEN`
    (customer↔evaluator capsules are structurally discriminated).
 
-`src/integrations/codex/codex-runtime.ts` re-validates the role input against
-`roleInputSchema(role)` before spawning any model, and re-validates raw output
+`src/integrations/direct/direct-runtime.ts` re-validates the role input against
+`roleInputSchema(role)` before calling the model, and re-validates raw output
 against the role's strict output schema after stripping prohibited keys and
 scanning for canaries (see `docs/security-model.md`).
-
-## The dedicated strict home + per-invocation preflight (Codex fallback)
-
-The **Codex fallback runtime** does **not** run against the user's normal
-`~/.codex` home. Both it and the `doctor` probe resolve a dedicated
-`FDE_GYM_CODEX_HOME` (absolute, existing, readable) through the shared
-`src/integrations/codex/strict-policy.ts` and:
-
-1. build the child environment from that dedicated home (`CODEX_HOME` is
-   overridden to the strict home, while parent secrets are still dropped by the
-   allowlist sanitizer);
-2. inspect the complete MCP inventory (`codex mcp list --json`) **before** the
-   first model invocation, and fail closed (`MCP_SERVERS_ENABLED` /
-   `MCP_INVENTORY_FAILED`) if any server is enabled;
-3. run every model invocation through one shared argument policy —
-   `exec --json --ephemeral --skip-git-repo-check --sandbox read-only --color
-   never --ignore-rules -C <workdir> --disable shell_tool --disable unified_exec
-   -m <model> -` — so the runtime and the probe never drift apart.
-
-The dedicated home exists only to carry the minimum provider/auth configuration.
-FDE Gym never copies, prints, or migrates provider credentials or the user's
-normal home, and it never names or disables a specific MCP server.
 
 ## The event-sourced store (hash chain + determinism)
 
@@ -149,9 +128,7 @@ verification suite asserts each one:
    plane's decisions.
 
 "**MVP v1 frozen**" means the specification and acceptance baseline are frozen,
-**not** that the product is release-ready. Release stays blocked until a live
-`doctor --require-safe` probe returns `safeForStrictMode: true` (see
-`docs/mvp-acceptance.md`).
+**not** that the product is release-ready (see `docs/mvp-acceptance.md`).
 
 Resume is just replay: `foldRunAggregate` rebuilds the full internal aggregate
 (phase, transcript, evidence graph, disclosure ledger, hints, brief, proposal,

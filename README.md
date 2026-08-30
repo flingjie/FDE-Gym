@@ -16,28 +16,8 @@ learner boundaries.
 - **Node.js ≥ 22** (`engines.node` is `>=22`).
 - A **model endpoint** for the direct runtime: either set `FDE_GYM_MODEL_BASE_URL`
   + `FDE_GYM_MODEL`, or rely on `~/.codex/config.toml` (see "Runtime route" below).
-- The **`codex` CLI** — for the learner-facing Skill, `doctor`, and the fallback
-  runtime — on `PATH`, at `~/.local/bin/codex`, or via `$CODEX_BIN`.
-
-### Dedicated strict home (`FDE_GYM_CODEX_HOME`) — fallback only
-
-The **Codex fallback runtime** (used only when no direct model endpoint is
-discoverable) requires a dedicated, **absolute** Codex home that holds the
-provider/auth configuration but **no enabled MCP server**. The direct runtime
-does **not** need it. Provision it once if you rely on the fallback:
-
-```bash
-export FDE_GYM_CODEX_HOME="$HOME/.codex-fde-gym"
-mkdir -p "$FDE_GYM_CODEX_HOME"
-CODEX_HOME="$FDE_GYM_CODEX_HOME" codex login
-CODEX_HOME="$FDE_GYM_CODEX_HOME" codex mcp list --json
-fde-gym doctor --require-safe
-```
-
-FDE Gym never copies, prints, or migrates your provider credentials or your
-normal `~/.codex`; you place only the minimum provider/auth configuration in
-the dedicated home yourself. Any **enabled** MCP entry in that home makes strict
-mode unsafe, so leave it free of MCP servers.
+- The **`codex` CLI** — for the learner-facing Skill — on `PATH`, at
+  `~/.local/bin/codex`, or via `$CODEX_BIN`.
 
 ## Install
 
@@ -52,9 +32,10 @@ Role execution (Customer / Evidence Tracker / Coach) uses a **direct
 chat-completions call** to the model endpoint by default, not the Codex CLI. The
 endpoint is resolved from `FDE_GYM_MODEL_BASE_URL` + `FDE_GYM_MODEL`, or
 otherwise read from `~/.codex/config.toml` (`model` + the custom provider's
-`base_url`). When no endpoint is discoverable, FDE Gym falls back to the Codex
-CLI (`codex exec`, gated by `doctor`). The Codex CLI remains the learner-facing
-front end (the repo-local Skill) and the target of `doctor`. See
+`base_url`). When no endpoint is discoverable, role-invoking commands fail
+closed with `MODEL_ENDPOINT_REQUIRED`; read-only commands (`list`, `status`,
+`profile`, `replay`, `install-skill`) still work. The Codex CLI remains the
+learner-facing front end (the repo-local Skill). See
 `docs/architecture-decisions.md` (ADR-0001).
 
 ## Install the Codex Skill (repo-local)
@@ -69,29 +50,11 @@ from the package root — never `~/.codex`). `.codex/` is git-ignored (generated
 not source). The Skill is a thin adapter: it turns learner intent into exactly
 one safe CLI command and renders only the returned learner-safe envelope.
 
-## Verify the target Codex client
+## Verify
 
 ```bash
-fde-gym doctor                    # diagnostic: print the full capability report
-fde-gym doctor --require-safe     # release gate: exit non-zero unless safeForStrictMode === true
-npm run release:gate              # npm ci → typecheck → build → test → doctor:strict, stops on first failure
+npm run release:gate              # npm ci → typecheck → build → test, stops on first failure
 ```
-
-`doctor` verifies the **Codex** path only — the learner-facing Skill and the
-fallback runtime. The direct runtime does not go through Codex and needs no
-`doctor` gate. It probes the real Codex CLI and reports a `safeForStrictMode`
-boolean plus seven gate booleans (`localCommandExecution`, `freshContext`,
-`distinctRoleSessions`, `structuredOutput`, `toolsDisabled`,
-`parentCanaryIsolated`, `childCanaryContained`). The probe first verifies the
-dedicated strict home and its MCP inventory — an unset/invalid
-`FDE_GYM_CODEX_HOME` or any enabled MCP server reports `STRICT_HOME_REQUIRED`,
-`STRICT_HOME_INVALID`, `MCP_SERVERS_ENABLED`, or `MCP_INVENTORY_FAILED` and
-fails the gate before any model invocation. A strict run must only start when
-`safeForStrictMode` is `true`; `doctor --require-safe` (and the `doctor:strict`
-npm script) turns that requirement into an executable gate that exits non-zero
-with the stable code `CODEX_STRICT_MODE_UNSAFE` when the probe does not pass.
-`npm run release:gate` runs the full chain and stops at the first failure — a
-failing live doctor is a failed release, never a warning.
 
 ## Determinism and release status
 
@@ -113,9 +76,7 @@ Four claims are precise and are what the verification suite asserts:
    plane.
 
 "**MVP v1 frozen**" means the specification and acceptance baseline are frozen,
-**not** that the product is release-ready. Release stays blocked until a live
-`doctor --require-safe` probe returns `safeForStrictMode: true` (see
-`docs/mvp-acceptance.md`).
+**not** that the product is release-ready (see `docs/mvp-acceptance.md`).
 
 ## Learner flow
 
@@ -174,10 +135,10 @@ Failures return `{ ok: false, code, message, nextActions }`. Common codes:
 | `INVALID_RETRY_FOCUS` | retry needs 2–3 focus summaries. |
 | `HINT_UNKNOWN_TOPIC` / `HINT_NO_DOWNGRADE` / `HINT_EXHAUSTED` | hint-ladder misuse. |
 | `LEAK_GUARD_TRIGGERED` | a role output failed the leak guard. |
-| `AGENT_TIMEOUT` / `AGENT_SPAWN_ERROR` / `AGENT_PROCESS_ERROR` / `AGENT_OUTPUT_*` / `AGENT_INPUT_INVALID` | role-runtime failures. |
+| `AGENT_TIMEOUT` / `AGENT_SPAWN_ERROR` / `AGENT_OUTPUT_*` / `AGENT_INPUT_INVALID` | role-runtime failures. |
 | `SCENARIO_NOT_FOUND` | unknown scenario id. |
 | `SKILL_SOURCE_MISSING` / `SKILL_EXISTS_UNRELATED` | Skill install problems. |
-| `CODEX_STRICT_MODE_UNSAFE` | `doctor --require-safe`: the live Codex probe did not return `safeForStrictMode: true` (missing/invalid strict home, or an enabled MCP server). |
+| `MODEL_ENDPOINT_REQUIRED` | no model endpoint is configured; set `FDE_GYM_MODEL_BASE_URL` + `FDE_GYM_MODEL` (or `~/.codex/config.toml`). |
 
 ## Security boundary (read this)
 

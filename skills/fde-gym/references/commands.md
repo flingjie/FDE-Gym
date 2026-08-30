@@ -13,7 +13,6 @@ never interpolated into a shell command line. `--json` is the default output;
 
 | Command | Flags | stdin | Returns |
 |---|---|---|---|
-| `doctor` | `--codex-bin <path>` | — | the Codex capability report (check `safeForStrictMode`) |
 | `list` | `--locale` | — | `data.runs[]` (runId, scenarioId, phase, locale) |
 | `start` | `--run-id --scenario --command-id --locale` | — | the public scenario + phase `DISCOVERY` |
 | `status` | `--run-id` | — | the run's phase summary + counters |

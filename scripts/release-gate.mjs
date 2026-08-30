@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 /**
- * FDE Gym release gate (Task 9).
+ * FDE Gym release gate.
  *
  * Runs the full verification chain sequentially and stops at the FIRST failure,
- * printing the exact failed command and its exit code. The live strict-doctor
- * probe (`npm run doctor:strict`) is a hard gate: a failing live doctor is a
- * failed release, never downgraded to a warning.
+ * printing the exact failed command and its exit code.
  */
 import { spawnSync } from "node:child_process";
 

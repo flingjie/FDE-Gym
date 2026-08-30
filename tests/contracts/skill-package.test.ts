@@ -81,11 +81,6 @@ describe("SKILL.md metadata", () => {
     }
   });
 
-  it("instructs doctor before the first strict run and to stop when isolation is unavailable", () => {
-    expect(skill).toContain("doctor");
-    expect(skill).toContain("safeForStrictMode");
-  });
-
   it("instructs stdin payloads and rendering only the returned envelope", () => {
     expect(skill).toMatch(/stdin/);
     expect(skill).toMatch(/ok/);

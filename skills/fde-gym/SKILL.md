@@ -31,21 +31,17 @@ surface is in references/commands.md):
 
 ## Rules
 
-1. Before the first strict run of a session, run `fde-gym doctor` and surface
-   its result. If the report's `safeForStrictMode` is not `true` (strict
-   isolation unavailable), STOP: tell the learner a safe run cannot start, and
-   do not run any other command.
-2. Map the learner's intent to exactly ONE command. Ask for confirmation before
+1. Map the learner's intent to exactly ONE command. Ask for confirmation before
    combining commands.
-3. Send every learner payload (question, brief, design, challenge response,
+2. Send every learner payload (question, brief, design, challenge response,
    pitch, focus summaries) as JSON on stdin. Never build a shell command line
    from learner text.
-4. Render ONLY the returned envelope (`ok: true` or `ok: false` and the fields
+3. Render ONLY the returned envelope (`ok: true` or `ok: false` and the fields
    it carries). Never invent a phase, a score, or facts outside that envelope.
-5. Never role-play the customer, coach, or tracker. Never extract evidence,
+4. Never role-play the customer, coach, or tracker. Never extract evidence,
    score work, or read or modify event files yourself — the CLI does all of
    that behind strict isolation.
-6. On `ok: false`, show its `code`, `message`, and `nextActions`, and offer the
+5. On `ok: false`, show its `code`, `message`, and `nextActions`, and offer the
    learner those next actions.
 
 ## References
