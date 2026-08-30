@@ -477,9 +477,6 @@ export interface HintArgs {
 export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<CliResult<HintData>> {
   const loaded = await loadRunState(ctx, args.runId);
   return guard(loaded.locale, async () => {
-    if (loaded.phase !== "DISCOVERY" && loaded.phase !== "PROBLEM_FRAMING") {
-      throw new InvalidPhaseCommandError("hint", loaded.phase);
-    }
     const scenario = resolveScenario(ctx, loaded.scenarioId, loaded.scenarioBundleDigest);
     const data = await executeCommandTransaction({
       runId: args.runId,
@@ -487,11 +484,17 @@ export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<
       request: { type: "hint", topic: args.topic, level: args.level ?? null },
       store: { baseDir: ctx.baseDir },
       prepare: async () => {
+        const recorded = await loadEvents(args.runId, { baseDir: ctx.baseDir });
+        const events = recorded.map(stripEnvelope);
+        const aggregate = foldRunAggregate(events, loaded.scenarioId, loaded.locale);
+        if (aggregate.phase !== "DISCOVERY" && aggregate.phase !== "PROBLEM_FRAMING") {
+          throw new InvalidPhaseCommandError("hint", aggregate.phase);
+        }
         const grant = requestHint(
           args.topic,
           args.level ?? null,
           scenario.evaluator.hintLadders,
-          loaded.aggregate.grantedHints,
+          aggregate.grantedHints,
         );
         const event: RunEvent = {
           type: "hint.granted",
@@ -507,7 +510,13 @@ export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<
         };
       },
     });
-    return ok(args.runId, loaded.phase, loaded.locale, data);
+    const recordedAfter = await loadEvents(args.runId, { baseDir: ctx.baseDir });
+    const phase = foldRunAggregate(
+      recordedAfter.map(stripEnvelope),
+      loaded.scenarioId,
+      loaded.locale,
+    ).phase;
+    return ok(args.runId, phase, loaded.locale, data);
   });
 }
 
