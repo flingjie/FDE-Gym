@@ -210,6 +210,17 @@ const ERROR_TABLE: LocalizedError[] = [
     },
   },
   {
+    code: "HINT_INVALID_LEVEL",
+    "zh-CN": {
+      message: "提示级别必须是 1、2 或 3。",
+      nextActions: ["省略 --level 以自动升级，或传入 1、2 或 3。"],
+    },
+    "en-US": {
+      message: "Hint level must be 1, 2, or 3.",
+      nextActions: ["Omit --level to auto-escalate, or pass 1, 2, or 3."],
+    },
+  },
+  {
     code: "HINT_UNKNOWN_TOPIC",
     "zh-CN": {
       message: "该主题没有提示阶梯。",

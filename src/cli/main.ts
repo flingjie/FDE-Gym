@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 
+import { parseHintLevel } from "./hint-level.js";
 import { installSkillCommand } from "../integrations/codex/install-skill.js";
 import { DirectModelRuntime } from "../integrations/direct/direct-runtime.js";
 import { resolveDirectModelConfig } from "../integrations/direct/config.js";
@@ -231,10 +232,12 @@ async function main(): Promise<void> {
         result = { ok: false, code: "MISSING_ARGUMENT", ...localize("MISSING_ARGUMENT", locale) };
         break;
       }
-      const level = flags.level === "1" || flags.level === "2" || flags.level === "3"
-        ? (Number(flags.level) as 1 | 2 | 3)
-        : undefined;
-      result = await hintCommand(ctx, { runId, topic, level, commandId });
+      const parsedLevel = parseHintLevel(flags.level);
+      if (!parsedLevel.ok) {
+        result = { ok: false, code: "HINT_INVALID_LEVEL", ...localize("HINT_INVALID_LEVEL", locale) };
+        break;
+      }
+      result = await hintCommand(ctx, { runId, topic, level: parsedLevel.level, commandId });
       break;
     }
     case "clarify": {

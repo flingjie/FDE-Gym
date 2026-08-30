@@ -210,6 +210,9 @@ describe("Codex Skill smoke", () => {
     expect(localize("MODEL_ENDPOINT_REQUIRED", "en-US").nextActions.join(" ")).toContain(
       "FDE_GYM_MODEL_BASE_URL",
     );
+    expect(localize("HINT_INVALID_LEVEL", "zh-CN").message).not.toBe(
+      localize("HINT_INVALID_LEVEL", "en-US").message,
+    );
   });
 
   it("produces locale-correct envelopes through the command layer (FixtureAgentRuntime)", async () => {
