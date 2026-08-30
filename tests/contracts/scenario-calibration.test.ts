@@ -38,7 +38,7 @@ import type {
 /**
  * Task 13 — cross-scenario calibration suite.
  *
- * For EACH of the three MVP scenarios this asserts the complete content
+ * For EACH of the five agent scenarios this asserts the complete content
  * contract and a deterministic fixture path:
  *   - >= 3 stakeholders;
  *   - every discovery rubric dimension (the 8 canonical categories) represented
@@ -61,7 +61,13 @@ import type {
 
 const text = (zh: string, en: string): LocalizedText => ({ "zh-CN": zh, "en-US": en });
 
-const SCENARIOS = ["manufacturing-alert-triage", "data-migration", "support-automation"] as const;
+const SCENARIOS = [
+  "enterprise-knowledge-agent",
+  "customer-support-agent",
+  "data-analysis-agent",
+  "document-review-agent",
+  "software-engineering-agent",
+] as const;
 type ScenarioId = (typeof SCENARIOS)[number];
 
 /** The 8 canonical discovery dimensions the reference scenario defines. */
@@ -78,9 +84,11 @@ const DISCOVERY_DIMENSIONS = [
 
 /** Expected exact `final` score for each scenario's fixed fixture journey. */
 const EXPECTED_FINAL: Record<ScenarioId, number> = {
-  "manufacturing-alert-triage": 81,
-  "data-migration": 80,
-  "support-automation": 80,
+  "enterprise-knowledge-agent": 80,
+  "customer-support-agent": 80,
+  "data-analysis-agent": 80,
+  "document-review-agent": 80,
+  "software-engineering-agent": 80,
 };
 
 function sourcePath(id: ScenarioId): string {
@@ -111,82 +119,170 @@ interface AskPlan {
 }
 
 const ASK_PLANS: Record<ScenarioId, AskPlan[]> = {
-  "manufacturing-alert-triage": [
+  "enterprise-knowledge-agent": [
     {
-      question: "每天产生多少条设备告警？",
-      stakeholderId: "vp-operations",
+      question: "员工提问后，代理按什么顺序检索？答案常从哪来？",
+      stakeholderId: "knowledge-lead",
       duId: "du-001",
-      reply: text("工厂每天产生约12,000条告警。", "The factory produces about 12,000 alerts a day."),
+      reply: text(
+        "提问之后，代理会先走文档索引，再核对 ACL 目录。大约六成回答落在过期 wiki 上。",
+        "Once someone asks, the agent queries the document index first, then checks the ACL directory. Roughly 60 percent of answers come from the stale wiki.",
+      ),
       nodeId: "ev-n1",
-      nodeClaim: text("每天产生大量设备告警", "A large volume of daily equipment alerts"),
+      nodeClaim: text("检索先索引再核 ACL，多数答案来自过期 wiki", "Retrieval hits index then ACL; most answers come from the stale wiki"),
     },
     {
-      question: "工程师在低价值告警上花了多少时间？",
-      stakeholderId: "technical-lead",
-      duId: "du-005",
-      reply: text("工程师花约40%的时间处理低价值告警。", "Engineers spend about 40% of time on low-value alerts."),
-      nodeId: "ev-n2",
-      nodeClaim: text("工程师时间被低价值告警占用", "Engineer time is consumed by low-value alerts"),
-    },
-    {
-      question: "如果AI误报率过高会怎样？",
-      stakeholderId: "project-manager",
-      duId: "du-017",
-      reply: text("高误报会让工程师忽略所有告警。", "A high false-positive rate makes engineers ignore all alerts."),
-      nodeId: "ev-n3",
-      nodeClaim: text("高误报率带来安全风险", "A high false-positive rate creates safety risk"),
-    },
-  ],
-  "data-migration": [
-    {
-      question: "迁移涉及多少数据和哪些表？",
-      stakeholderId: "project-manager",
-      duId: "du-001",
-      reply: text("迁移涉及约3,200万条订单记录和15张表。", "The migration covers about 32 million order records across 15 tables."),
-      nodeId: "ev-n1",
-      nodeClaim: text("迁移涉及大量订单数据", "The migration involves a large volume of order data"),
-    },
-    {
-      question: "数据质量有哪些问题？",
-      stakeholderId: "technical-lead",
+      question: "员工要问几个人才能拿到业务答案？越权命中怎样？",
+      stakeholderId: "frontline-user",
       duId: "du-003",
-      reply: text("抽样发现约12%的记录有字段问题。", "Sampling found about 12% of records have field issues."),
+      reply: text(
+        "一线经常要连续问好几位同事才拿得到业务答案，越权命中大概在百分之八。",
+        "Frontline staff often ask several colleagues in a row before they get a business answer, and unauthorized hits sit around eight percent.",
+      ),
       nodeId: "ev-n2",
-      nodeClaim: text("数据存在字段缺失与不一致", "Data has missing and inconsistent fields"),
+      nodeClaim: text("问多人才能拿到答案，存在越权命中", "Several people must be asked; unauthorized hits occur"),
     },
     {
-      question: "如果回滚失败会发生什么？",
-      stakeholderId: "data-owner",
+      question: "不确定时，代理会怎样处理引用？",
+      stakeholderId: "iam-security",
       duId: "du-015",
-      reply: text("回滚失败会导致新旧系统同时写入。", "A failed rollback makes old and new systems write simultaneously."),
+      reply: text("一旦没把握，代理就会捏造出处。", "If it is unsure, the agent invents citations."),
       nodeId: "ev-n3",
-      nodeClaim: text("回滚失败会造成数据分叉", "A failed rollback causes data divergence"),
+      nodeClaim: text("没把握时会捏造出处", "Uncertainty leads to invented citations"),
     },
   ],
-  "support-automation": [
+  "customer-support-agent": [
     {
-      question: "每月处理多少工单，多少是重复的？",
+      question: "代理怎么调工具？每月多少工单能闭环？",
       stakeholderId: "support-director",
       duId: "du-001",
-      reply: text("每月约18万张工单，55%是重复问题。", "About 180,000 tickets a month, 55% repetitive."),
+      reply: text(
+        "工具调用顺序是先 CRM、再订单接口。每月大概十八万张工单，大约五成五能在工具闭环里结掉。",
+        "Tool order is CRM first, then the order API. Volume is roughly 180 thousand tickets a month, and about fifty-five percent can close inside a tool loop.",
+      ),
       nodeId: "ev-n1",
-      nodeClaim: text("支持中心工单量大且重复度高", "The support center has high ticket volume and repeat rate"),
+      nodeClaim: text("先 CRM 再订单接口，大量工单可工具闭环", "CRM then order API; a large share can close in a tool loop"),
     },
     {
-      question: "人工成本占多大比例？",
-      stakeholderId: "compliance-officer",
-      duId: "du-003",
-      reply: text("人工成本占总支持预算的72%。", "Labor is 72% of the support budget."),
-      nodeId: "ev-n2",
-      nodeClaim: text("人工成本主导支持预算", "Labor dominates the support budget"),
-    },
-    {
-      question: "自动化能节省多少成本？",
+      question: "人工成本占支持预算多少？一线流失怎样？",
       stakeholderId: "cfo",
-      duId: "du-008",
-      reply: text("覆盖40%工单每年可节省约210万美元。", "Covering 40% of tickets saves about $2.1M a year."),
+      duId: "du-003",
+      reply: text(
+        "劳动力大约占支持预算的七成二，一线年流失大概百分之三十八。",
+        "Labor is roughly seventy-two percent of the support budget, and frontline annual attrition is around thirty-eight percent.",
+      ),
+      nodeId: "ev-n2",
+      nodeClaim: text("人工成本主导预算，一线流失高", "Labor dominates the budget; frontline attrition is high"),
+    },
+    {
+      question: "不确定时会不会乱调退款接口？",
+      stakeholderId: "compliance-officer",
+      duId: "du-015",
+      reply: text(
+        "没把握时会编造退款口径，并且真去打退款接口。",
+        "When it lacks certainty it invents a refund policy and actually invokes the refund API.",
+      ),
       nodeId: "ev-n3",
-      nodeClaim: text("自动化可带来可量化节省", "Automation brings quantifiable savings"),
+      nodeClaim: text("不确定时会编造退款口径并真去调用", "Uncertainty invents refund policy and fires the refund API"),
+    },
+  ],
+  "data-analysis-agent": [
+    {
+      question: "业务怎么问数？代理怎么生成 SQL？",
+      stakeholderId: "analytics-lead",
+      duId: "du-001",
+      reply: text(
+        "业务用自然语言对数仓提问，代理会先打 BI 语义层，再写出只读 SQL。",
+        "People on the business side query the warehouse in natural language. The agent goes to the BI semantic layer first, then writes read-only SQL.",
+      ),
+      nodeId: "ev-n1",
+      nodeClaim: text("自然语言问数，先语义层再只读 SQL", "Natural-language asks hit the semantic layer, then read-only SQL"),
+    },
+    {
+      question: "错误查询出过什么泄漏？",
+      stakeholderId: "privacy-officer",
+      duId: "du-003",
+      reply: text(
+        "曾经有一次坏查询打出大约两万四千行，里面带着手机号。",
+        "A single bad query once dumped around twenty-four thousand rows that included mobile numbers.",
+      ),
+      nodeId: "ev-n2",
+      nodeClaim: text("坏查询曾打出带手机号的明细", "A bad query once dumped detail rows with mobile numbers"),
+    },
+    {
+      question: "JOIN 写错会怎样？",
+      stakeholderId: "platform-dba",
+      duId: "du-015",
+      reply: text(
+        "JOIN 写错时，会把本不该关联的用户表拼进来。",
+        "A mistaken JOIN can stitch in a user table that was never supposed to be joined.",
+      ),
+      nodeId: "ev-n3",
+      nodeClaim: text("错误 JOIN 会拼进不该关联的用户表", "A wrong JOIN stitches in a user table that should not join"),
+    },
+  ],
+  "document-review-agent": [
+    {
+      question: "文档进来后怎么处理到条款抽取？",
+      stakeholderId: "doc-ops",
+      duId: "du-001",
+      reply: text(
+        "文件进来后会先解析，或者送进 OCR/视觉模型，然后才抽条款。",
+        "Once a file arrives it is parsed, or sent through OCR/VLM, and only then does clause extraction run.",
+      ),
+      nodeId: "ev-n1",
+      nodeClaim: text("进线后先解析或 OCR，再抽条款", "Inbound files are parsed or OCR'd, then clauses are extracted"),
+    },
+    {
+      question: "审核积压对法务和业务有什么影响？抽查漏条款怎样？",
+      stakeholderId: "business-owner",
+      duId: "du-003",
+      reply: text(
+        "律师和业务都卡在审核队列上，抽查大概漏掉百分之九的条款。",
+        "Both counsel and the business sit waiting on review, and spot checks miss roughly nine percent of clauses.",
+      ),
+      nodeId: "ev-n2",
+      nodeClaim: text("法务与业务都在等审核，抽查会漏条款", "Counsel and business wait on review; spot checks miss clauses"),
+    },
+    {
+      question: "代理会漏掉关键条款吗？",
+      stakeholderId: "counsel",
+      duId: "du-015",
+      reply: text("关键条款经常被漏抽。", "Material clauses get skipped."),
+      nodeId: "ev-n3",
+      nodeClaim: text("关键条款会被漏抽", "Material clauses get skipped in extraction"),
+    },
+  ],
+  "software-engineering-agent": [
+    {
+      question: "代理怎么改代码并开 PR？",
+      stakeholderId: "eng-manager",
+      duId: "du-001",
+      reply: text(
+        "代理在隔离沙箱里拉取 Git 分支、改代码、跑测试，然后通过 PR 接口开评审。",
+        "Inside an isolated sandbox the agent checks out a Git branch, edits code, runs tests, and then opens a review through the PR API.",
+      ),
+      nodeId: "ev-n1",
+      nodeClaim: text("沙箱内改代码跑测试再经接口开 PR", "Sandbox edit-test-then-open-PR through the API"),
+    },
+    {
+      question: "绿测 PR 被 revert 的比例怎样？",
+      stakeholderId: "qa-lead",
+      duId: "du-003",
+      reply: text(
+        "绿测 PR 里大约有一成五后来被 revert。",
+        "Roughly fifteen percent of PRs that passed tests later get reverted.",
+      ),
+      nodeId: "ev-n2",
+      nodeClaim: text("一部分绿测 PR 随后被撤回", "A share of green-test PRs later get reverted"),
+    },
+    {
+      question: "曾经有没有把秘密写进 PR？",
+      stakeholderId: "platform-security",
+      duId: "du-016",
+      reply: text("发生过一次把 token 写进 PR 描述的事故。", "There was an incident where a token was written into a PR description."),
+      nodeId: "ev-n3",
+      nodeClaim: text("token 曾被写进 PR 描述", "A token was once written into a PR description"),
     },
   ],
 };
