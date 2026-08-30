@@ -327,7 +327,7 @@ git commit -m "chore: retire the doctor release gate"
 ### Task 4: Update the living docs
 
 **Files:**
-- Modify: `docs/architecture.md`, `docs/security-model.md`, `README.md`, `docs/architecture-decisions.md`, `skills/fde-gym/SKILL.md`, `skills/fde-gym/references/commands.md`, `skills/fde-gym/references/security-boundaries.md`
+- Modify: `docs/architecture.md`, `docs/security-model.md`, `README.md`, `docs/architecture-decisions.md`, `skills/fde-gym/SKILL.md`, `skills/fde-gym/references/commands.md`, `skills/fde-gym/references/security-boundaries.md`, `tests/contracts/skill-package.test.ts`
 
 - [ ] **Step 1: `docs/architecture.md`**
 
@@ -475,6 +475,8 @@ release gate (`doctor --require-safe` intermittently failing with
 - Run `fde-gym doctor` before the first strict run and STOP if
   `safeForStrictMode` is not `true`.
 ```
+
+`tests/contracts/skill-package.test.ts` — delete the `it("instructs doctor before the first strict run and to stop when isolation is unavailable", ...)` test (lines 84–87), which asserts the now-removed doctor instruction; the Skill no longer references `doctor` or `safeForStrictMode`.
 
 - [ ] **Step 6: Verify and commit**
 
