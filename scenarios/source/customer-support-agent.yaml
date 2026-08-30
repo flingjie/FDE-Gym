@@ -461,14 +461,14 @@ evaluator:
       topic: root-cause
       hints:
         "1":
-          "zh-CN": "现网卡住的是规则加 FAQ，还是根本调不到订单和退款接口？"
-          "en-US": "Is production stuck on rules plus FAQ, or on not being able to call order and refund APIs at all?"
+          "zh-CN": "现有自动化到底卡在规则、语言，还是工具？"
+          "en-US": "Is current automation stuck on rules, language, or tools?"
         "2":
-          "zh-CN": "去找现网到底能不能调订单或退款接口，以及换说法之后代理会不会改口编政策。"
-          "en-US": "Look for whether production can call order or refund APIs, and whether the agent fabricates policy after a rephrase or a missing tool result."
+          "zh-CN": "去找现网技术栈、工具可达范围，以及换说法或缺结果时的表现。"
+          "en-US": "Look for the current stack, tool reachability, and paraphrase or missing-result behavior."
         "3":
-          "zh-CN": "现网还是规则引擎加 FAQ 吗？能不能调用订单或退款接口？用户换个说法会怎样？没有工具结果时代理会做什么？"
-          "en-US": "Is production still a rules engine plus FAQ? Can it call the order or refund APIs? What happens when a user rephrases, and what does the agent do without a tool result?"
+          "zh-CN": "现网实际靠什么在跑？工具现在能调到哪一层？用户换个说法或没有工具结果时会怎样？"
+          "en-US": "What does production actually run on, how far do tools currently reach, and what happens when a user rephrases or a tool result is missing?"
     - id: hl-business-impact
       topic: business-impact
       hints:
@@ -521,14 +521,14 @@ evaluator:
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "代理胡编退款政策并真去调接口，和高峰工具超时，哪种更可能把支持中心打穿？"
-          "en-US": "Which failure punches through first: the agent inventing a refund policy and actually calling the API, or tools timing out at peak?"
+          "zh-CN": "做错动作和超时把队列打爆，哪种更可能把支持中心打穿？"
+          "en-US": "Which failure punches through first: a wrong action, or a timeout that collapses the queue?"
         "2":
-          "zh-CN": "去找不确定时会不会幻觉政策并调用退款接口，以及高峰超时后人工队列会怎样。"
-          "en-US": "Look for hallucination plus a real refund-API call under uncertainty, and what happens to the human queue if tools time out at peak."
+          "zh-CN": "去找不确定时的胡编行为，以及高峰工具超时时人工队列会怎样。"
+          "en-US": "Look for fabrication under uncertainty and what happens to the human queue if tools time out at peak."
         "3":
-          "zh-CN": "模型没把握时会不会编造退款政策并调用退款接口？高峰工具一旦超时，人工侧会看到什么？"
-          "en-US": "When unsure, does the model invent a refund policy and call the refund API, and what does the human side see if tools time out at peak?"
+          "zh-CN": "模型没把握时会怎么处理退款？高峰工具一旦超时，人工侧会看到什么？"
+          "en-US": "When the model is unsure, how does it handle refunds? What does the human side see if tools time out at peak?"
   passGates:
     - id: pg-001
       description:
