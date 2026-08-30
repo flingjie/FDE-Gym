@@ -1,6 +1,11 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 import type { ScenarioAuthoring } from "../../src/scenarios/schema";
+import { ScenarioAuthoringSchema } from "../../src/scenarios/schema";
 import {
   collectHintDisciplineIssues,
   numericTokens,
@@ -265,4 +270,21 @@ describe("collectHintDisciplineIssues", () => {
       ),
     ).toBe(false);
   });
+});
+
+const SOURCES = [
+  "support-automation",
+  "manufacturing-alert-triage",
+  "data-migration",
+  "export-freight-forwarding",
+] as const;
+
+describe("production source ladders", () => {
+  for (const id of SOURCES) {
+    it(`${id} has no hint-discipline issues`, () => {
+      const raw = readFileSync(join(process.cwd(), "scenarios", "source", `${id}.yaml`), "utf8");
+      const doc = ScenarioAuthoringSchema.parse(parse(raw));
+      expect(collectHintDisciplineIssues(doc)).toEqual([]);
+    });
+  }
 });

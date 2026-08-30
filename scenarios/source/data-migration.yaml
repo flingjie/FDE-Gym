@@ -439,98 +439,98 @@ evaluator:
       topic: workflow
       hints:
         "1":
-          "zh-CN": "思考迁移的起点：迁移涉及哪些数据？由谁负责？"
-          "en-US": "Think about the migration's starting point: which data is involved, and who owns it?"
+          "zh-CN": "在谈迁移方案之前，数据现在有多大、又是谁在管？"
+          "en-US": "Before proposing a migration, how large is the data and who actually owns it?"
         "2":
-          "zh-CN": "关注数据规模与表结构，以及是否存在单一的负责人。"
-          "en-US": "Focus on data volume and table structure, and whether there is a single owner."
+          "zh-CN": "去找记录规模、表之间的关联，以及是否存在单一端到端负责人。"
+          "en-US": "Look for record volume, how tables relate, and whether there is a single end-to-end owner."
         "3":
-          "zh-CN": "关键发现：约3,200万条记录、15张表，且数据所有权分散在三个部门。"
-          "en-US": "Key discovery: about 32 million records across 15 tables, with ownership split across three departments."
+          "zh-CN": "迁移覆盖大约多少记录、多少张相互关联的表？订单、客户、库存数据分别归谁，有没有单一负责人？"
+          "en-US": "What volume of records and how many interrelated tables are in scope, and who owns order, customer, and inventory data — is there a single owner?"
     - id: hl-pain
       topic: pain
       hints:
         "1":
-          "zh-CN": "考虑迁移准备中暴露了哪些数据质量问题？"
-          "en-US": "Consider which data-quality problems have surfaced during preparation?"
+          "zh-CN": "迁移准备里最疼的是数据质量，还是手工核对的负担？"
+          "en-US": "Is preparation hurting most on data quality, or on manual reconciliation load?"
         "2":
-          "zh-CN": "团队在手工核对上花了多少时间？"
-          "en-US": "How much time does the team spend on manual reconciliation?"
+          "zh-CN": "去找抽样里的字段缺失或不一致占比，以及每周手工核对占用的时间。"
+          "en-US": "Look for the share of sampled records with missing or inconsistent fields, and how much weekly time goes to manual recon."
         "3":
-          "zh-CN": "关键发现：约12%的记录存在字段问题，团队每周手工核对两天。"
-          "en-US": "Key discovery: about 12% of records have field issues, and the team reconciles manually two days a week."
+          "zh-CN": "抽样验证里有多少记录字段缺失或格式不一致？团队每周要花多少时间手工核对，还在不停发现新异常吗？"
+          "en-US": "What share of sampled records have missing fields or inconsistent formats, and how much of the week is spent reconciling by hand while new anomalies keep appearing?"
     - id: hl-root-cause
       topic: root-cause
       hints:
         "1":
-          "zh-CN": "数据质量问题的根本原因是什么？"
-          "en-US": "What is the root cause of the data-quality problems?"
+          "zh-CN": "数据质量问题到底卡在系统年代、应急改过，还是没人说得清字段？"
+          "en-US": "Is the quality problem stuck on system age, undocumented patches, or missing field definitions?"
         "2":
-          "zh-CN": "遗留系统有多老？是否缺少数据字典？"
-          "en-US": "How old is the legacy system? Is there a missing data dictionary?"
+          "zh-CN": "去找遗留库的年龄与未记录修改，以及数据字典是否存在、字段含义靠谁记。"
+          "en-US": "Look for how old the legacy database is, how many unrecorded emergency changes it took, and whether a data dictionary exists."
         "3":
-          "zh-CN": "关键发现：18年历史的系统、7次未记录的修改、缺少数据字典且依赖已离职工程师的记忆。"
-          "en-US": "Key discovery: an 18-year-old system, 7 undocumented changes, no data dictionary, and reliance on departed engineers' memory."
+          "zh-CN": "遗留库用了多久、中间有过多少次没记下的应急修改？有没有数据字典，字段含义现在靠谁记得住？"
+          "en-US": "How old is the legacy database, how many undocumented emergency changes has it seen, and is there a data dictionary — or do field meanings live in a few people's heads?"
     - id: hl-business-impact
       topic: business-impact
       hints:
         "1":
-          "zh-CN": "迁移失败会带来哪些业务影响？"
-          "en-US": "What business impact would a failed migration cause?"
+          "zh-CN": "迁移失败打在每天营收上，还是打在监管期限上？"
+          "en-US": "Does a failed migration hit daily revenue, the regulatory deadline, or both?"
         "2":
-          "zh-CN": "是否有监管期限带来的合规压力？"
-          "en-US": "Is there compliance pressure from a regulatory deadline?"
+          "zh-CN": "去找订单中断的日损失量级，以及可审计性改造的监管截止压力。"
+          "en-US": "Look for daily revenue at risk if orders stop, and the compliance deadline for auditable data."
         "3":
-          "zh-CN": "关键发现：停机每天损失约40万美元，监管要求下个财季前完成可审计性改造。"
-          "en-US": "Key discovery: downtime costs about $400,000 a day, and regulators require auditability by next fiscal quarter."
+          "zh-CN": "如果订单处理因迁移中断，一天大概损失多少营收？监管对可审计数据的期限是什么，逾期会怎样？"
+          "en-US": "What daily revenue is lost if order processing stops, and by when must data be auditable — what happens if that date is missed?"
     - id: hl-constraints
       topic: constraints
       hints:
         "1":
-          "zh-CN": "迁移在时间和预算上有什么限制？"
-          "en-US": "What time and budget constraints does the migration face?"
+          "zh-CN": "迁移在窗口长短、能停机的时段，以及能请多少人上，分别被什么拦住？"
+          "en-US": "What stops the migration on calendar window, when it may run, and how many people can be hired?"
         "2":
-          "zh-CN": "迁移必须在什么时间窗口进行？"
-          "en-US": "In what time window must the migration run?"
+          "zh-CN": "去找上线窗口长度、必须在何时切，以及工具和合同人力的预算上限。"
+          "en-US": "Look for go-live window length, the allowed cutover hours, and the budget cap on tools and contract staff."
         "3":
-          "zh-CN": "关键发现：只有8周窗口，夜间迁移，预算仅够一套工具和两名合同工程师。"
-          "en-US": "Key discovery: only an 8-week window, night migration, and budget for one tool and two contract engineers."
+          "zh-CN": "上线窗口还剩多久，迁移必须排在什么时段以压低停机？预算够几套工具、几名合同工程师，能不能请外部治理专家？"
+          "en-US": "How long is the go-live window, when must cutover run to keep downtime down, and does the budget cover only one tool and a handful of contractors — with no outside governance help?"
     - id: hl-success
       topic: success-measures
       hints:
         "1":
-          "zh-CN": "管理层希望达到什么具体指标？"
-          "en-US": "What specific metrics does management hope to achieve?"
+          "zh-CN": "管理层用完整性、回滚速度还是查询性能来宣布成功？"
+          "en-US": "Will leadership call this a win on integrity, rollback speed, or query performance?"
         "2":
-          "zh-CN": "切换后的完整性校验通过率和回滚时间要求是多少？"
-          "en-US": "What integrity pass rate and rollback time are required after cutover?"
+          "zh-CN": "去找切换后完整性通过率、回滚时限，以及查询延迟的改善目标。"
+          "en-US": "Look for the post-cutover integrity pass rate, the rollback time limit, and the query-latency target."
         "3":
-          "zh-CN": "关键发现：99.99%完整性校验通过率、2小时内回滚、查询延迟降低60%。"
-          "en-US": "Key discovery: 99.99% integrity pass rate, rollback under 2 hours, and 60% query-latency reduction."
+          "zh-CN": "切换后多少记录要通过完整性校验才算成功？回滚必须在多长时间内完成？查询延迟要改善到什么程度？"
+          "en-US": "What share of records must pass integrity checks after cutover, how fast must rollback complete, and how much should order-query latency fall?"
     - id: hl-trust
       topic: trust
       hints:
         "1":
-          "zh-CN": "项目团队内部是否存在公开的分歧？"
-          "en-US": "Is there open disagreement within the project team?"
+          "zh-CN": "项目经理、技术负责人和数据负责人，对同一条上线线分别怕什么、坚持什么？"
+          "en-US": "What do the project manager, technical lead, and data owner each fear or insist on for the same go-live?"
         "2":
-          "zh-CN": "项目经理和技术负责人对上线时间各持什么立场？"
-          "en-US": "What positions do the PM and technical lead take on the go-live date?"
+          "zh-CN": "去找对原定上线窗口的公开争执，以及数据负责人是否在关键问题上含糊其辞。"
+          "en-US": "Look for open conflict over the original go-live window, and whether the data owner hedges on critical issues."
         "3":
-          "zh-CN": "关键发现：项目经理坚持8周上线，技术负责人认为数据质量不足以安全切换，数据负责人回避责任。"
-          "en-US": "Key discovery: the PM insists on 8 weeks, the technical lead says data quality is unsafe for cutover, and the data owner evades responsibility."
+          "zh-CN": "项目经理还在不在坚持原定上线？技术负责人是否认为数据质量还不够安全？数据负责人会不会回避关键问题？"
+          "en-US": "Does the project manager still insist on the original go-live, does the technical lead believe quality is unsafe for cutover, and does the data owner dodge hard questions?"
     - id: hl-failure-modes
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "如果迁移或回滚失败，最坏情况是什么？"
-          "en-US": "If the migration or rollback fails, what is the worst case?"
+          "zh-CN": "回滚来不及和字段被静默截断，哪种更可能把数据打穿？"
+          "en-US": "Which failure punches through first: a rollback that is too slow, or fields silently truncated?"
         "2":
-          "zh-CN": "新旧系统同时写入会带来什么后果？"
-          "en-US": "What happens if old and new systems write simultaneously?"
+          "zh-CN": "去找回滚超时后的双写分叉，以及超长字段静默截断且现有校验不报警。"
+          "en-US": "Look for dual-write divergence after a late rollback, and silent truncation of over-length fields that current validation will not flag."
         "3":
-          "zh-CN": "关键发现：回滚超时会导致数据分叉，字段超长会被静默截断且校验不报错。"
-          "en-US": "Key discovery: rollback timeout causes data divergence, and over-length fields are silently truncated without validation errors."
+          "zh-CN": "回滚如果不能及时生效，新旧系统同时写入会怎样？迁移中超长字段会不会被静默截断、现有校验会不会报错？"
+          "en-US": "If rollback does not take effect in time, what happens when old and new systems write together, and can over-length fields be truncated silently without validation errors?"
   passGates:
     - id: pg-001
       description:

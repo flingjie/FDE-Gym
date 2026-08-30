@@ -438,98 +438,98 @@ evaluator:
       topic: workflow
       hints:
         "1":
-          "zh-CN": "思考当前告警处理的起点：谁收到告警？他们如何处理？"
-          "en-US": "Think about the starting point of current alert handling: who receives alerts? How do they handle them?"
+          "zh-CN": "在谈 AI 分流之前，告警现在是怎么产生、又是怎么被工程师处理的？"
+          "en-US": "Before proposing AI triage, how are alerts currently generated and handled by engineers?"
         "2":
-          "zh-CN": "关注数据量：每天有多少告警？其中多少是真正需要关注的？"
-          "en-US": "Focus on data volume: how many alerts per day? How many truly require attention?"
+          "zh-CN": "去找日告警体量、低价值误报占比，以及有没有优先级排序。"
+          "en-US": "Look for daily alert volume, the share of low-value false positives, and whether there is any prioritization."
         "3":
-          "zh-CN": "关键发现：80%的告警是低价值的，工程师花了太多时间在误报上"
-          "en-US": "Key discovery: 80% of alerts are low-value; engineers spend too much time on false positives"
+          "zh-CN": "每天大概产生多少条告警？其中多少是低价值或已知问题？真正需要关注的有多少？现在有没有按优先级处理？"
+          "en-US": "What is daily alert volume, what share is low-value or already known, how many truly need attention, and are alerts prioritized today?"
     - id: hl-pain
       topic: pain
       hints:
         "1":
-          "zh-CN": "考虑工程师的时间分配：他们花多少时间在告警上？"
-          "en-US": "Consider engineer time allocation: how much time do they spend on alerts?"
+          "zh-CN": "工程师现在最疼的是时间被占、响应慢，还是停机损失？"
+          "en-US": "Is the plant hurting most on engineer time, slow response, or downtime cost?"
         "2":
-          "zh-CN": "思考时间浪费的后果：响应延迟如何影响生产？"
-          "en-US": "Consider the consequences of time waste: how does delayed response affect production?"
+          "zh-CN": "去找低价值告警占用工时、单条响应时长，以及延迟带来的停机代价。"
+          "en-US": "Look for time spent on low-value alerts, time-to-respond per alert, and downtime losses from delay."
         "3":
-          "zh-CN": "关键发现：每天浪费40%时间，导致200万美元的年度停机损失"
-          "en-US": "Key discovery: 40% of time wasted daily, leading to $2 million annual downtime losses"
+          "zh-CN": "工程师有多少工作时间耗在低价值告警上？处理一条大概要多久？响应延迟造成过怎样的停机损失？"
+          "en-US": "What share of engineer time goes to low-value alerts, how long does one response take, and what downtime losses have delayed responses caused?"
     - id: hl-root-cause
       topic: root-cause
       hints:
         "1":
-          "zh-CN": "现有解决方案是什么？它是如何工作的？"
-          "en-US": "What is the current solution? How does it work?"
+          "zh-CN": "现有告警规则到底卡在过时、还是认不出正常波动？"
+          "en-US": "Is the current rule system stuck on age, or on not recognizing normal process variation?"
         "2":
-          "zh-CN": "规则系统几年没更新了？它无法适应哪些变化？"
-          "en-US": "How many years since the rule system was last updated? What changes can't it adapt to?"
+          "zh-CN": "去找规则系统的年代和适应性，以及误报为何集中在工艺参数波动。"
+          "en-US": "Look for how old and adaptable the rules are, and why false positives cluster around process-parameter swings."
         "3":
-          "zh-CN": "关键发现：5年前开发的规则系统无法识别工艺参数波动"
-          "en-US": "Key discovery: 5-year-old rule system cannot recognize process parameter fluctuations"
+          "zh-CN": "现有规则系统是什么时候做的、还能不能跟上新设备和工艺？误报主要是因为什么识别不了？"
+          "en-US": "When was the current rule system built, can it keep up with new equipment and processes, and why do false positives happen?"
     - id: hl-trust
       topic: trust
       hints:
         "1":
-          "zh-CN": "一线工程师对AI的态度是支持还是反对？为什么？"
-          "en-US": "Are frontline engineers supportive or opposed to AI? Why?"
+          "zh-CN": "一线工程师对同一套 AI，分别怕什么、信什么？"
+          "en-US": "What do frontline engineers fear or distrust about the same AI?"
         "2":
-          "zh-CN": "工程师担心AI系统的哪些具体问题？"
-          "en-US": "What specific concerns do engineers have about AI systems?"
+          "zh-CN": "去找对复杂设备行为的怀疑，以及对优先级决策能否解释的担忧。"
+          "en-US": "Look for skepticism about understanding complex equipment, and worry that priority decisions cannot be explained."
         "3":
-          "zh-CN": "关键发现：85%工程师担心'黑箱'决策，需要可解释性机制"
-          "en-US": "Key discovery: 85% of engineers worry about 'black box' decisions and need explainability mechanisms"
+          "zh-CN": "一线工程师相不相信 AI 能理解复杂设备？他们最怕优先级决策变成怎样的黑箱？"
+          "en-US": "Do frontline engineers believe AI can understand complex equipment behavior, and do they fear unexplained priority decisions?"
     - id: hl-constraints
       topic: constraints
       hints:
         "1":
-          "zh-CN": "工厂的网络环境有什么特殊要求？"
-          "en-US": "What special requirements does the factory's network environment have?"
+          "zh-CN": "方案在网络放哪里跑、以及能不能请外部人，分别被什么拦住？"
+          "en-US": "What stops the solution on where it can run versus who can be hired to build it?"
         "2":
-          "zh-CN": "预算限制对方案选择有什么影响？"
-          "en-US": "How does the budget limit affect solution choices?"
+          "zh-CN": "去找工厂网络隔离与外部云访问限制，以及预算对外部专家的约束。"
+          "en-US": "Look for network isolation and external-cloud access limits, plus budget constraints on outside experts."
         "3":
-          "zh-CN": "关键发现：必须是本地部署方案，无法使用外部AI专家"
-          "en-US": "Key discovery: must be on-premises solution, cannot use external AI experts"
+          "zh-CN": "工厂网络能不能让外部云服务直接进来？预算上能不能请外部 AI 专家做定制？"
+          "en-US": "May the factory network allow direct external cloud access, and is there budget to hire outside AI experts for custom work?"
     - id: hl-success
       topic: success-measures
       hints:
         "1":
-          "zh-CN": "管理层希望达到什么具体指标？"
-          "en-US": "What specific metrics does management hope to achieve?"
+          "zh-CN": "管理层用处理量、停机还是省下来的钱来宣布成功？"
+          "en-US": "Will leadership call this a win on handling volume, downtime, or savings?"
         "2":
-          "zh-CN": "降低告警处理量50%意味着每天处理多少条？"
-          "en-US": "What does reducing alert handling by 50% mean for daily volume?"
+          "zh-CN": "去找工程师日处理告警量的目标、停机下降目标，以及对应的年节省。"
+          "en-US": "Look for targets on daily alerts engineers handle, downtime reduction, and the associated annual saving."
         "3":
-          "zh-CN": "关键发现：2000 -> 1000条/天，三年可节省300万美元"
-          "en-US": "Key discovery: 2000 -> 1000 alerts/day, saving $3 million over three years"
+          "zh-CN": "工程师每天要管的告警量要降到什么程度才算达标？停机要改善多少、对应能省下什么量级的成本？"
+          "en-US": "What daily alert-handling volume counts as success, how much downtime must fall, and what annual saving is implied?"
     - id: hl-business-impact
       topic: business-impact
       hints:
         "1":
-          "zh-CN": "告警处理效率低下对业务造成了哪些具体影响？"
-          "en-US": "What specific business impacts result from the inefficient alert handling?"
+          "zh-CN": "告警处理低效，打在维护计划上还是夜班漏报上？"
+          "en-US": "Does inefficient alert handling hit maintenance plans, night-shift misses, or both?"
         "2":
-          "zh-CN": "这些影响如何体现在维护安排和排班中？"
-          "en-US": "How do these impacts show up in maintenance scheduling and shift planning?"
+          "zh-CN": "去找预防性维护被挤掉的比例，以及夜班因告警疲劳的漏报情况。"
+          "en-US": "Look for postponed preventive maintenance and missed-alert rates on night shifts from fatigue."
         "3":
-          "zh-CN": "关键发现：约15%的预防性维护被推迟，夜间漏报率高达30%"
-          "en-US": "Key discovery: about 15% of preventive maintenance is postponed, and the night-shift missed-alert rate reaches 30%"
+          "zh-CN": "预防性维护有多少被推迟或取消？夜班漏报有多严重？"
+          "en-US": "How much preventive maintenance is postponed or canceled, and how severe is night-shift miss rate under alert fatigue?"
     - id: hl-failure-modes
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "如果AI方案出了问题，最坏情况是什么？"
-          "en-US": "If the AI solution goes wrong, what is the worst case?"
+          "zh-CN": "误报太多和夜间自动抑制，哪种更可能把安全打穿？"
+          "en-US": "Which failure punches through first: too many false positives, or automatic night suppression?"
         "2":
-          "zh-CN": "误报或自动抑制告警可能带来哪些安全风险？"
-          "en-US": "What safety risks could false positives or automatic alert suppression introduce?"
+          "zh-CN": "去找高误报导致全盘忽略的风险，以及夜间抑制对紧急问题的掩盖。"
+          "en-US": "Look for the risk that a high false-positive rate makes engineers ignore everything, and what night suppression hides."
         "3":
-          "zh-CN": "关键发现：高误报率会让工程师忽略所有告警，夜间自动抑制可能掩盖紧急问题"
-          "en-US": "Key discovery: a high false-positive rate could make engineers ignore all alerts, and automatic night suppression could mask urgent issues"
+          "zh-CN": "误报如果过高，工程师会怎么对待告警？夜间自动抑制告警会带来什么安全风险？"
+          "en-US": "If false positives run too high, how will engineers treat alerts, and what happens to urgent issues if suppression runs at night?"
   passGates:
     - id: pg-001
       description:

@@ -437,98 +437,98 @@ evaluator:
       topic: workflow
       hints:
         "1":
-          "zh-CN": "思考支持中心的起点：每月处理多少工单？如何分级？"
-          "en-US": "Think about the support center's starting point: how many tickets a month, and how are they triaged?"
+          "zh-CN": "在谈自动化之前，工作现在是怎么进到支持中心、又是怎么被分类的？"
+          "en-US": "Before proposing automation, how does work currently enter the support center and get classified?"
         "2":
-          "zh-CN": "关注重复性工单的比例与首响时间。"
-          "en-US": "Focus on the repeat-ticket ratio and first-response time."
+          "zh-CN": "去找体量、重复程度、响应速度这类证据，不要只看编制人数。"
+          "en-US": "Look for volume, repetition, and response-speed evidence — not just headcount."
         "3":
-          "zh-CN": "关键发现：每月约18万张工单，55%重复，首响时间4到9小时。"
-          "en-US": "Key discovery: about 180,000 tickets a month, 55% repetitive, first-response 4 to 9 hours."
+          "zh-CN": "现在每月大概处理多少工单？其中重复性工单占比多少？平均首响和高峰首响分别是多久？"
+          "en-US": "What is monthly ticket volume, what share is repetitive, and what are average and peak first-response times?"
     - id: hl-pain
       topic: pain
       hints:
         "1":
-          "zh-CN": "支持中心的主要痛点是什么？"
-          "en-US": "What are the support center's main pain points?"
+          "zh-CN": "支持中心现在最疼的是人、钱，还是复杂单处理？"
+          "en-US": "Is the support center hurting most on people, cost, or complex-ticket handling?"
         "2":
-          "zh-CN": "人工成本占比和人员流失率是多少？"
-          "en-US": "What is the labor-cost share and attrition rate?"
+          "zh-CN": "去找人工成本结构、人员稳定性和复杂单一次解决情况。"
+          "en-US": "Look for labor-cost structure, workforce stability, and first-contact resolution on complex tickets."
         "3":
-          "zh-CN": "关键发现：人工成本占72%，流失率38%，复杂工单一次解决率仅51%。"
-          "en-US": "Key discovery: labor is 72%, attrition 38%, and complex-ticket first-contact resolution only 51%."
+          "zh-CN": "人工成本占总支持预算的多少？一线流失有多严重？复杂工单一次解决得怎么样？"
+          "en-US": "What share of the support budget is labor, how severe is frontline attrition, and how well are complex tickets resolved at first contact?"
     - id: hl-root-cause
       topic: root-cause
       hints:
         "1":
-          "zh-CN": "现有自动化系统的根本缺陷是什么？"
-          "en-US": "What is the fundamental defect of the current automation system?"
+          "zh-CN": "现有自动化到底卡在规则、理解还是维护？"
+          "en-US": "Is current automation stuck on rules, language understanding, or upkeep?"
         "2":
-          "zh-CN": "规则引擎有多少条规则？维护成本如何？"
-          "en-US": "How many rules does the engine have, and what is the upkeep cost?"
+          "zh-CN": "去找规则库规模、维护负担，以及自然语言变体为何匹配失败。"
+          "en-US": "Look for rules-base scale, maintenance burden, and why natural-language variants fail to match."
         "3":
-          "zh-CN": "关键发现：3,400条硬编码规则、每季度两周维护，仍漏掉20%新问题，且无法理解自然语言。"
-          "en-US": "Key discovery: 3,400 hard-coded rules, two weeks of upkeep per quarter, still missing 20% of new issues and unable to parse natural language."
+          "zh-CN": "现有规则引擎靠什么在跑？维护要花多少精力？用户换个说法会怎样？"
+          "en-US": "What does the current rules engine actually run on, how heavy is upkeep, and what happens when a user rephrases?"
     - id: hl-business-impact
       topic: business-impact
       hints:
         "1":
-          "zh-CN": "等待过久会导致什么业务损失？"
-          "en-US": "What business loss does long waiting cause?"
+          "zh-CN": "等太久和自动化覆盖，分别打在收入还是成本上？"
+          "en-US": "Do long waits and automation coverage hit revenue, cost, or both?"
         "2":
-          "zh-CN": "自动化能带来多大的可量化节省？"
-          "en-US": "How much quantifiable savings can automation bring?"
+          "zh-CN": "去找等待导致的流失价值，以及覆盖一部分工单后的可节省成本。"
+          "en-US": "Look for wait-driven churn value and the cost that partial ticket coverage could save."
         "3":
-          "zh-CN": "关键发现：客户流失终身价值约320美元、每月900人流失；覆盖40%工单可年省约210万美元。"
-          "en-US": "Key discovery: churn lifetime value about $320 with 900 monthly churns; covering 40% of tickets saves about $2.1M annually."
+          "zh-CN": "因等待流失一个客户大概损失多少？每月因此走多少人？覆盖一部分工单一年能省多少？"
+          "en-US": "What is the lifetime value lost per wait-driven churn, how many customers leave monthly for that reason, and what annual saving does partial coverage imply?"
     - id: hl-constraints
       topic: constraints
       hints:
         "1":
-          "zh-CN": "自动化在合规与隐私上有哪些限制？"
-          "en-US": "What compliance and privacy limits constrain automation?"
+          "zh-CN": "自动化在合规和数据放哪里跑，分别被什么拦住？"
+          "en-US": "What stops automation on compliance versus where the model is allowed to run?"
         "2":
-          "zh-CN": "哪些工单必须人工复核？数据可以出境吗？"
-          "en-US": "Which tickets require human review? Can data leave the region?"
+          "zh-CN": "去找必须人工复核的工单类型，以及工单数据能否出境。"
+          "en-US": "Look for ticket types that require human review and whether ticket data may leave the region."
         "3":
-          "zh-CN": "关键发现：付款、退款和账户工单必须人工复核，且数据不得发送到境外第三方模型。"
-          "en-US": "Key discovery: payment, refund, and account tickets need human review, and data must not go to offshore third-party models."
+          "zh-CN": "哪些工单绝对不能自动回复？客户工单能不能送到境外模型？"
+          "en-US": "Which tickets must never be auto-replied, and may customer tickets go to an offshore model?"
     - id: hl-success
       topic: success-measures
       hints:
         "1":
-          "zh-CN": "管理层希望达到什么具体指标？"
-          "en-US": "What specific metrics does management hope to achieve?"
+          "zh-CN": "管理层用速度、成本还是质量来宣布项目成功？"
+          "en-US": "Will leadership call this a win on speed, cost, or quality?"
         "2":
-          "zh-CN": "首响时间和成本的目标是什么？准确率红线是多少？"
-          "en-US": "What are the first-response and cost targets, and the accuracy floor?"
+          "zh-CN": "去找首响、人工成本和回答质量的目标，以及不可逾越的质量红线。"
+          "en-US": "Look for targets on first-response, labor cost, and answer quality, including the hard quality floor."
         "3":
-          "zh-CN": "关键发现：首响从4小时降到1小时、成本降35%、准确率不低于92%且不得编造政策。"
-          "en-US": "Key discovery: first-response from 4 to 1 hour, cost down 35%, accuracy at least 92% with no policy fabrication."
+          "zh-CN": "首响和人工成本要改到什么程度才算达标？回答质量有没有不能碰的底线？"
+          "en-US": "What first-response and labor-cost change counts as success, and what quality floor must not be crossed?"
     - id: hl-trust
       topic: trust
       hints:
         "1":
-          "zh-CN": "一线客服和高管对AI各持什么态度？"
-          "en-US": "What attitudes do frontline agents and executives hold toward AI?"
+          "zh-CN": "一线和高管对同一套 AI，分别怕什么、盼什么？"
+          "en-US": "What do frontline agents versus executives fear or expect from the same AI?"
         "2":
-          "zh-CN": "客服为什么抵触AI？高管的期望是否现实？"
-          "en-US": "Why do agents resist AI? Are executives' expectations realistic?"
+          "zh-CN": "去找一线是否绕过系统，以及高管对一步到位全自动的预期。"
+          "en-US": "Look for frontline workarounds around the system and executive expectations of one-step full automation."
         "3":
-          "zh-CN": "关键发现：一线客服害怕丢工作并绕过系统，高管期望一步到位全自动而低估合规质量约束。"
-          "en-US": "Key discovery: frontline agents fear job loss and bypass the system; executives expect one-step full automation and underestimate compliance and quality constraints."
+          "zh-CN": "一线会不会抵制或绕过建议？高管有没有把合规和质量想得太容易？"
+          "en-US": "Will frontline staff resist or bypass suggestions, and are executives underestimating compliance and quality?"
     - id: hl-failure-modes
       topic: failure-modes
       hints:
         "1":
-          "zh-CN": "如果AI出错或失效，最坏情况是什么？"
-          "en-US": "If the AI errs or fails, what is the worst case?"
+          "zh-CN": "AI 说错话和系统突然停，哪种更可能把支持中心打穿？"
+          "en-US": "Which failure punches through first: the AI saying the wrong thing, or the system stopping suddenly?"
         "2":
-          "zh-CN": "AI在不确定时会做什么？高峰失效会带来什么？"
-          "en-US": "What does the AI do when uncertain? What happens if it fails at peak?"
+          "zh-CN": "去找不确定时的胡编行为，以及高峰失效时人工队列会怎样。"
+          "en-US": "Look for fabrication under uncertainty and what happens to the human queue if automation fails at peak."
         "3":
-          "zh-CN": "关键发现：AI会自信编造退款政策；高峰失效会让上万张工单涌入人工队列导致雪崩。"
-          "en-US": "Key discovery: the AI confidently fabricates refund policy; a peak failure floods tens of thousands of tickets into the human queue, causing an avalanche."
+          "zh-CN": "模型没把握时会怎么回答客户？高峰一旦停摆，人工侧会看到什么？"
+          "en-US": "What does the model tell the customer when it is unsure, and what does the human side see if it dies at peak?"
   passGates:
     - id: pg-001
       description:
