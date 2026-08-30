@@ -6,8 +6,8 @@
       "id": "ev-workflow",
       "category": "workflow",
       "description": {
-        "zh-CN": "问数代理路径（自然语言到语义层再到只读 SQL）、行级安全是否套在每条查询上、跨部门宽表如何走批准",
-        "en-US": "Analysis-agent path (natural language to semantic layer to read-only SQL), whether row-level security wraps every query, and how cross-department wide tables take approval"
+        "zh-CN": "一条提问真实的落地路径：语句最后由谁执行、行级安全按谁的账号展开、请求从哪个入口进来、事后能不能把语句对回提问者",
+        "en-US": "The real path an ask takes: who finally executes the statement, whose account row-level security resolves against, where requests come in, and whether a statement can be traced back to the asker afterwards"
       },
       "weight": 2,
       "disclosureUnitIds": [
@@ -342,16 +342,16 @@
       "topic": "workflow",
       "hints": {
         "1": {
-          "zh-CN": "在谈问数代理之前，业务现在是怎样从数仓拿到数的？",
-          "en-US": "Before proposing the analysis agent, how does the business currently get numbers out of the warehouse?"
+          "zh-CN": "在谈问数代理之前，从业务把问题说出口，到有人真的把语句执行掉，中间经过了谁的手？",
+          "en-US": "Before proposing the analysis agent, whose hands does a request pass through between the moment the business asks and the moment someone actually executes the statement?"
         },
         "2": {
-          "zh-CN": "去找自然语言怎么落到 SQL、语义层和行级安全的位置，以及宽表怎么走。",
-          "en-US": "Look for how natural language lands on SQL, where the semantic layer and row-level security sit, and how wide tables are reached."
+          "zh-CN": "去找请求从哪个入口进来、语句最后挂在谁的账号上执行，以及事后还能翻出什么记录。",
+          "en-US": "Look for where requests come in, whose account the statement finally executes under, and what record can be dug up afterwards."
         },
         "3": {
-          "zh-CN": "业务用自然语言提问后，代理会按什么顺序用语义层和只读 SQL？行级安全和跨部门宽表分别怎么处理？",
-          "en-US": "After a natural-language ask, in what order does the agent use the semantic layer and read-only SQL? How are row-level security and cross-department wide tables handled?"
+          "zh-CN": "一条业务提问最后是挂在谁的账号下跑出来的？权限按谁算？过了几周再回头查这条查询是谁要的，能查到什么？",
+          "en-US": "Whose account does a business ask ultimately run under, whose permissions does it resolve against, and weeks later, what can be found when someone tries to work out who that query was for?"
         }
       }
     },

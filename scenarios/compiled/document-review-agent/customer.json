@@ -148,8 +148,8 @@
       "id": "du-001",
       "topic": "workflow",
       "text": {
-        "zh-CN": "文档进线后先解析或走 OCR/视觉模型，再做条款抽取。",
-        "en-US": "After a document arrives, it is parsed or run through OCR/VLM, then clause extraction."
+        "zh-CN": "非标合同上实际是先做主数据比对，规则检查等比对结果回来才补跑；比对对不上的件直接退回人工重排队。",
+        "en-US": "On nonstandard contracts the master-data match actually runs first, and the rule check is only backfilled once the match returns; files the match cannot line up go straight back into a manual re-queue."
       },
       "prerequisites": [],
       "evidenceId": "ev-workflow"
@@ -158,8 +158,8 @@
       "id": "du-002",
       "topic": "workflow",
       "text": {
-        "zh-CN": "抽取结果走规则引擎，再与主数据比对；积压约1.2万份。",
-        "en-US": "Extraction results go through the rule engine, then master-data match; the backlog is about 12,000 files."
+        "zh-CN": "解析这一步失败的扫描件会被转进人工重扫队列，进来的比清掉的多；那条队列现在积压约1.2万份。",
+        "en-US": "Scans that fail at the parse step are routed into a manual re-scan queue that takes in more than it clears; about 12,000 files are sitting in that queue today."
       },
       "prerequisites": [
         "du-001"

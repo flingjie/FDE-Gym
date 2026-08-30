@@ -148,8 +148,8 @@
       "id": "du-001",
       "topic": "workflow",
       "text": {
-        "zh-CN": "业务人员用自然语言问数仓；代理先走 BI 语义层再生成只读 SQL。",
-        "en-US": "Business users ask the warehouse in natural language; the agent hits the BI semantic layer first, then emits read-only SQL."
+        "zh-CN": "代理本身不执行语句，只把生成的 SQL 交给分析师代跑；行级安全按分析师账号的权限展开，提问者本人的权限从头到尾没参与过。",
+        "en-US": "The agent never executes anything: it hands the SQL to an analyst who runs it, so row-level security resolves against the analyst's account and the asker's own permissions never enter the picture."
       },
       "prerequisites": [],
       "evidenceId": "ev-workflow"
@@ -158,8 +158,8 @@
       "id": "du-002",
       "topic": "workflow",
       "text": {
-        "zh-CN": "行级安全本应套在每条查询上；跨部门宽表要另走批准。",
-        "en-US": "Row-level security is supposed to wrap every query; cross-department wide tables take a separate approval path."
+        "zh-CN": "问数请求从聊天群进来，代理给出的语句只留在会话里；数仓侧只记到分析师账号，事后对不回是谁提的这条查询。",
+        "en-US": "Asks arrive through chat groups and the statement the agent produced stays in that thread; the warehouse logs only the analyst's account, so afterwards a query cannot be traced back to whoever asked for it."
       },
       "prerequisites": [
         "du-001"

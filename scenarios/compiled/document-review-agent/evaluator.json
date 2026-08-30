@@ -6,8 +6,8 @@
       "id": "ev-workflow",
       "category": "workflow",
       "description": {
-        "zh-CN": "文档审核路径（解析或 OCR/视觉模型到条款抽取，再到规则引擎与主数据比对）、积压如何堆起来",
-        "en-US": "Document-review path (parse or OCR/VLM to clause extraction, then rule engine and master-data match) and how the backlog accumulates"
+        "zh-CN": "审核流水线的真实走法：非标合同上主数据比对与规则检查的先后被调换、对不上的件退回人工重排队、解析失败的扫描件流向哪条队列以及那里积压多深",
+        "en-US": "How the review pipeline actually runs: master-data match and the rule check swap order on nonstandard contracts, unmatched files return to a manual re-queue, where scans that fail to parse are routed, and how deep that queue is"
       },
       "weight": 2,
       "disclosureUnitIds": [
@@ -342,16 +342,16 @@
       "topic": "workflow",
       "hints": {
         "1": {
-          "zh-CN": "在谈审核代理之前，一份文件现在是按什么步骤被看完的？",
-          "en-US": "Before proposing the review agent, what steps does a file currently go through before it is considered reviewed?"
+          "zh-CN": "在谈审核代理之前，这条审核流水线是一路向前走完的，还是会中途改道、折返？",
+          "en-US": "Before proposing the review agent, does the current review pipeline run straight through, or does it reroute and double back partway?"
         },
         "2": {
-          "zh-CN": "去找解析、抽取、规则和主数据比对的顺序，以及积压是怎样堆起来的。",
-          "en-US": "Look for the order of parse, extract, rules, and master-data match, and how the backlog accumulates."
+          "zh-CN": "去找不合模板的件在流水线上被怎样改道，以及中途掉出来的件被送去哪里、堆成什么样。",
+          "en-US": "Look for how off-template files get rerouted along the pipeline, plus where files that drop out midway are sent and what piles up there."
         },
         "3": {
-          "zh-CN": "文档进线后，解析、条款抽取、规则引擎和主数据比对谁先谁后？积压现在大概有多深？",
-          "en-US": "After a document arrives, in what order do parse, clause extraction, the rule engine, and master-data match run? How deep is the backlog today?"
+          "zh-CN": "碰到不合模板的合同时，哪一步会被提前、哪一步只能事后补？在某一步掉出来的件后来去了哪里，那里现在是什么状况？",
+          "en-US": "When a contract does not fit the templates, which step moves earlier and which one can only be backfilled afterwards? Where do files that drop out at a step end up, and what does that place look like now?"
         }
       }
     },

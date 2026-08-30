@@ -3,7 +3,7 @@
   "id": "document-review-agent",
   "schemaVersion": 1,
   "locale": "zh-CN",
-  "digest": "90896392845d549a59daf2c0ad0749e6e7187f002f73c2039e641dd9226f285a",
+  "digest": "48262c2bd18b25faf22d51cb778bf2bb5f1ace8064bd1eae133494e2c5403a2b",
   "artifacts": [
     {
       "path": "public.json",
@@ -13,14 +13,14 @@
     },
     {
       "path": "customer.json",
-      "sha256": "2cb399fb603a4205222ab1ba6cc82ac0343fb78b02184f2e2bf8dd68d3e42869",
-      "bytes": 11493,
+      "sha256": "6c7dea1cccfb94338819a2d0ce97cf1e8c7ac602a384353b42c83a46b623e89a",
+      "bytes": 11792,
       "schemaVersion": 1
     },
     {
       "path": "evaluator.json",
-      "sha256": "7e3d95e9bf31719d898debbc0052de83fa1c2616a963b5763eda5c3c4fc60dec",
-      "bytes": 21154,
+      "sha256": "e5ca982beb5fafa7a7fa9df2c53411336cf9d53f2144d1ebdcac54ac41d0acd5",
+      "bytes": 21542,
       "schemaVersion": 1
     },
     {

@@ -148,8 +148,8 @@
       "id": "du-001",
       "topic": "workflow",
       "text": {
-        "zh-CN": "代理在隔离沙箱里拉 Git 分支、改代码、跑测试，再经 PR 接口开 PR。",
-        "en-US": "The agent pulls a Git branch in an isolated sandbox, edits code, runs tests, then opens a PR through the PR API."
+        "zh-CN": "沙箱里跑的是裁剪过的本地测试集，完整流水线要等 PR 开出来之后才在另一套环境里重跑；沙箱绿和流水线绿经常不是一回事。",
+        "en-US": "The sandbox runs a trimmed local suite; the full pipeline only re-runs in a different environment after the PR is opened, so sandbox-green and pipeline-green are often not the same thing."
       },
       "prerequisites": [],
       "evidenceId": "ev-workflow"
@@ -158,8 +158,8 @@
       "id": "du-002",
       "topic": "workflow",
       "text": {
-        "zh-CN": "默认分支禁止直接 push；合并受保护分支必须人工。",
-        "en-US": "Pushing the default branch is forbidden; merging a protected branch requires a human."
+        "zh-CN": "代理开的 PR 和人开的 PR 混在同一条评审队列里，没有单独标记也没有值班评审人，只能等哪位 IC 自己认领。",
+        "en-US": "Agent-opened PRs sit in the same review queue as human ones, with no separate label and no on-call reviewer, so they wait until some IC picks one up."
       },
       "prerequisites": [
         "du-001"

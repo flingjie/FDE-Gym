@@ -6,8 +6,8 @@
       "id": "ev-workflow",
       "category": "workflow",
       "description": {
-        "zh-CN": "工程代理路径（沙箱内 Git、改代码、测试运行器、PR 接口）、默认分支禁止直接 push、受保护分支合并须人工",
-        "en-US": "Engineering-agent path (Git, edits, test runner, and PR API inside the sandbox), no direct push to the default branch, human required to merge a protected branch"
+        "zh-CN": "改动离开沙箱之后的真实走法：沙箱跑的测试集与 PR 之后重跑的流水线不是同一套、沙箱绿不等于流水线绿、代理开的 PR 落进哪条评审队列、由谁认领",
+        "en-US": "What actually happens after a change leaves the sandbox: the sandbox suite is not the pipeline that re-runs after the PR, sandbox-green is not pipeline-green, which review queue an agent-opened PR lands in, and who picks it up"
       },
       "weight": 2,
       "disclosureUnitIds": [
@@ -342,16 +342,16 @@
       "topic": "workflow",
       "hints": {
         "1": {
-          "zh-CN": "在谈编码代理之前，改动现在是按什么顺序从仓库走到评审的？",
-          "en-US": "Before proposing the coding agent, in what order does a change currently move from the repo to review?"
+          "zh-CN": "在谈编码代理之前，一个改动离开沙箱之后，还要经过哪些代理自己看不到的环节？",
+          "en-US": "Before proposing the coding agent, once a change leaves the sandbox, what does it still pass through that the agent itself never sees?"
         },
         "2": {
-          "zh-CN": "去找 Git、沙箱、测试和开 PR 的顺序，以及默认分支和受保护分支怎么被守住。",
-          "en-US": "Look for the order of Git, sandbox, tests, and opening a PR, and how the default and protected branches are held."
+          "zh-CN": "去找沙箱里跑的那套检查和 PR 之后重跑的那套是不是同一套，以及代理开出来的 PR 落进哪条队列、谁会去看它。",
+          "en-US": "Look for whether the checks that run in the sandbox are the same ones that re-run after the PR, and which queue an agent-opened PR lands in and who ever looks at it."
         },
         "3": {
-          "zh-CN": "代理修 Bug 时会按什么顺序用 Git、沙箱、测试运行器和 PR 接口？默认分支和受保护分支现在分别怎么处理？",
-          "en-US": "When the agent fixes a bug, in what order does it use Git, the sandbox, the test runner, and the PR API? How are the default branch and protected branches handled today?"
+          "zh-CN": "沙箱里跑绿的那套检查，和 PR 开出来之后重跑的那套差在哪里？代理开出的 PR 到了评审侧是怎么被排进去、被谁拿走的？",
+          "en-US": "Where does the set of checks that goes green in the sandbox differ from the set that re-runs once the PR is open? On the review side, how does an agent-opened PR get queued, and who ends up taking it?"
         }
       }
     },

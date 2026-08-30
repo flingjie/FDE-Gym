@@ -3,7 +3,7 @@
   "id": "software-engineering-agent",
   "schemaVersion": 1,
   "locale": "zh-CN",
-  "digest": "f29bb68c4e5b0ae1494675b0287643bf737fe4d27a34742163ecf2bd6761b333",
+  "digest": "e798095c08f556d54fcedad7e7eee3e832ddc2c8778e3c53053225fc861385e4",
   "artifacts": [
     {
       "path": "public.json",
@@ -13,14 +13,14 @@
     },
     {
       "path": "customer.json",
-      "sha256": "fc2c09686e900dbc8cde69c9387c396e70549b331eca70663dec9db3610beb86",
-      "bytes": 11389,
+      "sha256": "dd5cefca847ed32241dc77b65c67b5ce51cc02d1cdf21b225e97a7d7be2d07f6",
+      "bytes": 11683,
       "schemaVersion": 1
     },
     {
       "path": "evaluator.json",
-      "sha256": "18ef53b07ed5dfef43cefc5935f0a63d566f574e4296d31054d087927c3690a0",
-      "bytes": 21608,
+      "sha256": "28e6795fbbcc34fb74328d7cc2c9bbee4dcc8142219f98e5a67cdd69d92756ef",
+      "bytes": 21935,
       "schemaVersion": 1
     },
     {
