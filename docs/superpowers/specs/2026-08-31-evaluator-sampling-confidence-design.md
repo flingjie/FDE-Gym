@@ -67,9 +67,12 @@ export function aggregateReviews(reviews: readonly FinalReviewInvocation[]): Agg
   scores are closest (mean absolute difference) to the mean scores.
 - `strengths`/`weaknesses`/`missedOpportunities`/`decisionDivergencePoints`/`nextFocus`: take
   the first sample's values (prose; not aggregated).
-- `confidence`: when `samples === 1`, `null`. Otherwise, per-criterion standard deviation
+- `confidence`: when `samples === 1`, `null`. When no sample carries any criterion
+  score (agreement unmeasurable), `null`. Otherwise, per-criterion standard deviation
   (population) across samples, averaged over all present criteria, normalized:
-  `confidence = clamp01(1 - meanStdDev / 100)`.
+  `confidence = clamp01(1 - meanStdDev / 50)` (scores are 0..100, so a criterion's
+  population stdDev is at most 50 — a 0/100 split — hence the divisor 50 maps maximal
+  divergence to 0).
 
 ## 3. Wire into `prepareReview` (`src/core/orchestrator.ts`)
 

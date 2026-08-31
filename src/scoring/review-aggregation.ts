@@ -61,7 +61,9 @@ function distanceToMean(s: FinalReviewInvocation, meanScores: CriterionScores): 
       count += 1;
     }
   }
-  return count === 0 ? 0 : total / count;
+  // A review with no criterion scores carries no signal; give it infinite
+  // distance so a scored review always wins a verdict tie-break.
+  return count === 0 ? Infinity : total / count;
 }
 
 export function aggregateReviews(reviews: readonly FinalReviewInvocation[]): AggregatedReview {
@@ -113,8 +115,16 @@ export function aggregateReviews(reviews: readonly FinalReviewInvocation[]): Agg
         }
       }
     }
-    const deviations = [...byCriterion.values()].map((arr) => stdDev(arr));
-    confidence = clamp01(1 - mean(deviations) / 100);
+    if (byCriterion.size === 0) {
+      // No criterion scores across any sample → agreement is unmeasurable, so
+      // confidence is `null` (never a spurious 1.0 from zero data).
+      confidence = null;
+    } else {
+      const deviations = [...byCriterion.values()].map((arr) => stdDev(arr));
+      // Scores are 0..100, so a criterion's population stdDev is at most 50 (a
+      // 0/100 split); divide by 50 so maximal divergence maps to 0, not 0.5.
+      confidence = clamp01(1 - mean(deviations) / 50);
+    }
   }
 
   return { review, confidence };

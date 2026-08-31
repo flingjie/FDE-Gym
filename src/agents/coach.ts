@@ -260,18 +260,19 @@ export async function sampleFinalReview(
   options: SampleFinalReviewOptions,
 ): Promise<FinalReviewInvocation[]> {
   if (!Number.isInteger(options.samples) || options.samples < 1) {
-    throw new CoachError(COACH_OUTPUT_REJECTED, "samples must be a positive integer");
+    throw new Error("samples must be a positive integer");
   }
-  const out: FinalReviewInvocation[] = [];
-  for (let i = 1; i <= options.samples; i++) {
-    out.push(await runFinalReview({
+  // Samples are independent `freshContext` invocations — run them concurrently
+  // so end-to-end latency does not scale linearly with the sample count.
+  const tasks = Array.from({ length: options.samples }, (_, i) =>
+    runFinalReview({
       runtime,
       state,
       capsule,
-      invocationId: `${options.commandId}:coach:${i}`,
+      invocationId: `${options.commandId}:coach:${i + 1}`,
       timeoutMs: options.timeoutMs,
       canaries: options.canaries,
-    }));
-  }
-  return out;
+    }),
+  );
+  return Promise.all(tasks);
 }

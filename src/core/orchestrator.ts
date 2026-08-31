@@ -1122,6 +1122,11 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
   const samples = input.samples ?? 1;
+  // Reject 0, negative, fractional, and NaN sample counts rather than silently
+  // coercing them to a single invocation (the spec's "validate >= 1").
+  if (!Number.isInteger(samples) || samples < 1) {
+    throw new Error("samples must be a positive integer");
+  }
 
   // Phase guard: `assertCommandPhase` enforces REVIEW (and emits nothing).
   assertCommandPhase(state.phase, "review");
@@ -1152,7 +1157,7 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   // rather than inventing a synthetic judgment id.
   let judgment: JudgmentProvenance | undefined;
 
-  if (samples <= 1) {
+  if (samples === 1) {
     const inv = await runFinalReview({
       runtime,
       state: { ...state, coachTask: "final-review" },

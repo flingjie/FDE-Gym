@@ -442,7 +442,7 @@ describe("coach agent — final review sampling", () => {
       evaluatorCapsule(),
       { samples: 0, commandId: "id", timeoutMs: 1_000, canaries: [CANARY] },
     ).catch((e) => e);
-    expect((error as { code?: string }).code).toBe(COACH_OUTPUT_REJECTED);
+    expect((error as Error).message).toBe("samples must be a positive integer");
   });
 
   it("throws for a non-integer sample count", async () => {
@@ -453,6 +453,6 @@ describe("coach agent — final review sampling", () => {
       evaluatorCapsule(),
       { samples: 2.5, commandId: "id", timeoutMs: 1_000, canaries: [CANARY] },
     ).catch((e) => e);
-    expect((error as { code?: string }).code).toBe(COACH_OUTPUT_REJECTED);
+    expect((error as Error).message).toBe("samples must be a positive integer");
   });
 });
