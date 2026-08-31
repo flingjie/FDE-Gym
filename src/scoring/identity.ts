@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalJson } from "../storage/event-chain.js";
+import { canonicalJson } from "../storage/canonical-json.js";
 import { CAPABILITY_RUBRIC_VERSION } from "./rubric.js";
 import { SCORE_SCHEMA_VERSION, FORMULA_VERSION } from "./provenance.js";
 

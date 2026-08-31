@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
+import { canonicalJson } from "./canonical-json.js";
 import { RunEventSchema, type RecordedEvent, type RunEvent } from "../core/domain.js";
 import { EventChainInvalidError } from "../core/errors.js";
 import { upcastRecordedEvent } from "../core/versioning.js";
+
+export { canonicalJson };
 
 /**
  * Shared hash-chain logic for append-only event stores. The file store
@@ -27,27 +30,6 @@ export const EventEnvelopeSchema = z
 
 /** The full recorded-event schema (domain payload + envelope). */
 export const RecordedEventSchema = RunEventSchema.and(EventEnvelopeSchema);
-
-/**
- * Canonical JSON: object keys sorted recursively, then `JSON.stringify`. This
- * is the byte-stability contract for hashing — independent of how an object
- * was constructed or parsed.
- */
-export function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortKeysDeep(value));
-}
-
-function sortKeysDeep(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeysDeep);
-  if (value !== null && typeof value === "object") {
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
-    }
-    return sorted;
-  }
-  return value;
-}
 
 export function sha256Hex(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");

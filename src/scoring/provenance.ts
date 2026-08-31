@@ -7,6 +7,12 @@ import {
   capabilityRubricSha256,
   type RubricStageId,
 } from "./rubric.js";
+import {
+  computeEvaluationIdentity,
+  computeEvaluationIdentityHash,
+  promptSetDigest,
+  RUNTIME_POLICY_VERSION,
+} from "./identity.js";
 
 /**
  * FDE Gym — score provenance (Task 8).
@@ -83,6 +89,8 @@ export interface ScoreProvenance {
   capabilityRubricVersion: typeof CAPABILITY_RUBRIC_VERSION;
   capabilityRubricSha256: string;
   scenarioBundleSha256: string | null;
+  promptSetDigest: string;
+  runtimePolicyVersion: number;
   outputSchemaVersion: typeof OUTPUT_SCHEMA_VERSION;
   evaluatorInvocationId: string | null;
   modelId: string | null;
@@ -108,6 +116,8 @@ export const ScoreProvenanceSchema = z
     capabilityRubricVersion: z.literal(CAPABILITY_RUBRIC_VERSION),
     capabilityRubricSha256: z.string().regex(/^[0-9a-f]{64}$/),
     scenarioBundleSha256: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
+    promptSetDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    runtimePolicyVersion: z.number().int().positive(),
     outputSchemaVersion: z.literal(OUTPUT_SCHEMA_VERSION),
     evaluatorInvocationId: z.string().min(1).nullable(),
     modelId: z.string().min(1).nullable(),
@@ -200,6 +210,10 @@ export interface BuildScoreProvenanceInput {
 /** Assemble the full provenance for a newly-computed score and stamp its comparability key. */
 export function buildScoreProvenance(input: BuildScoreProvenanceInput): ScoreProvenance {
   const rubricSha = capabilityRubricSha256();
+  const identity = computeEvaluationIdentity({
+    scenarioBundleSha256: input.scenarioBundleSha256,
+    modelId: input.modelId,
+  });
   return ScoreProvenanceSchema.parse({
     scoreSchemaVersion: SCORE_SCHEMA_VERSION,
     formulaVersion: FORMULA_VERSION,
@@ -207,19 +221,13 @@ export function buildScoreProvenance(input: BuildScoreProvenanceInput): ScorePro
     capabilityRubricVersion: CAPABILITY_RUBRIC_VERSION,
     capabilityRubricSha256: rubricSha,
     scenarioBundleSha256: input.scenarioBundleSha256,
+    promptSetDigest: identity.promptSetDigest,
+    runtimePolicyVersion: identity.runtimePolicyVersion,
     outputSchemaVersion: OUTPUT_SCHEMA_VERSION,
     evaluatorInvocationId: input.evaluatorInvocationId,
     modelId: input.modelId,
     stages: input.stageProvenance,
-    comparabilityKey: computeComparabilityKey({
-      scoreSchemaVersion: SCORE_SCHEMA_VERSION,
-      formulaVersion: FORMULA_VERSION,
-      capabilityRubricId: CAPABILITY_RUBRIC_ID,
-      capabilityRubricVersion: CAPABILITY_RUBRIC_VERSION,
-      capabilityRubricSha256: rubricSha,
-      outputSchemaVersion: OUTPUT_SCHEMA_VERSION,
-      modelId: input.modelId,
-    }),
+    comparabilityKey: computeEvaluationIdentityHash(identity),
   });
 }
 
@@ -232,6 +240,8 @@ export function legacyScoreProvenance(): ScoreProvenance {
     capabilityRubricVersion: CAPABILITY_RUBRIC_VERSION,
     capabilityRubricSha256: capabilityRubricSha256(),
     scenarioBundleSha256: null,
+    promptSetDigest: promptSetDigest(),
+    runtimePolicyVersion: RUNTIME_POLICY_VERSION,
     outputSchemaVersion: OUTPUT_SCHEMA_VERSION,
     evaluatorInvocationId: null,
     modelId: null,
