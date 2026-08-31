@@ -1,13 +1,7 @@
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
 import { ZodError } from "zod";
 
 import type { AgentRuntime } from "../agents/agent-runtime.js";
-import { resolveBaseDir } from "../core/event-store.js";
 import type { Locale, RunPhase } from "../core/domain.js";
-import { projectReplay, type LearnerReplay } from "../replay/projector.js";
-import { loadLearnerProfile } from "../storage/fs-store.js";
-import { createEmptyProfile } from "../profile/learner-profile.js";
 import type {
   CustomerCapsule,
   EvaluatorCapsule,
@@ -51,6 +45,20 @@ import {
   type SubmitDesignArgs,
   type SubmitPitchArgs,
 } from "../application/use-cases/framing-review.js";
+import {
+  list,
+  profile,
+  replay,
+  status,
+  type ListArgs,
+  type ListData,
+  type ProfileArgs,
+  type ProfileData,
+  type ReplayArgs,
+  type ReplayData,
+  type StatusArgs,
+  type StatusData,
+} from "../application/use-cases/read.js";
 import { retry, type RetryArgs, type RetryData } from "../application/use-cases/retry.js";
 
 /**
@@ -79,44 +87,6 @@ export interface CommandContext {
     evaluator: EvaluatorCapsule;
     events: ScenarioEventCandidate[];
   };
-}
-
-// ---------------------------------------------------------------------------
-// Result data shapes
-// ---------------------------------------------------------------------------
-
-export interface RunSummary {
-  runId: string;
-  scenarioId: string;
-  phase: RunPhase;
-  locale: Locale;
-}
-
-export interface StatusData {
-  runId: string;
-  scenarioId: string;
-  phase: RunPhase;
-  locale: Locale;
-  transcriptCount: number;
-  graphVersion: number;
-  disclosedCount: number;
-  hintCount: number;
-  briefId: string | null;
-  proposalId: string | null;
-  pitchId: string | null;
-  challengeResponseCount: number;
-}
-
-export interface ReplayData {
-  replay: LearnerReplay;
-}
-
-export interface ProfileData {
-  profile: ReturnType<typeof createEmptyProfile>;
-}
-
-export interface ListData {
-  runs: RunSummary[];
 }
 
 // ---------------------------------------------------------------------------
@@ -283,18 +253,13 @@ export async function reviewCommand(ctx: CommandContext, args: ReviewArgs): Prom
   });
 }
 
-export interface ReplayArgs {
-  runId: string;
-  locale?: Locale;
-}
-
 export async function replayCommand(ctx: CommandContext, args: ReplayArgs): Promise<CliResult<ReplayData>> {
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   const locale = args.locale ?? loaded.locale;
   return guard(locale, async () => {
-    const replay = projectReplay(loaded.events, locale);
-    return ok(args.runId, loaded.phase, locale, { replay });
+    const r = await replay(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
 
@@ -307,75 +272,30 @@ export async function retryCommand(ctx: CommandContext, args: RetryArgs): Promis
   });
 }
 
-export interface StatusArgs {
-  runId: string;
-}
-
 export async function statusCommand(ctx: CommandContext, args: StatusArgs): Promise<CliResult<StatusData>> {
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
-    const agg = loaded.aggregate;
-    return ok(args.runId, loaded.phase, loaded.locale, {
-      runId: args.runId,
-      scenarioId: loaded.scenarioId,
-      phase: loaded.phase ?? "SCENARIO",
-      locale: loaded.locale,
-      transcriptCount: agg.transcript.length,
-      graphVersion: agg.graph.version,
-      disclosedCount: agg.disclosedDisclosureUnitIds.length,
-      hintCount: agg.grantedHints.length,
-      briefId: agg.brief?.id ?? null,
-      proposalId: agg.proposal?.id ?? null,
-      pitchId: agg.pitch?.id ?? null,
-      challengeResponseCount: agg.challengeResponses.length,
-    });
+    const r = await status(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface ProfileArgs {
-  locale: Locale;
 }
 
 export async function profileCommand(
   ctx: CommandContext,
   args: ProfileArgs,
 ): Promise<CliResult<ProfileData>> {
+  const deps = buildDeps(ctx);
   return guard(args.locale, async () => {
-    const profile = (await loadLearnerProfile({ baseDir: ctx.baseDir })) ?? createEmptyProfile();
-    return ok("", null, args.locale, { profile });
+    const r = await profile(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface ListArgs {
-  locale: Locale;
 }
 
 export async function listCommand(ctx: CommandContext, args: ListArgs): Promise<CliResult<ListData>> {
   const deps = buildDeps(ctx);
   return guard(args.locale, async () => {
-    const runsDir = join(ctx.baseDir ?? resolveBaseDir(), "runs");
-    let entries: string[] = [];
-    try {
-      entries = await readdir(runsDir);
-    } catch {
-      entries = [];
-    }
-    const summaries: RunSummary[] = [];
-    for (const runId of entries) {
-      try {
-        const loaded = await loadRun(deps, runId);
-        summaries.push({
-          runId,
-          scenarioId: loaded.scenarioId,
-          phase: loaded.phase ?? "SCENARIO",
-          locale: loaded.locale,
-        });
-      } catch {
-        // Skip unreadable run directories.
-      }
-    }
-    summaries.sort((a, b) => a.runId.localeCompare(b.runId));
-    return ok("", null, args.locale, { runs: summaries });
+    const r = await list(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
