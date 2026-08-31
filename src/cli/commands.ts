@@ -52,6 +52,7 @@ import type {
 } from "../scenarios/schema.js";
 import type { ScoreBreakdown, FinalReviewResult } from "../core/domain.js";
 import type { StageStates } from "../scoring/provenance.js";
+import type { MeasuredCapability } from "../scoring/formulas.js";
 import { InvalidPhaseCommandError, ScenarioBundleMismatchError } from "../core/errors.js";
 import type { CliEnvelope, CliFailure, CliResult } from "./render.js";
 import { localize } from "./render.js";
@@ -147,6 +148,8 @@ export interface ReviewData {
   score: ScoreBreakdown;
   /** Per-stage three-state classification (measured/proxy/unscorable). */
   stageStates: StageStates;
+  /** Display-time capability figure over discovery + measured stages only. */
+  measuredCapability: MeasuredCapability;
 }
 
 export interface ReplayData {
@@ -747,7 +750,12 @@ export async function reviewCommand(ctx: CommandContext, args: ReviewArgs): Prom
         return {
           events: result.events,
           effects: [result.effect],
-          result: { review: result.review, score: result.score, stageStates: result.stageStates },
+          result: {
+            review: result.review,
+            score: result.score,
+            stageStates: result.stageStates,
+            measuredCapability: result.measuredCapability,
+          },
         };
       },
     });

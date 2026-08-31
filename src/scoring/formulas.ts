@@ -4,7 +4,8 @@ import type {
   QuestionEfficiencyBreakdown,
   ScoreBreakdown,
 } from "../core/domain.js";
-import { RAW_STAGE_WEIGHTS } from "./rubric.js";
+import { RAW_STAGE_WEIGHTS, type RubricStageId } from "./rubric.js";
+import type { StageStates } from "./provenance.js";
 
 export { FORMULA_VERSION } from "./provenance.js";
 
@@ -223,4 +224,68 @@ export function calculateScore(input: ScoreInput): ScoreBreakdown {
     questions,
     passes,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Measured-only capability (display time)
+// ---------------------------------------------------------------------------
+
+/**
+ * The five rubric stages in canonical order. `discovery` is not a rubric stage
+ * (it is coverage-derived) and is always treated as measured, so it is excluded
+ * from this list and handled separately in `computeMeasuredCapability`.
+ */
+const RUBRIC_STAGES: readonly RubricStageId[] = [
+  "framing",
+  "solution",
+  "challenge",
+  "pitch",
+  "process",
+];
+
+/**
+ * A display-time capability figure that aggregates ONLY `measured` stages, so a
+ * proxy or unscorable number is never mistaken for a real Coach measurement.
+ * The committed `score.computed` bytes (`raw`/`final`/`ScoreBreakdown`) are
+ * untouched — this is derived alongside them, never persisted in their place.
+ *
+ * Declared as a `type` alias (not an `interface`) so it stays assignable to the
+ * command-transaction's strict `JsonValue` bound, exactly like the Zod-inferred
+ * `ScoreBreakdown`/`FinalReviewResult` shapes it ships beside.
+ */
+export type MeasuredCapability = {
+  /** Re-normalized 0–100 capability over discovery + measured stages only. */
+  value: number;
+  measuredStages: RubricStageId[];
+  proxyStages: RubricStageId[];
+  unscorableStages: RubricStageId[];
+};
+
+export function computeMeasuredCapability(
+  score: ScoreBreakdown,
+  stageStates: StageStates,
+): MeasuredCapability {
+  // discovery is always measured (coverage-derived, no rubric stage).
+  let appliedWeight = RAW_STAGE_WEIGHTS.discovery;
+  let weightedSum = (RAW_STAGE_WEIGHTS.discovery / 100) * score.discovery;
+  const measured: RubricStageId[] = [];
+  const proxy: RubricStageId[] = [];
+  const unscorable: RubricStageId[] = [];
+  for (const stage of RUBRIC_STAGES) {
+    const state = stageStates[stage] ?? "measured"; // legacy: absent = measured
+    const w = RAW_STAGE_WEIGHTS[stage];
+    const s = score[stage];
+    if (state === "measured") {
+      measured.push(stage);
+      appliedWeight += w;
+      weightedSum += (w / 100) * s;
+    } else if (state === "proxy") {
+      proxy.push(stage);
+    } else {
+      unscorable.push(stage);
+    }
+  }
+  const normalized = appliedWeight > 0 ? (weightedSum / (appliedWeight / 100)) : 0;
+  const value = Math.round(clamp100(normalized) - score.hintPenalty - score.integrity);
+  return { value, measuredStages: measured, proxyStages: proxy, unscorableStages: unscorable };
 }

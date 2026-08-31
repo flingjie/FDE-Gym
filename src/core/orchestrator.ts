@@ -33,7 +33,11 @@ import {
 } from "../evidence/brief-validator.js";
 import { selectScenarioEvents, type EventTriggerContext } from "../simulation/event-scheduler.js";
 import type { Rng } from "../simulation/rng.js";
-import { calculateScore } from "../scoring/formulas.js";
+import {
+  calculateScore,
+  computeMeasuredCapability,
+  type MeasuredCapability,
+} from "../scoring/formulas.js";
 import { buildScoreInput, deriveAttemptReview } from "../scoring/score-input.js";
 import type { StageStates } from "../scoring/provenance.js";
 import { type AttemptReview, type LearnerProfile } from "../profile/learner-profile.js";
@@ -1098,6 +1102,8 @@ export interface PreparedReview {
   score: ScoreBreakdown;
   /** Per-stage three-state classification (measured/proxy/unscorable). */
   stageStates: StageStates;
+  /** Display-time capability figure over discovery + measured stages only. */
+  measuredCapability: MeasuredCapability;
   /** The attempt review to fold into the durable learner profile as a transaction effect. */
   effect: CommandEffect;
 }
@@ -1141,6 +1147,8 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   const score = calculateScore(scoreInput);
   // Defense-in-depth: the persisted score must satisfy the domain schema.
   ScoreBreakdownSchema.parse(score);
+  // Display-time measured-only capability (not persisted in score.computed).
+  const measuredCapability = computeMeasuredCapability(score, stageStates);
 
   // 3. review.completed + score.computed (persisted by the transaction).
   const reviewEvent: RunEvent = {
@@ -1177,5 +1185,5 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     review: attemptReview,
   };
 
-  return { events: [reviewEvent, scoreEvent], review, score, stageStates, effect };
+  return { events: [reviewEvent, scoreEvent], review, score, stageStates, measuredCapability, effect };
 }

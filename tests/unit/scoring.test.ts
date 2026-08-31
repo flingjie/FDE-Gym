@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateScore,
+  computeMeasuredCapability,
+  type ScoreBreakdown,
   type ScoreInput,
 } from "../../src/scoring/formulas";
+import type { StageStates } from "../../src/scoring/provenance";
 import {
   RAW_STAGE_WEIGHTS,
   RUBRIC,
@@ -293,5 +296,63 @@ describe("rubric: stage/criterion and raw weights are the brief's exact values",
       process: 10,
     });
     expect(Object.values(RAW_STAGE_WEIGHTS).reduce((sum, w) => sum + w, 0)).toBe(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// measured-only capability (display time)
+// ---------------------------------------------------------------------------
+
+describe("computeMeasuredCapability: measured-only aggregation", () => {
+  it("measured-only capability excludes proxy and unscorable stages", () => {
+    const score = {
+      discovery: 80,
+      framing: 90,
+      solution: 50,
+      challenge: 100,
+      pitch: 0,
+      process: 100,
+      raw: 60,
+      final: 50,
+      hintPenalty: 0,
+      integrity: 0,
+    } as ScoreBreakdown;
+    const states: StageStates = {
+      framing: "measured",
+      solution: "proxy",
+      challenge: "unscorable",
+      pitch: "proxy",
+      process: "measured",
+    };
+    const cap = computeMeasuredCapability(score, states);
+    expect(cap.measuredStages).toEqual(["framing", "process"]);
+    expect(cap.proxyStages).toEqual(["solution", "pitch"]);
+    expect(cap.unscorableStages).toEqual(["challenge"]);
+    // discovery(25) + framing(20) + process(10) = 55 weight; weighted sum =
+    // .25*80 + .20*90 + .10*100 = 20+18+10 = 48; normalized = 48 / 0.55 = 87.27 → 87.
+    expect(cap.value).toBe(87);
+  });
+
+  it("all-unscorable rubric stages still yields discovery-only value", () => {
+    const score = {
+      discovery: 80,
+      framing: 0,
+      solution: 0,
+      challenge: 0,
+      pitch: 0,
+      process: 0,
+      raw: 20,
+      final: 20,
+      hintPenalty: 0,
+      integrity: 0,
+    } as ScoreBreakdown;
+    const states: StageStates = {
+      framing: "unscorable",
+      solution: "unscorable",
+      challenge: "unscorable",
+      pitch: "unscorable",
+      process: "unscorable",
+    };
+    expect(computeMeasuredCapability(score, states).value).toBe(80);
   });
 });
