@@ -1,15 +1,9 @@
-import { createHash } from "node:crypto";
 import { access, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { z } from "zod";
 
 import { resolveBaseDir } from "../base-dir.js";
-import { RunEventSchema, SAFE_RESOURCE_ID, type RecordedEvent, type RunEvent } from "./domain.js";
-import {
-  RUN_FORMAT_VERSION,
-  resolveRunFormatVersion,
-  upcastRecordedEvent,
-} from "./versioning.js";
+import { SAFE_RESOURCE_ID, type RecordedEvent, type RunEvent } from "./domain.js";
+import { RUN_FORMAT_VERSION, resolveRunFormatVersion } from "./versioning.js";
 import {
   EventChainInvalidError,
   InvalidResourceIdError,
@@ -20,6 +14,18 @@ import {
 import { createInitialRunState, reduce, type RunState } from "./reducer.js";
 import { atomicWriteFile } from "../storage/atomic-file.js";
 import { withRunLock, type RunLock } from "../storage/run-lock.js";
+import {
+  canonicalJson,
+  EventEnvelopeSchema,
+  RecordedEventSchema,
+  recordEvent,
+  verifyChain,
+} from "../storage/event-chain.js";
+
+// Re-exported for `command-transaction.ts` and the scenario/fixture helpers,
+// which import `canonicalJson` from the store, and for any caller depending on
+// the envelope/recorded-event schemas living on the store module.
+export { canonicalJson, EventEnvelopeSchema, RecordedEventSchema };
 
 /**
  * Append-only, hash-chained JSONL event store under
@@ -31,7 +37,6 @@ import { withRunLock, type RunLock } from "../storage/run-lock.js";
  */
 
 const FIRST_PREVIOUS_HASH = "";
-const SHA256_HEX_LENGTH = 64;
 
 export interface StoreOptions {
   /** Overrides `$FDE_GYM_HOME` and the project-local `.fde-gym` default. */
@@ -52,44 +57,6 @@ export function assertSafeResourceId(kind: "run" | "scenario" | "command", id: s
   if (!SAFE_RESOURCE_ID.test(id)) {
     throw new InvalidResourceIdError(kind, id);
   }
-}
-
-/** Envelope schema; the domain payload schema is intersected in below. */
-export const EventEnvelopeSchema = z
-  .object({
-    seq: z.number().int().positive(),
-    logicalTime: z.number().int().positive(),
-    previousHash: z.string(),
-    hash: z.string().length(SHA256_HEX_LENGTH),
-  })
-  .strict();
-
-/** The full recorded-event schema (domain payload + envelope). */
-export const RecordedEventSchema = RunEventSchema.and(EventEnvelopeSchema);
-
-/**
- * Canonical JSON: object keys sorted recursively, then `JSON.stringify`. This
- * is the byte-stability contract for hashing — independent of how an object
- * was constructed or parsed.
- */
-export function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortKeysDeep(value));
-}
-
-function sortKeysDeep(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeysDeep);
-  if (value !== null && typeof value === "object") {
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
-    }
-    return sorted;
-  }
-  return value;
-}
-
-function sha256Hex(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
 function eventsFile(baseDir: string, runId: string): string {
@@ -266,40 +233,6 @@ export async function readHead(
   return { seq: last.seq, hash: last.hash };
 }
 
-function recordEvent(
-  domainEvent: RunEvent,
-  seq: number,
-  logicalTime: number,
-  previousHash: string,
-): RecordedEvent {
-  const withoutHash = { ...domainEvent, seq, logicalTime, previousHash };
-  const hash = sha256Hex(canonicalJson(withoutHash));
-  return { ...withoutHash, hash };
-}
-
-/** Recompute the hash over a raw record's non-hash fields (canonical key order). */
-function hashRawRecord(raw: Record<string, unknown>): string {
-  const { hash: _hash, ...withoutHash } = raw;
-  return sha256Hex(canonicalJson(withoutHash));
-}
-
-/** Validate the envelope fields of a raw record, returning them typed (or null). */
-function envelopeFields(raw: Record<string, unknown>): {
-  seq: number;
-  logicalTime: number;
-  previousHash: string;
-  hash: string;
-} | null {
-  const { seq, logicalTime, previousHash, hash } = raw;
-  if (typeof seq !== "number" || !Number.isInteger(seq) || seq <= 0) return null;
-  if (typeof logicalTime !== "number" || !Number.isInteger(logicalTime) || logicalTime <= 0) {
-    return null;
-  }
-  if (typeof previousHash !== "string") return null;
-  if (typeof hash !== "string" || hash.length !== SHA256_HEX_LENGTH) return null;
-  return { seq, logicalTime, previousHash, hash };
-}
-
 /**
  * Read + validate the chain, returning the committed events together with the
  * exact on-disk bytes of their committed prefix (valid lines up to the last
@@ -331,7 +264,7 @@ async function readEventsAndPrefix(
   const runFormatVersion = await readRunManifest(baseDir, runId);
 
   const lines = raw.split("\n");
-  const events: RecordedEvent[] = [];
+  const rawRecords: unknown[] = [];
   let committedCount = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -351,40 +284,11 @@ async function readEventsAndPrefix(
       throw new EventChainInvalidError(`unparseable committed event at line ${i + 1}`);
     }
 
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new EventChainInvalidError(`invalid recorded event at line ${i + 1}`);
-    }
-    const rawRecord = parsed as Record<string, unknown>;
-    const envelope = envelopeFields(rawRecord);
-    if (envelope === null) {
-      throw new EventChainInvalidError(`invalid recorded event at line ${i + 1}`);
-    }
-
-    const expectedSeq = events.length + 1;
-    const expectedPreviousHash =
-      events.length === 0 ? FIRST_PREVIOUS_HASH : events[events.length - 1].hash;
-
-    if (envelope.seq !== expectedSeq) {
-      throw new EventChainInvalidError(
-        `seq discontinuity at line ${i + 1}: expected ${expectedSeq}, got ${envelope.seq}`,
-      );
-    }
-    if (envelope.previousHash !== expectedPreviousHash) {
-      throw new EventChainInvalidError(`previousHash mismatch at line ${i + 1}`);
-    }
-    if (hashRawRecord(rawRecord) !== envelope.hash) {
-      throw new EventChainInvalidError(`hash mismatch at line ${i + 1}`);
-    }
-
-    // Hash is verified; now select the upcaster and validate the CURRENT schema.
-    const upcasted = upcastRecordedEvent(rawRecord, runFormatVersion);
-    const validation = RecordedEventSchema.safeParse(upcasted);
-    if (!validation.success) {
-      throw new EventChainInvalidError(`invalid recorded event at line ${i + 1}`);
-    }
-    events.push(validation.data);
+    rawRecords.push(parsed);
     committedCount = i + 1;
   }
+
+  const events = verifyChain(rawRecords, runFormatVersion);
 
   const committedPrefix =
     committedCount === 0 ? "" : lines.slice(0, committedCount).join("\n") + "\n";
