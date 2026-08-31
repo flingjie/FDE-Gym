@@ -56,6 +56,24 @@ one safe CLI command and renders only the returned learner-safe envelope.
 npm run release:gate              # npm ci → typecheck → build → test, stops on first failure
 ```
 
+### Verify (real model)
+
+The deterministic suite runs on fixtures. To additionally check the real model path
+end-to-end, point the direct runtime at a chat-completions endpoint and run the contract
+suite (it skips when the endpoint is absent):
+
+```bash
+FDE_GYM_MODEL_BASE_URL=http://127.0.0.1:15721/v1 \
+FDE_GYM_MODEL=deepseek-v4-pro \
+npx vitest run tests/e2e/real-model-contract.test.ts
+```
+
+The suite asserts the learner-facing contract: the full run (`start` → `ask` → `frame` →
+`submit-brief` → `submit-design` → `respond-challenge` → `submit-pitch` → `review` →
+`replay`) succeeds, role outputs are schema-valid, no hidden content leaks, replay is
+byte-stable, and the score carries full provenance (evaluation identity + confidence). It is
+not part of CI (the model is non-deterministic).
+
 ## Determinism and release status
 
 Four claims are precise and are what the verification suite asserts:
