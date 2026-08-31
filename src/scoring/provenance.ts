@@ -45,9 +45,25 @@ export const LEGACY_COMPARABILITY_KEY = "legacy-v1-non-comparable" as const;
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * Coarse three-state classification of one stage's score, surfaced to the
+ * learner so a proxy/unscorable number is never mistaken for a real Coach
+ * measurement.
+ */
+export type StageScoreState = "measured" | "proxy" | "unscorable";
+
+/** The per-stage `state` map (framing/solution/challenge/pitch/process). */
+export type StageStates = Record<RubricStageId, StageScoreState>;
+
 /** The source of one stage's score. */
 export interface StageScoreProvenance {
   source: "model" | "deterministic-fallback";
+  /**
+   * Whether this stage's number is a real measurement (`measured`), a
+   * deterministic signal (`proxy`), or vacuous (`unscorable`). OPTIONAL so
+   * older/frozen `score.computed` events that predate Task 5 still validate.
+   */
+  state?: StageScoreState;
   /** Why the deterministic fallback was used (only present when it was). */
   fallbackReason?: string;
 }
@@ -55,6 +71,7 @@ export interface StageScoreProvenance {
 export const StageScoreProvenanceSchema = z
   .object({
     source: z.enum(["model", "deterministic-fallback"]),
+    state: z.enum(["measured", "proxy", "unscorable"]).optional(),
     fallbackReason: z.string().min(1).optional(),
   })
   .strict();

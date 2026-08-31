@@ -35,6 +35,7 @@ import { selectScenarioEvents, type EventTriggerContext } from "../simulation/ev
 import type { Rng } from "../simulation/rng.js";
 import { calculateScore } from "../scoring/formulas.js";
 import { buildScoreInput, deriveAttemptReview } from "../scoring/score-input.js";
+import type { StageStates } from "../scoring/provenance.js";
 import { type AttemptReview, type LearnerProfile } from "../profile/learner-profile.js";
 import {
   ChallengeResponseSchema,
@@ -1095,6 +1096,8 @@ export interface PreparedReview {
   events: RunEvent[];
   review: FinalReviewResult;
   score: ScoreBreakdown;
+  /** Per-stage three-state classification (measured/proxy/unscorable). */
+  stageStates: StageStates;
   /** The attempt review to fold into the durable learner profile as a transaction effect. */
   effect: CommandEffect;
 }
@@ -1124,7 +1127,7 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     started && started.type === "run.started" ? (started.scenarioBundleDigest ?? null) : null;
 
   // 2. Deterministic score + provenance.
-  const { input: scoreInput, provenance } = buildScoreInput({
+  const { input: scoreInput, provenance, stageStates } = buildScoreInput({
     events,
     aggregate: state,
     customerCapsule,
@@ -1164,6 +1167,7 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     events,
     state,
     provenance.comparabilityKey,
+    stageStates,
   );
   const attemptReview: AttemptReview = { ...attempt, retryFocuses: review.nextFocus };
   const effect: CommandEffect = {
@@ -1173,5 +1177,5 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     review: attemptReview,
   };
 
-  return { events: [reviewEvent, scoreEvent], review, score, effect };
+  return { events: [reviewEvent, scoreEvent], review, score, stageStates, effect };
 }

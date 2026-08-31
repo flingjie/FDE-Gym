@@ -83,6 +83,45 @@ describe("updateLearnerProfile: competency EMA", () => {
 });
 
 // ---------------------------------------------------------------------------
+// stage-state gating (Task 5)
+// ---------------------------------------------------------------------------
+
+describe("updateLearnerProfile: stage-state gating", () => {
+  it("does not fold proxy/unscorable competencies into the EMA", () => {
+    const next = updateLearnerProfile(
+      profile({ competencies: { ...scores(50), solutionDesign: 80 } }),
+      review({
+        competencies: scores(10),
+        stageStates: {
+          framing: "measured",
+          solution: "proxy",
+          challenge: "unscorable",
+          pitch: "unscorable",
+          process: "measured",
+        },
+      }),
+    );
+    // solutionDesign (stage "solution" = proxy) keeps its previous 80.
+    expect(next.competencies.solutionDesign).toBe(80);
+    // adaptability (stage "challenge" = unscorable) keeps its previous 50.
+    expect(next.competencies.adaptability).toBe(50);
+    // discovery has no stage → always measured: 0.7×50 + 0.3×10 = 38.
+    expect(next.competencies.discovery).toBe(38);
+    // problemFraming (stage "framing" = measured): 0.7×50 + 0.3×10 = 38.
+    expect(next.competencies.problemFraming).toBe(38);
+  });
+
+  it("treats an absent stageStates map as all-measured (legacy)", () => {
+    const next = updateLearnerProfile(
+      profile({ competencies: scores(50) }),
+      review({ competencies: scores(10) }),
+    );
+    // No stageStates → every competency folds: 0.7×50 + 0.3×10 = 38.
+    expect(next.competencies.solutionDesign).toBe(38);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // attempts + strongest/weakest
 // ---------------------------------------------------------------------------
 

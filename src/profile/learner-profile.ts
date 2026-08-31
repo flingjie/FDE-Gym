@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { FDE_SCHEMA_VERSION, LocalizedTextSchema, type LocalizedText } from "../core/domain.js";
+import type { StageStates } from "../scoring/provenance.js";
+import type { RubricStageId } from "../scoring/rubric.js";
 
 /**
  * FDE Gym — learner profile with the six-competency EMA.
@@ -65,6 +67,12 @@ export interface AttemptReview {
   retryFocuses: LocalizedText[];
   /** The score's comparability key (Task 8); guards the EMA against silent blending. */
   comparabilityKey: string;
+  /**
+   * Per-stage three-state classification (Task 5). Only `measured` competencies
+   * are folded into the EMA; `proxy`/`unscorable` leave the learner's figure
+   * untouched. Absent → every competency is treated as measured (legacy).
+   */
+  stageStates?: StageStates;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +164,26 @@ export function createEmptyProfile(): LearnerProfile {
 }
 
 /**
+ * The stage whose score feeds each competency. `discovery` is intentionally
+ * absent: it is coverage-derived (not a rubric stage), so it is always measured.
+ */
+const COMPETENCY_STAGE: Partial<Record<CompetencyKey, RubricStageId>> = {
+  problemFraming: "framing",
+  solutionDesign: "solution",
+  adaptability: "challenge",
+  pitching: "pitch",
+  evidenceReasoning: "process",
+};
+
+/** Whether a competency should be folded into the EMA (measured or unknown). */
+function isMeasured(review: AttemptReview, key: CompetencyKey): boolean {
+  const stage = COMPETENCY_STAGE[key];
+  if (stage === undefined) return true; // discovery — always measured.
+  const state = review.stageStates?.[stage];
+  return state === undefined || state === "measured";
+}
+
+/**
  * Apply one attempt's review to the profile and return a NEW profile (inputs
  * are never mutated). Competencies follow the EMA; the remaining metrics store
  * the latest attempt's values; `attempts` increments; `strongest`/`weakest`
@@ -182,7 +210,9 @@ export function updateLearnerProfile(
   const previous = sameComparability ? profile.competencies : neutralCompetencies();
 
   for (const key of COMPETENCY_KEYS) {
-    const value = clamp100(0.7 * previous[key] + 0.3 * review.competencies[key]);
+    const value = isMeasured(review, key)
+      ? clamp100(0.7 * previous[key] + 0.3 * review.competencies[key])
+      : previous[key];
     competencies[key] = value;
     if (value > strongestScore) {
       strongestScore = value;

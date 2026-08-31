@@ -8,12 +8,14 @@ import type {
 import { calculateSupportRatio } from "../evidence/brief-validator.js";
 import type { AttemptReview, CompetencyScores } from "../profile/learner-profile.js";
 import type { ScoreBreakdown } from "../core/domain.js";
-import { computeStageScore, type RubricStageId } from "./rubric.js";
+import { computeStageScore, RUBRIC_STAGE_IDS, type RubricStageId } from "./rubric.js";
 import {
   buildScoreProvenance,
   deriveStageProvenance,
   type ScoreProvenance,
   type StageScoreProvenance,
+  type StageScoreState,
+  type StageStates,
 } from "./provenance.js";
 import type {
   HintCounts,
@@ -102,6 +104,82 @@ export function fallbackStageScores(input: {
     pitch: input.pitchExplicitAsk ? 100 : 0,
     process: clamp100(100 - input.hintPenalty),
   };
+}
+
+/**
+ * The deterministic signals `fallbackStageScores` consumes. `classifyStage`
+ * uses them to tell a meaningful proxy signal apart from a vacuous one.
+ */
+export interface FallbackSignals {
+  proposalPresent: boolean;
+  mandatoryChallenges: number;
+  pitchExplicitAsk: boolean;
+  briefSupport: number;
+  hasBrief: boolean;
+}
+
+/**
+ * The stage's three-state classification string (measured/proxy/unscorable).
+ */
+function stageState(
+  stage: RubricStageId,
+  provenance: Pick<StageScoreProvenance, "source">,
+  signals: Partial<FallbackSignals>,
+): StageScoreState {
+  if (provenance.source === "model") return "measured";
+  switch (stage) {
+    case "framing":
+      return signals.hasBrief === true ? "proxy" : "unscorable";
+    case "solution":
+      return signals.proposalPresent === true ? "proxy" : "unscorable";
+    case "challenge":
+      return (signals.mandatoryChallenges ?? 0) > 0 ? "proxy" : "unscorable";
+    case "pitch":
+      return signals.pitchExplicitAsk === true ? "proxy" : "unscorable";
+    case "process":
+      // Hint reliance is always a real signal; never vacuous.
+      return "proxy";
+  }
+}
+
+/**
+ * Coarse three-state classification of a stage's score:
+ *   - `measured`   = a real Coach criterion judgment exists (`source === "model"`).
+ *   - `proxy`      = deterministic fallback WITH a meaningful signal.
+ *   - `unscorable` = deterministic fallback with NO meaningful signal (the
+ *                    vacuous "no challenges → 100", "no proposal → 0",
+ *                    "no pitch ask → 0", "no brief → 0" cases).
+ *
+ * Returns the provenance with `state` attached. The fallback signals are only
+ * known inside `buildScoreInput` (they are the locals that feed
+ * `fallbackStageScores`), which is why classification is threaded here rather
+ * than inside `deriveStageProvenance`.
+ */
+export function classifyStage(
+  stage: RubricStageId,
+  provenance: StageScoreProvenance,
+  signals: Partial<FallbackSignals>,
+): StageScoreProvenance {
+  return { ...provenance, state: stageState(stage, provenance, signals) };
+}
+
+/**
+ * Attach the per-stage `state` to a `stageProvenance` map and return both the
+ * stateful map (for `buildScoreProvenance`) and the flat `stageStates` map
+ * (for surfacing in the CLI review output and the profile fold).
+ */
+function classifyStageProvenance(
+  stageProvenance: Record<RubricStageId, StageScoreProvenance>,
+  signals: FallbackSignals,
+): { stageProvenance: Record<RubricStageId, StageScoreProvenance>; stageStates: StageStates } {
+  const states = {} as StageStates;
+  const staged = {} as Record<RubricStageId, StageScoreProvenance>;
+  for (const stage of RUBRIC_STAGE_IDS) {
+    const state = stageState(stage, stageProvenance[stage], signals);
+    states[stage] = state;
+    staged[stage] = { ...stageProvenance[stage], state };
+  }
+  return { stageProvenance: staged, stageStates: states };
 }
 
 /**
@@ -220,6 +298,8 @@ export interface BuildScoreInputOptions {
 export interface BuildScoreInputResult {
   input: ScoreInput;
   provenance: ScoreProvenance;
+  /** Per-stage three-state classification (measured/proxy/unscorable). */
+  stageStates: StageStates;
 }
 
 /** Assemble the full `ScoreInput` for `calculateScore` plus its provenance. */
@@ -297,15 +377,28 @@ export function buildScoreInput(options: BuildScoreInputOptions): BuildScoreInpu
   // --- stage scores (per-criterion Coach scores with deterministic fallback) ----
   const mandatory = injectedChallengeIds(events);
   const answered = new Set(aggregate.challengeResponses.map((response) => response.challengeId));
+  const proposalPresent = aggregate.proposal !== null;
   const fallback = fallbackStageScores({
     briefSupport,
-    proposalPresent: aggregate.proposal !== null,
+    proposalPresent,
     mandatoryChallenges: mandatory.length,
     answeredChallenges: [...answered].filter((id) => mandatory.includes(id)).length,
     pitchExplicitAsk,
     hintPenalty,
   });
   const { stageScores, stageProvenance } = deriveStageScores(options.criterionScores, fallback);
+  // Three-state classification (Task 5): measured / proxy / unscorable, from the
+  // model-vs-fallback source PLUS the deterministic fallback signals.
+  const { stageProvenance: classifiedStageProvenance, stageStates } = classifyStageProvenance(
+    stageProvenance,
+    {
+      proposalPresent,
+      mandatoryChallenges: mandatory.length,
+      pitchExplicitAsk,
+      briefSupport,
+      hasBrief: brief !== null,
+    },
+  );
 
   const input: ScoreInput = {
     coverage: clamp01(coverage),
@@ -324,13 +417,13 @@ export function buildScoreInput(options: BuildScoreInputOptions): BuildScoreInpu
   };
 
   const provenance = buildScoreProvenance({
-    stageProvenance,
+    stageProvenance: classifiedStageProvenance,
     evaluatorInvocationId: options.evaluatorInvocationId ?? null,
     modelId: options.modelId ?? null,
     scenarioBundleSha256: options.scenarioBundleSha256 ?? null,
   });
 
-  return { input, provenance };
+  return { input, provenance, stageStates };
 }
 
 // ---------------------------------------------------------------------------
@@ -354,7 +447,9 @@ function mapCompetencies(score: ScoreBreakdown): CompetencyScores {
  * competencies map 1:1 onto the stage/discovery scores; `evidenceReasoning`
  * uses `process` (evidence hygiene). The score's `comparabilityKey` is carried
  * through so the profile never blends EMA across incompatible scoring identity.
- * Deterministic.
+ * The per-stage `stageStates` are carried through so the profile fold only
+ * blends `measured` competencies (proxy/unscorable numbers never move a
+ * learner's capability figure). Deterministic.
  */
 export function deriveAttemptReview(
   scoreInput: ScoreInput,
@@ -362,6 +457,7 @@ export function deriveAttemptReview(
   events: readonly RunEvent[],
   aggregate: RunAggregate,
   comparabilityKey: string,
+  stageStates: StageStates,
 ): Omit<AttemptReview, "retryFocuses"> {
   const questionCount = score.questions.length;
   const repeated = score.questions.filter((question) => question.gq === 0).length;
@@ -376,5 +472,6 @@ export function deriveAttemptReview(
       totalClaims > 0 ? (validation?.unsupportedClaimIds.length ?? 0) / totalClaims : 0,
     contradictionHandling: scoreInput.contradictionHandling,
     comparabilityKey,
+    stageStates,
   };
 }

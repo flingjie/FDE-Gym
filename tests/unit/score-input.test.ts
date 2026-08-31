@@ -11,7 +11,8 @@ import {
   AGENT_OUTPUT_DOMAIN_INVALID,
   validateFinalReviewOutput,
 } from "../../src/agents/output-validation.js";
-import { buildScoreInput } from "../../src/scoring/score-input.js";
+import { buildScoreInput, classifyStage, deriveAttemptReview } from "../../src/scoring/score-input.js";
+import { calculateScore } from "../../src/scoring/formulas.js";
 import { RUBRIC, computeStageScore } from "../../src/scoring/rubric.js";
 import {
   LEGACY_COMPARABILITY_KEY,
@@ -262,6 +263,76 @@ describe("buildScoreInput: score provenance", () => {
     const a = buildScoreInput({ ...baseOptions(true), modelId: "model-family-a" }).provenance;
     const b = buildScoreInput({ ...baseOptions(true), modelId: "model-family-b" }).provenance;
     expect(a.comparabilityKey).not.toBe(b.comparabilityKey);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyStage: three-state score classification (Task 5)
+// ---------------------------------------------------------------------------
+
+describe("classifyStage: three-state score classification", () => {
+  it("classifies a stage with criterion scores as measured", () => {
+    const { state } = classifyStage("solution", { source: "model" }, { proposalPresent: true });
+    expect(state).toBe("measured");
+  });
+  it("classifies a meaningful fallback as proxy", () => {
+    const { state } = classifyStage("solution", { source: "deterministic-fallback" }, { proposalPresent: true });
+    expect(state).toBe("proxy");
+  });
+  it("classifies a vacuous fallback as unscorable", () => {
+    const { state } = classifyStage("challenge", { source: "deterministic-fallback" }, { mandatoryChallenges: 0 });
+    expect(state).toBe("unscorable");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// three-state wiring: buildScoreInput + deriveAttemptReview (Task 5)
+// ---------------------------------------------------------------------------
+
+describe("buildScoreInput: three-state stage classification", () => {
+  it("marks vacuous fallback stages unscorable and process proxy", () => {
+    const { stageStates, provenance } = buildScoreInput(baseOptions(true));
+    expect(stageStates).toEqual({
+      framing: "unscorable",
+      solution: "unscorable",
+      challenge: "unscorable",
+      pitch: "unscorable",
+      process: "proxy",
+    });
+    // The same states are stamped onto the persisted provenance.
+    expect(provenance.stages.framing.state).toBe("unscorable");
+    expect(provenance.stages.process.state).toBe("proxy");
+    expect(provenance.stages.solution.state).toBe("unscorable");
+  });
+
+  it("marks a stage with criterion scores measured", () => {
+    const { stageStates } = buildScoreInput({
+      ...baseOptions(true),
+      criterionScores: {
+        framing: {
+          "evidence-support": 100,
+          "goal-clarity": 100,
+          "constraints-tradeoffs": 100,
+          "unknown-risk-handling": 100,
+        },
+      },
+    });
+    expect(stageStates.framing).toBe("measured");
+    expect(stageStates.solution).toBe("unscorable");
+  });
+
+  it("carries the per-stage states into the attempted profile review", () => {
+    const options = baseOptions(true);
+    const { input, provenance, stageStates } = buildScoreInput(options);
+    const attempt = deriveAttemptReview(
+      input,
+      calculateScore(input),
+      options.events,
+      options.aggregate,
+      provenance.comparabilityKey,
+      stageStates,
+    );
+    expect(attempt.stageStates).toEqual(stageStates);
   });
 });
 
