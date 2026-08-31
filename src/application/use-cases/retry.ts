@@ -65,6 +65,7 @@ export async function retry(
     commandId: args.commandId,
     request: { type: "retry", newRunId: args.newRunId, seed: args.seed ?? null, focusSummaries },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     prepare: async () => {
       const result = await prepareRetry(loaded.aggregate, {
         newRunId: args.newRunId,

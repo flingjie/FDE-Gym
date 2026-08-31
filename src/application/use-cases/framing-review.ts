@@ -133,6 +133,7 @@ export async function submitBrief(
     commandId: args.commandId,
     request: { type: "submit-brief", brief: args.brief },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     canaries: [scenario.evaluator.canary],
     prepare: async () => {
       const result = await prepareFramingGate({
@@ -168,6 +169,7 @@ export async function submitDesign(
     commandId: args.commandId,
     request: { type: "submit-design", proposal: args.proposal, seed: args.seed ?? null },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     prepare: async () => {
       const design = await prepareSolutionDesign({
         state: loaded.aggregate,
@@ -205,6 +207,7 @@ export async function respondChallenge(
     commandId: args.commandId,
     request: { type: "respond-challenge", response: args.response },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     prepare: async () => {
       const result = await prepareRespondToChallenge({
         state: loaded.aggregate,
@@ -234,6 +237,7 @@ export async function submitPitch(
     commandId: args.commandId,
     request: { type: "submit-pitch", pitch: args.pitch },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     prepare: async () => {
       const result = await preparePitch({
         state: loaded.aggregate,
@@ -260,6 +264,7 @@ export async function review(
     commandId: args.commandId,
     request: { type: "review" },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     canaries: [scenario.evaluator.canary],
     prepare: async () => {
       const result = await prepareReview({

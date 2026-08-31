@@ -65,6 +65,20 @@ export interface CommandPlan<T extends JsonValue> {
   effects?: CommandEffect[];
 }
 
+/**
+ * The event append/read surface a transaction routes through. Defaults to the
+ * file store (`src/core/event-store.ts`); a caller can substitute an
+ * `EventStorePort` (e.g. `SqliteEventStore`) so the transaction's event
+ * append/readHead hit the SELECTED store, while the command journal and run
+ * lock stay file-based. `options` is the file store's `StoreOptions`, so the
+ * port's `{ baseDir? }`-accepting functions remain assignable by parameter
+ * contravariance.
+ */
+export interface TransactionEventStore {
+  appendEvents(runId: string, events: RunEvent[], options: StoreOptions): Promise<void>;
+  readHead(runId: string, options: StoreOptions): Promise<{ seq: number; hash: string } | null>;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -209,6 +223,7 @@ async function applyEffect(
   effect: CommandEffect,
   baseDir: string,
   lock: RunLock,
+  events: TransactionEventStore,
 ): Promise<void> {
   switch (effect.type) {
     case "retry.ensure-child": {
@@ -216,7 +231,7 @@ async function applyEffect(
         [effect.parentRunId, effect.childRunId],
         { baseDir, lock },
         async (held) => {
-          await appendEvents(effect.childRunId, effect.events, {
+          await events.appendEvents(effect.childRunId, effect.events, {
             baseDir,
             lock: held.get(effect.childRunId),
           });
@@ -235,9 +250,10 @@ async function applyEffects(
   effects: CommandEffect[],
   baseDir: string,
   lock: RunLock,
+  events: TransactionEventStore,
 ): Promise<void> {
   for (const effect of effects) {
-    await applyEffect(effect, baseDir, lock);
+    await applyEffect(effect, baseDir, lock, events);
   }
 }
 
@@ -273,12 +289,15 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
   commandId: string;
   request: JsonValue;
   store?: StoreOptions;
+  /** Event append/read surface to route through; defaults to the file store. */
+  events?: TransactionEventStore;
   /** Hidden values that must never appear in journaled events/result/effects. */
   canaries?: readonly string[];
   prepare: () => Promise<CommandPlan<T>>;
 }): Promise<T> {
   const { runId, commandId, request } = options;
   const canaries = options.canaries ?? [];
+  const events = options.events ?? { appendEvents, readHead };
   // The top-level commandId becomes a journal filename component, so it must be
   // validated with the same resource-id shape as run ids. The `:`-suffixed ids
   // in DERIVED event commandId fields are event data, never filenames.
@@ -311,14 +330,14 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
       }
       // Finish a prepared (interrupted) command: append is idempotent by
       // commandId; effects are applied once more (idempotent per effect).
-      await appendEvents(runId, existing.events, store);
-      await applyEffects(existing.effects, baseDir, lock);
+      await events.appendEvents(runId, existing.events, store);
+      await applyEffects(existing.effects, baseDir, lock, events);
       await writeJournal(path, { ...existing, status: "committed" }, canaries);
       recovered = existing.result as T;
       return;
     }
 
-    headBefore = await readHead(runId, store);
+    headBefore = await events.readHead(runId, store);
   });
 
   if (hadJournal) {
@@ -327,10 +346,10 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
 
   // 2. Model call OUTSIDE the lock.
   const plan = await options.prepare();
-  const events = plan.events ?? [];
+  const plannedEvents = plan.events ?? [];
   const result = plan.result;
   const effects = plan.effects ?? [];
-  validatePlan(events, result, effects);
+  validatePlan(plannedEvents, result, effects);
 
   // 3. Re-acquire the lock and commit iff the head is unchanged. A journal
   //    written by a concurrent duplicate is recovered (its plan discarded);
@@ -346,13 +365,13 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
       if (existing.status === "committed") {
         return existing.result as T;
       }
-      await appendEvents(runId, existing.events, store);
-      await applyEffects(existing.effects, baseDir, lock);
+      await events.appendEvents(runId, existing.events, store);
+      await applyEffects(existing.effects, baseDir, lock, events);
       await writeJournal(path, { ...existing, status: "committed" }, canaries);
       return existing.result as T;
     }
 
-    const headNow = await readHead(runId, store);
+    const headNow = await events.readHead(runId, store);
     if (!sameHead(headBefore, headNow)) {
       throw new RunVersionConflictError(runId);
     }
@@ -363,13 +382,13 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
       commandId,
       requestHash,
       status: "prepared",
-      events,
+      events: plannedEvents,
       result,
       effects,
     };
     await writeJournal(path, prepared, canaries);
-    await appendEvents(runId, events, store);
-    await applyEffects(effects, baseDir, lock);
+    await events.appendEvents(runId, plannedEvents, store);
+    await applyEffects(effects, baseDir, lock, events);
     await writeJournal(path, { ...prepared, status: "committed" }, canaries);
     return result as T;
   });

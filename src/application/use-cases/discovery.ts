@@ -131,6 +131,7 @@ export async function startRun(deps: ApplicationDeps, args: StartArgs): Promise<
       ...(resolved.bundleDigest !== undefined ? { scenarioBundleDigest: resolved.bundleDigest } : {}),
     },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     prepare: async () => {
       const startEvents = buildRunStartedEvents(args.runId, {
         type: "start",
@@ -162,6 +163,7 @@ export async function frame(
     commandId: args.commandId,
     request: { type: "frame" },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     prepare: async () => {
       assertCommandPhase(loaded.phase, "frame");
       const events = [
@@ -184,6 +186,7 @@ export async function ask(
     commandId: args.commandId,
     request: { type: "ask", question: args.question, stakeholderId: args.stakeholderId },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     canaries: [scenario.customer.canary],
     prepare: async () => {
       const result = await prepareDiscoveryTurn({
@@ -230,6 +233,7 @@ export async function repairEvidence(
     commandId: args.commandId,
     request: { type: "repair-evidence" },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     canaries: [scenario.customer.canary],
     prepare: async () => {
       const result = await prepareRepairPendingEvidence({
@@ -268,6 +272,7 @@ export async function requestHint(
     commandId: args.commandId,
     request: { type: "hint", topic: args.topic, level: args.level ?? null },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     canaries: [scenario.evaluator.canary],
     prepare: async () => {
       const recorded = await deps.store.loadEvents(args.runId, { baseDir: deps.baseDir });
@@ -315,6 +320,7 @@ export async function clarify(
     commandId: args.commandId,
     request: { type: "clarify" },
     store: { baseDir: deps.baseDir },
+    events: { appendEvents: deps.store.appendEvents, readHead: deps.store.readHead },
     prepare: async () => {
       const result = await prepareClarification({
         state: loaded.aggregate,
