@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { JudgmentProvenanceSchema } from "./judgment.js";
 import { ScoreProvenanceSchema } from "../scoring/provenance.js";
 
 /**
@@ -680,6 +681,7 @@ export const QuestionAssessedEventSchema = z
     ...EVENT_BASE,
     questionId: z.string().min(1),
     assessment: QuestionAssessmentSchema,
+    judgment: JudgmentProvenanceSchema.optional(),
   })
   .strict();
 
@@ -731,6 +733,7 @@ export const BriefValidatedEventSchema = z
     ...EVENT_BASE,
     briefId: z.string().min(1),
     result: BriefValidationResultSchema,
+    judgment: JudgmentProvenanceSchema.optional(),
   })
   .strict();
 
@@ -772,6 +775,7 @@ export const ReviewCompletedEventSchema = z
     type: z.literal("review.completed"),
     ...EVENT_BASE,
     review: FinalReviewResultSchema,
+    judgment: JudgmentProvenanceSchema.optional(),
   })
   .strict();
 

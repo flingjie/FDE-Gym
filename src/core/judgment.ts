@@ -24,8 +24,8 @@ export const JudgmentProvenanceSchema = z
     promptDigest: z.string().regex(SHA256_HEX),
     /** The role output schema version that validated `value`. */
     schemaVersion: z.number().int().positive(),
-    /** The verified scenario-bundle digest recorded at run start. */
-    scenarioDigest: z.string().regex(SHA256_HEX),
+    /** The verified scenario-bundle digest recorded at run start; `""` on provenance-legacy runs that predate the digest. */
+    scenarioDigest: z.string().regex(SHA256_HEX).or(z.literal("")),
     temperature: z.number().optional(),
     /** sha256 of the pre-validation raw output (raw text never persisted). */
     rawOutputDigest: z.string().regex(SHA256_HEX),

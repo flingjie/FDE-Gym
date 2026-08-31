@@ -398,6 +398,7 @@ export async function askCommand(ctx: CommandContext, args: AskArgs): Promise<Cl
           question: args.question,
           stakeholderId: args.stakeholderId,
           commandId: args.commandId,
+          scenarioBundleDigest: loaded.scenarioBundleDigest,
         });
         const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
         return {
@@ -448,6 +449,7 @@ export async function repairEvidenceCommand(
           state: loaded.aggregate,
           commandId: askCommandId,
           canaries: [scenario.customer.canary],
+          scenarioBundleDigest: loaded.scenarioBundleDigest,
         });
 
         const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
@@ -580,6 +582,7 @@ export async function submitBriefCommand(
           state: loaded.aggregate,
           brief: args.brief,
           commandId: args.commandId,
+          scenarioBundleDigest: loaded.scenarioBundleDigest,
         });
         return {
           events: result.acceptedEvents,

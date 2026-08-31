@@ -6,7 +6,16 @@ import {
 import {
   extractEvidence,
 } from "../agents/evidence-tracker.js";
-import { runFinalReview, validateProblemBrief } from "../agents/coach.js";
+import {
+  runFinalReview,
+  validateProblemBrief,
+  type BriefValidationInvocation,
+} from "../agents/coach.js";
+import {
+  BRIEF_VALIDATION_OUTPUT_SCHEMA_VERSION,
+  EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION,
+  FINAL_REVIEW_OUTPUT_SCHEMA_VERSION,
+} from "../agents/contracts.js";
 import type { QuestionAssessment } from "../agents/contracts.js";
 import type {
   CustomerCapsule,
@@ -116,6 +125,8 @@ export interface RunDiscoveryTurnInput {
   timeoutMs?: number;
   canaries?: readonly string[];
   store?: StoreOptions;
+  /** The verified scenario-bundle digest recorded at run start (provenance only). */
+  scenarioBundleDigest?: string;
 }
 
 export interface RepairPendingEvidenceInput {
@@ -127,6 +138,8 @@ export interface RepairPendingEvidenceInput {
   timeoutMs?: number;
   canaries?: readonly string[];
   store?: StoreOptions;
+  /** The verified scenario-bundle digest recorded at run start (provenance only). */
+  scenarioBundleDigest?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +286,15 @@ export async function prepareDiscoveryTurn(
       commandId: `${commandId}:evidence`,
       questionId: commandId,
       assessment: evidence.questionAssessment,
+      judgment: {
+        judgmentId: `${commandId}:evidence`,
+        invocationId: evidence.invocationId,
+        modelId: evidence.modelId,
+        promptDigest: evidence.promptDigest,
+        schemaVersion: EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION,
+        scenarioDigest: input.scenarioBundleDigest ?? "",
+        rawOutputDigest: evidence.rawOutputDigest,
+      },
     };
     aggPatched = { ...aggReply, graph: nextGraph };
     // Step 6: deterministic per-question metrics.
@@ -350,6 +372,15 @@ export async function prepareRepairPendingEvidence(
     commandId: `${commandId}:evidence`,
     questionId: commandId,
     assessment: evidence.questionAssessment,
+    judgment: {
+      judgmentId: `${commandId}:evidence`,
+      invocationId: evidence.invocationId,
+      modelId: evidence.modelId,
+      promptDigest: evidence.promptDigest,
+      schemaVersion: EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION,
+      scenarioDigest: input.scenarioBundleDigest ?? "",
+      rawOutputDigest: evidence.rawOutputDigest,
+    },
   };
   const resolvedEvent: RunEvent = {
     type: "evidence.resolved",
@@ -387,6 +418,8 @@ export interface FramingGateInput {
   timeoutMs?: number;
   canaries?: readonly string[];
   store?: StoreOptions;
+  /** The verified scenario-bundle digest recorded at run start (provenance only). */
+  scenarioBundleDigest?: string;
 }
 
 export interface FramingGateResult {
@@ -429,10 +462,10 @@ export async function prepareFramingGate(input: FramingGateInput): Promise<Frami
   // (c) Coach entailment classification (public brief + graph + transcript).
   // A dangling evidence reference would make the Coach's strict input schema
   // reject the brief, so classification is skipped in that already-failing case.
-  let coachResult: BriefValidationResult | null = null;
+  let coachInvocation: BriefValidationInvocation | null = null;
   let entailments = structure.entailments;
   if (!structure.missingCategories.includes(BRIEF_DANGLING_EVIDENCE_REFERENCE)) {
-    coachResult = await validateProblemBrief({
+    coachInvocation = await validateProblemBrief({
       runtime,
       state: { ...state, coachTask: "brief-validation", brief },
       capsule,
@@ -440,18 +473,39 @@ export async function prepareFramingGate(input: FramingGateInput): Promise<Frami
       timeoutMs,
       canaries,
     });
-    entailments = coachResult.entailments;
+    entailments = coachInvocation.result.entailments;
   }
 
   // (d) Final deterministic gate: supportRatio >= threshold AND structure passed.
   const supportRatio = calculateSupportRatio(brief.claims, entailments);
   const passed = structure.passed && supportRatio >= SUPPORT_RATIO_THRESHOLD;
 
-  const result = composeBriefValidationResult(structure, coachResult, passed);
+  const result = composeBriefValidationResult(structure, coachInvocation?.result ?? null, passed);
+
+  const validatedEvent: RunEvent = {
+    type: "brief.validated",
+    runId,
+    commandId,
+    briefId: brief.id,
+    result,
+    ...(coachInvocation !== null
+      ? {
+          judgment: {
+            judgmentId: `${commandId}:coach`,
+            invocationId: coachInvocation.invocationId,
+            modelId: coachInvocation.modelId,
+            promptDigest: coachInvocation.promptDigest,
+            schemaVersion: BRIEF_VALIDATION_OUTPUT_SCHEMA_VERSION,
+            scenarioDigest: input.scenarioBundleDigest ?? "",
+            rawOutputDigest: coachInvocation.rawOutputDigest,
+          },
+        }
+      : {}),
+  };
 
   const events: RunEvent[] = [
     { type: "brief.submitted", runId, commandId, brief },
-    { type: "brief.validated", runId, commandId, briefId: brief.id, result },
+    validatedEvent,
   ];
   let phase = state.phase;
   if (passed) {
@@ -1055,7 +1109,7 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   assertCommandPhase(state.phase, "review");
 
   // 1. Coach final-review through the firewall (public-only input).
-  const { review, invocationId, modelId } = await runFinalReview({
+  const { review, invocationId, modelId, rawOutputDigest, promptDigest } = await runFinalReview({
     runtime,
     state: { ...state, coachTask: "final-review" },
     capsule,
@@ -1086,7 +1140,21 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   ScoreBreakdownSchema.parse(score);
 
   // 3. review.completed + score.computed (persisted by the transaction).
-  const reviewEvent: RunEvent = { type: "review.completed", runId, commandId, review };
+  const reviewEvent: RunEvent = {
+    type: "review.completed",
+    runId,
+    commandId,
+    review,
+    judgment: {
+      judgmentId: `${commandId}:coach`,
+      invocationId,
+      modelId,
+      promptDigest,
+      schemaVersion: FINAL_REVIEW_OUTPUT_SCHEMA_VERSION,
+      scenarioDigest: scenarioBundleSha256 ?? "",
+      rawOutputDigest,
+    },
+  };
   const scoreEvent: RunEvent = { type: "score.computed", runId, commandId, score, provenance };
 
   // 4. The profile fold becomes an idempotent transaction effect.

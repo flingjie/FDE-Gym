@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,6 +47,10 @@ function wrapUntrustedLearnerInput(text: string): string {
   return `<UNTRUSTED_LEARNER_INPUT>\n${text}\n</UNTRUSTED_LEARNER_INPUT>`;
 }
 
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
+}
+
 /**
  * Render the evidence-tracker prompt for a given input. The learner question
  * (inside the public turn) is wrapped in the UNTRUSTED_LEARNER_INPUT boundary.
@@ -65,6 +70,12 @@ export interface EvidenceTurnResult {
   patch: EvidenceGraphPatch;
   questionAssessment: QuestionAssessment;
   invocationId: string;
+  /** The configured model family identifier, or `null` when the runtime has none. */
+  modelId: string | null;
+  /** sha256 of the pre-validation raw output (raw text never persisted). */
+  rawOutputDigest: string;
+  /** sha256 of the rendered evidence-tracker prompt. */
+  promptDigest: string;
 }
 
 export interface ExtractEvidenceContext {
@@ -123,5 +134,8 @@ export async function extractEvidence(
     patch: validated.patch,
     questionAssessment: validated.questionAssessment,
     invocationId: safe.invocationId,
+    modelId: result.modelId,
+    rawOutputDigest: result.rawOutputDigest,
+    promptDigest: sha256Hex(renderEvidenceTrackerPrompt(input)),
   };
 }

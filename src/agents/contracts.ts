@@ -86,6 +86,9 @@ export const EvidenceTrackerOutputSchema = z
   .strict();
 export type EvidenceTrackerOutput = z.infer<typeof EvidenceTrackerOutputSchema>;
 
+/** The Evidence Tracker output schema version that produced `questionAssessment` (Task 2 provenance). */
+export const EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION = 1 as const;
+
 // ---------------------------------------------------------------------------
 // Coach — hint ledger
 // ---------------------------------------------------------------------------
@@ -135,6 +138,9 @@ export type BriefValidationInput = z.infer<typeof BriefValidationInputSchema>;
 export type BriefValidationOutput = BriefValidationResult;
 export const BriefValidationOutputSchema = BriefValidationResultSchema;
 
+/** The Coach brief-validation output schema version (Task 2 provenance). */
+export const BRIEF_VALIDATION_OUTPUT_SCHEMA_VERSION = 1 as const;
+
 // ---------------------------------------------------------------------------
 // Coach — final review
 // ---------------------------------------------------------------------------
@@ -182,6 +188,9 @@ export type FinalReviewInput = z.infer<typeof FinalReviewInputSchema>;
 
 export type FinalReviewOutput = FinalReviewResult;
 export const FinalReviewOutputSchema = FinalReviewResultSchema;
+
+/** The Coach final-review output schema version that produced the review (Task 2 provenance). */
+export const FINAL_REVIEW_OUTPUT_SCHEMA_VERSION = 1 as const;
 
 // ---------------------------------------------------------------------------
 // Prohibited-output sanitizer

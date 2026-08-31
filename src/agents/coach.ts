@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +63,10 @@ function loadPromptTemplate(): string {
 
 /** The two coach input shapes the prompt template must render. */
 export type CoachPromptInput = BriefValidationInput | FinalReviewInput;
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
+}
 
 function wrapLocalized(text: LocalizedText): LocalizedText {
   return {
@@ -137,8 +142,19 @@ export class CoachError extends Error {
   }
 }
 
+/** The sanitized brief-validation result plus safe invocation metadata. */
+export interface BriefValidationInvocation {
+  result: BriefValidationResult;
+  invocationId: string;
+  modelId: string | null;
+  rawOutputDigest: string;
+  promptDigest: string;
+}
+
 /** Build `BriefValidationInput` via the firewall (`coachTask="brief-validation"`) and invoke the Coach. */
-export async function validateProblemBrief(context: CoachContext): Promise<BriefValidationResult> {
+export async function validateProblemBrief(
+  context: CoachContext,
+): Promise<BriefValidationInvocation> {
   const built = buildRoleInput("coach_evaluator", context.state, context.capsule);
   if (built.kind !== "brief-validation") {
     throw new CoachError(COACH_OUTPUT_REJECTED, "coach firewall built the wrong role");
@@ -164,7 +180,13 @@ export async function validateProblemBrief(context: CoachContext): Promise<Brief
   if (!safe.ok) {
     throw new CoachError(safe.failure.code, safe.failure.message);
   }
-  return validateBriefValidationOutput(input, safe.output);
+  return {
+    result: validateBriefValidationOutput(input, safe.output),
+    invocationId: safe.invocationId,
+    modelId: result.modelId,
+    rawOutputDigest: result.rawOutputDigest,
+    promptDigest: sha256Hex(renderCoachPrompt(input)),
+  };
 }
 
 /** The sanitized final review plus safe invocation metadata. */
@@ -172,6 +194,8 @@ export interface FinalReviewInvocation {
   review: FinalReviewResult;
   invocationId: string;
   modelId: string | null;
+  rawOutputDigest: string;
+  promptDigest: string;
 }
 
 /**
@@ -208,5 +232,11 @@ export async function runFinalReview(context: CoachContext): Promise<FinalReview
     throw new CoachError(safe.failure.code, safe.failure.message);
   }
   const review = validateFinalReviewOutput(input, safe.output);
-  return { review, invocationId: result.invocationId, modelId: result.modelId };
+  return {
+    review,
+    invocationId: result.invocationId,
+    modelId: result.modelId,
+    rawOutputDigest: result.rawOutputDigest,
+    promptDigest: sha256Hex(renderCoachPrompt(input)),
+  };
 }

@@ -163,7 +163,7 @@ describe("coach agent — problem brief validation", () => {
       fixtures: { "coach_evaluator:inv-1": coachEntailmentOutput() },
     });
 
-    const result = await validateProblemBrief(context(runtime));
+    const { result } = await validateProblemBrief(context(runtime));
 
     expect(BriefValidationResultSchema.safeParse(result).success).toBe(true);
     expect(result.entailments).toEqual([
@@ -214,7 +214,7 @@ describe("coach agent — problem brief validation", () => {
       },
     });
 
-    const result = await validateProblemBrief(context(runtime));
+    const { result } = await validateProblemBrief(context(runtime));
 
     expect(result.missingCategories).toContain("trust");
     expect(result.unsupportedClaimIds).toContain("claim-2");
