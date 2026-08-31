@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AgentRole } from "../core/domain.js";
-import { RunAggregateSchema, type RunAggregate } from "../core/aggregate.js";
+import { RunAggregateSchema, type PublicRunView } from "../core/aggregate.js";
 import {
   BriefValidationInputSchema,
   CustomerInputSchema,
@@ -95,24 +95,24 @@ export function roleInputSchema(role: AgentRole): z.ZodType<unknown> {
 
 export function buildRoleInput(
   role: "customer",
-  state: RunAggregate,
+  state: PublicRunView,
   capsule: CustomerCapsule,
 ): RoleInput;
 export function buildRoleInput(
   role: "evidence_tracker",
-  state: RunAggregate,
+  state: PublicRunView,
   // The evidence tracker takes only transcript + graph; it is structurally
   // incapable of receiving a capsule. A caller that hands one in fails closed.
   capsule?: never,
 ): RoleInput;
 export function buildRoleInput(
   role: "coach_evaluator",
-  state: RunAggregate,
+  state: PublicRunView,
   capsule: EvaluatorCapsule,
 ): RoleInput;
 export function buildRoleInput(
   role: AgentRole,
-  state: RunAggregate,
+  state: PublicRunView,
   capsule?: CustomerCapsule | EvaluatorCapsule,
 ): RoleInput {
   const parsed = RunAggregateSchema.safeParse(state);
@@ -123,7 +123,14 @@ export function buildRoleInput(
       "run aggregate contains an unrecognized field",
     );
   }
-  const agg = parsed.data;
+  // Narrow to the learner-safe public view. `parsed.data` is the full schema
+  // output, which marks `pendingEvidence`/`clarificationBudgetUsed` optional
+  // (leniency for older persisted state) and therefore is not DIRECTLY
+  // assignable to `PublicRunView`; the cast only strips the SENSITIVE fields
+  // (`score`, `learnerProfile`, `previousAttemptReview`, `rubric`) from the
+  // type so the switch below cannot read them. The firewall never reads the
+  // two optional fields.
+  const agg = parsed.data as PublicRunView;
 
   switch (role) {
     case "customer": {
