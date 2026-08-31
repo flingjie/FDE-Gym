@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { AgentRole } from "../../core/domain.js";
 import {
@@ -68,6 +69,10 @@ function extractContent(body: unknown): string | null {
     }
   }
   return null;
+}
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
 /** Extract a JSON object from a possibly fenced/verbose model reply. */
@@ -200,6 +205,7 @@ export class DirectModelRuntime implements AgentRuntime {
       invocationId: options.invocationId,
       output: sanitized.output,
       modelId: this.model,
+      rawOutputDigest: sha256Hex(content),
     };
   }
 }

@@ -13,6 +13,8 @@ export interface AgentInvocationResult<TOutput> {
   output: TOutput;
   /** The configured model family identifier, or `null` when the runtime has none. */
   modelId: string | null;
+  /** sha256 of the raw output BEFORE sanitization/validation. Raw text is never persisted. */
+  rawOutputDigest: string;
 }
 
 /**

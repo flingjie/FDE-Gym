@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentRole } from "../core/domain.js";
+import { canonicalJson } from "../core/event-store.js";
 import type { AgentInvocationResult, AgentInvokeOptions, AgentRuntime } from "./agent-runtime.js";
 
 /**
@@ -20,6 +22,10 @@ export interface FixtureAgentRuntimeOptions {
   fixtures?: Record<string, unknown>;
   /** Optional model family identifier reported on every result (provenance metadata). */
   modelId?: string | null;
+}
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
 export class FixtureAgentRuntime implements AgentRuntime {
@@ -42,7 +48,12 @@ export class FixtureAgentRuntime implements AgentRuntime {
     // but must still accept them so the three-role contract stays uniform.
     const raw = this.resolve(role, options.invocationId);
     const output = options.outputSchema.parse(raw);
-    return { invocationId: options.invocationId, output, modelId: this.modelId };
+    return {
+      invocationId: options.invocationId,
+      output,
+      modelId: this.modelId,
+      rawOutputDigest: sha256Hex(canonicalJson(raw)),
+    };
   }
 
   private resolve(role: AgentRole, invocationId: string): unknown {
