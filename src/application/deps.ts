@@ -1,7 +1,5 @@
 import type { AgentRuntime } from "../agents/agent-runtime.js";
-import {
-  appendEvents, loadEvents, loadRun, readHead,
-} from "../core/event-store.js";
+import { resolveBaseDir } from "../core/event-store.js";
 import { loadScenarioBundle } from "../scenarios/bundle.js";
 import {
   applyProfileAttemptEffect, loadLearnerProfile, saveLearnerProfile,
@@ -10,6 +8,7 @@ import type { EventStorePort } from "../ports/event-store.js";
 import type { ScenarioRepositoryPort } from "../ports/scenario-repository.js";
 import type { ProfileRepositoryPort } from "../ports/profile-repository.js";
 import type { CustomerCapsule, EvaluatorCapsule, PublicScenario, ScenarioEventCandidate } from "../scenarios/schema.js";
+import { resolveEventStore } from "./resolve-store.js";
 
 export interface PreloadedScenario {
   public: PublicScenario;
@@ -39,9 +38,10 @@ export interface BuildDepsInput {
 /** Wire the concrete modules into the ports. The concrete modules satisfy the
  *  ports structurally — no adapter change. */
 export function buildDeps(input: BuildDepsInput): ApplicationDeps {
+  const baseDir = input.baseDir ?? resolveBaseDir();
   return {
     runtime: input.runtime,
-    store: { loadRun, loadEvents, appendEvents, readHead },
+    store: resolveEventStore(baseDir),
     scenarios: { loadScenarioBundle },
     profiles: { loadLearnerProfile, saveLearnerProfile, applyProfileAttemptEffect },
     baseDir: input.baseDir,
