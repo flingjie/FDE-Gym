@@ -4,39 +4,27 @@ import { ZodError } from "zod";
 
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import { resolveBaseDir } from "../core/event-store.js";
-import { loadEvents } from "../core/event-store.js";
 import type {
   ChallengeResponse,
   Locale,
   LocalizedText,
   PitchArtifact,
   ProblemBrief,
-  RunEvent,
   RunPhase,
   SolutionProposal,
 } from "../core/domain.js";
-import {
-  assertCommandPhase,
-  buildPhaseChangedEvent,
-  buildRunStartedEvents,
-} from "../core/state-machine.js";
 import { executeCommandTransaction } from "../core/command-transaction.js";
 import {
-  assertFrameAllowed,
   prepareChallengeInjection,
-  prepareClarification,
-  prepareDiscoveryTurn,
   prepareFramingGate,
   preparePitch,
-  prepareRepairPendingEvidence,
   prepareRespondToChallenge,
   prepareRetry,
   prepareReview,
   prepareSolutionDesign,
 } from "../core/orchestrator.js";
-import { requestHint } from "../simulation/hints.js";
 import { createRng } from "../simulation/rng.js";
-import { foldRunAggregate, projectReplay, type LearnerReplay } from "../replay/projector.js";
+import { projectReplay, type LearnerReplay } from "../replay/projector.js";
 import { loadLearnerProfile } from "../storage/fs-store.js";
 import { createEmptyProfile } from "../profile/learner-profile.js";
 import type {
@@ -48,11 +36,28 @@ import type {
 import type { ScoreBreakdown, FinalReviewResult } from "../core/domain.js";
 import type { StageStates } from "../scoring/provenance.js";
 import type { MeasuredCapability } from "../scoring/formulas.js";
-import { InvalidPhaseCommandError } from "../core/errors.js";
 import type { CliEnvelope, CliFailure, CliResult } from "./render.js";
 import { localize } from "./render.js";
 import { buildDeps } from "../application/deps.js";
-import { loadRun, resolveScenario, stripEnvelope } from "../application/run-load.js";
+import { loadRun, resolveScenario } from "../application/run-load.js";
+import {
+  ask,
+  clarify,
+  distinctInjectedChallengeIds,
+  frame,
+  repairEvidence,
+  requestHint,
+  startRun,
+  type AskArgs,
+  type AskData,
+  type ClarifyArgs,
+  type FrameArgs,
+  type HintArgs,
+  type HintData,
+  type RepairEvidenceArgs,
+  type StartArgs,
+  type StartData,
+} from "../application/use-cases/discovery.js";
 
 /**
  * FDE Gym — CLI command implementations (Task 11).
@@ -108,21 +113,6 @@ export interface StatusData {
   challengeResponseCount: number;
 }
 
-export interface AskData {
-  turnId: string;
-  question: string;
-  customerReply: LocalizedText;
-  stakeholderId: string;
-  composite: number | null;
-  pendingEvidence: { code: string } | null;
-}
-
-export interface HintData {
-  topic: string;
-  level: 1 | 2 | 3;
-  hint: LocalizedText;
-}
-
 export interface BriefData {
   passed: boolean;
   supportRatio: number;
@@ -174,11 +164,6 @@ export interface ListData {
   runs: RunSummary[];
 }
 
-export interface StartData {
-  scenario: PublicScenario;
-  phase: RunPhase;
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -218,14 +203,6 @@ function hashSeed(input: string): number {
   return hash >>> 0;
 }
 
-function distinctInjectedChallengeIds(events: readonly RunEvent[]): string[] {
-  const seen = new Set<string>();
-  for (const event of events) {
-    if (event.type === "challenge.injected") seen.add(event.challengeId);
-  }
-  return [...seen];
-}
-
 /** Wrap a command handler so failures always reduce to a learner-safe envelope. */
 async function guard<T>(locale: Locale, fn: () => Promise<CliResult<T>>): Promise<CliResult<T>> {
   try {
@@ -239,127 +216,34 @@ async function guard<T>(locale: Locale, fn: () => Promise<CliResult<T>>): Promis
 // Commands
 // ---------------------------------------------------------------------------
 
-export interface StartArgs {
-  runId: string;
-  scenarioId: string;
-  locale: Locale;
-  commandId: string;
-}
-
 export async function startCommand(
   ctx: CommandContext,
   args: StartArgs,
 ): Promise<CliResult<StartData>> {
   const deps = buildDeps(ctx);
   return guard(args.locale, async () => {
-    const resolved = resolveScenario(deps, args.scenarioId);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: {
-        type: "start",
-        scenarioId: args.scenarioId,
-        locale: args.locale,
-        ...(resolved.bundleDigest !== undefined ? { scenarioBundleDigest: resolved.bundleDigest } : {}),
-      },
-      store: { baseDir: ctx.baseDir },
-      prepare: async () => {
-        const startEvents = buildRunStartedEvents(args.runId, {
-          type: "start",
-          commandId: args.commandId,
-          scenarioId: args.scenarioId,
-          locale: args.locale,
-          ...(resolved.bundleDigest !== undefined ? { scenarioBundleDigest: resolved.bundleDigest } : {}),
-        });
-        const acceptEvents = [
-          buildPhaseChangedEvent(args.runId, `${args.commandId}:accept`, "SCENARIO", "DISCOVERY"),
-        ];
-        return {
-          events: [...startEvents, ...acceptEvents],
-          result: { scenario: resolved.public, phase: "DISCOVERY" as const },
-        };
-      },
-    });
-    return ok(args.runId, "DISCOVERY", args.locale, data);
+    const r = await startRun(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
 
-export interface FrameArgs {
-  runId: string;
-  commandId: string;
-}
-
-export async function frameCommand(ctx: CommandContext, args: FrameArgs): Promise<CliResult<{ phase: RunPhase }>> {
+export async function frameCommand(
+  ctx: CommandContext,
+  args: FrameArgs,
+): Promise<CliResult<{ phase: RunPhase }>> {
   const deps = buildDeps(ctx);
-  const loaded = await loadRun(deps, args.runId);
-  return guard(loaded.locale, async () => {
-    assertFrameAllowed(loaded.aggregate.pendingEvidence);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "frame" },
-      store: { baseDir: ctx.baseDir },
-      prepare: async () => {
-        assertCommandPhase(loaded.phase, "frame");
-        const events = [
-          buildPhaseChangedEvent(args.runId, args.commandId, "DISCOVERY", "PROBLEM_FRAMING"),
-        ];
-        return { events, result: { phase: "PROBLEM_FRAMING" as const } };
-      },
-    });
-    return ok(args.runId, "PROBLEM_FRAMING", loaded.locale, data);
+  return guard("zh-CN", async () => {
+    const r = await frame(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface AskArgs {
-  runId: string;
-  question: string;
-  stakeholderId: string;
-  commandId: string;
 }
 
 export async function askCommand(ctx: CommandContext, args: AskArgs): Promise<CliResult<AskData>> {
   const deps = buildDeps(ctx);
-  const loaded = await loadRun(deps, args.runId);
-  return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "ask", question: args.question, stakeholderId: args.stakeholderId },
-      store: { baseDir: ctx.baseDir },
-      canaries: [scenario.customer.canary],
-      prepare: async () => {
-        const result = await prepareDiscoveryTurn({
-          runtime: ctx.runtime,
-          capsule: scenario.customer,
-          state: loaded.aggregate,
-          question: args.question,
-          stakeholderId: args.stakeholderId,
-          commandId: args.commandId,
-          scenarioBundleDigest: loaded.scenarioBundleDigest,
-        });
-        const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
-        return {
-          events: result.acceptedEvents,
-          result: {
-            turnId: turn?.turnId ?? `${args.commandId}:turn`,
-            question: args.question,
-            customerReply: turn?.customerReply ?? { "zh-CN": "", "en-US": "" },
-            stakeholderId: turn?.stakeholderId ?? args.stakeholderId,
-            composite: result.metrics?.composite ?? null,
-            pendingEvidence: result.pendingEvidence ? { code: result.pendingEvidence.code } : null,
-          },
-        };
-      },
-    });
-    return ok(args.runId, loaded.phase, loaded.locale, data);
+  return guard("zh-CN", async () => {
+    const r = await ask(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface RepairEvidenceArgs {
-  runId: string;
-  commandId: string;
 }
 
 export async function repairEvidenceCommand(
@@ -367,107 +251,18 @@ export async function repairEvidenceCommand(
   args: RepairEvidenceArgs,
 ): Promise<CliResult<AskData>> {
   const deps = buildDeps(ctx);
-  const loaded = await loadRun(deps, args.runId);
-  return guard(loaded.locale, async () => {
-    const pending = loaded.aggregate.pendingEvidence;
-    if (!pending) {
-      throw { code: "NOTHING_TO_REPAIR" };
-    }
-    const turnId = pending.turnId;
-    const askCommandId = turnId.endsWith(":turn") ? turnId.slice(0, -":turn".length) : turnId;
-
-    const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "repair-evidence" },
-      store: { baseDir: ctx.baseDir },
-      canaries: [scenario.customer.canary],
-      prepare: async () => {
-        const result = await prepareRepairPendingEvidence({
-          runtime: ctx.runtime,
-          state: loaded.aggregate,
-          commandId: askCommandId,
-          canaries: [scenario.customer.canary],
-          scenarioBundleDigest: loaded.scenarioBundleDigest,
-        });
-
-        const turn = result.updatedState.transcript[result.updatedState.transcript.length - 1];
-        return {
-          events: result.acceptedEvents,
-          result: {
-            turnId: turn?.turnId ?? turnId,
-            question: turn?.question ?? "",
-            customerReply: turn?.customerReply ?? { "zh-CN": "", "en-US": "" },
-            stakeholderId: turn?.stakeholderId ?? "",
-            composite: result.metrics?.composite ?? null,
-            pendingEvidence: null,
-          },
-        };
-      },
-    });
-    return ok(args.runId, loaded.phase, loaded.locale, data);
+  return guard("zh-CN", async () => {
+    const r = await repairEvidence(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface HintArgs {
-  runId: string;
-  topic: string;
-  level?: 1 | 2 | 3;
-  commandId: string;
 }
 
 export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<CliResult<HintData>> {
   const deps = buildDeps(ctx);
-  const loaded = await loadRun(deps, args.runId);
-  return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "hint", topic: args.topic, level: args.level ?? null },
-      store: { baseDir: ctx.baseDir },
-      canaries: [scenario.evaluator.canary],
-      prepare: async () => {
-        const recorded = await loadEvents(args.runId, { baseDir: ctx.baseDir });
-        const events = recorded.map(stripEnvelope);
-        const aggregate = foldRunAggregate(events, loaded.scenarioId, loaded.locale);
-        if (aggregate.phase !== "DISCOVERY" && aggregate.phase !== "PROBLEM_FRAMING") {
-          throw new InvalidPhaseCommandError("hint", aggregate.phase);
-        }
-        const grant = requestHint(
-          args.topic,
-          args.level ?? null,
-          scenario.evaluator.hintLadders,
-          aggregate.grantedHints,
-        );
-        const event: RunEvent = {
-          type: "hint.granted",
-          runId: args.runId,
-          commandId: args.commandId,
-          topic: args.topic,
-          level: grant.level,
-          hint: grant.hint,
-        };
-        return {
-          events: [event],
-          result: { topic: args.topic, level: grant.level, hint: grant.hint },
-        };
-      },
-    });
-    const recordedAfter = await loadEvents(args.runId, { baseDir: ctx.baseDir });
-    const phase = foldRunAggregate(
-      recordedAfter.map(stripEnvelope),
-      loaded.scenarioId,
-      loaded.locale,
-    ).phase;
-    return ok(args.runId, phase, loaded.locale, data);
+  return guard("zh-CN", async () => {
+    const r = await requestHint(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface ClarifyArgs {
-  runId: string;
-  commandId: string;
 }
 
 export async function clarifyCommand(
@@ -475,26 +270,9 @@ export async function clarifyCommand(
   args: ClarifyArgs,
 ): Promise<CliResult<{ phase: RunPhase }>> {
   const deps = buildDeps(ctx);
-  const loaded = await loadRun(deps, args.runId);
-  return guard(loaded.locale, async () => {
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "clarify" },
-      store: { baseDir: ctx.baseDir },
-      prepare: async () => {
-        const result = await prepareClarification({
-          state: loaded.aggregate,
-          commandId: args.commandId,
-          clarificationBudgetUsed: loaded.aggregate.clarificationBudgetUsed,
-        });
-        return {
-          events: result.acceptedEvents,
-          result: { phase: result.updatedState.phase ?? "DISCOVERY" },
-        };
-      },
-    });
-    return ok(args.runId, data.phase, loaded.locale, data);
+  return guard("zh-CN", async () => {
+    const r = await clarify(deps, args);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
 
