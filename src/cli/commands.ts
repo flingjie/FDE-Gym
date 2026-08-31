@@ -4,26 +4,7 @@ import { ZodError } from "zod";
 
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import { resolveBaseDir } from "../core/event-store.js";
-import type {
-  ChallengeResponse,
-  Locale,
-  LocalizedText,
-  PitchArtifact,
-  ProblemBrief,
-  RunPhase,
-  SolutionProposal,
-} from "../core/domain.js";
-import { executeCommandTransaction } from "../core/command-transaction.js";
-import {
-  prepareChallengeInjection,
-  prepareFramingGate,
-  preparePitch,
-  prepareRespondToChallenge,
-  prepareRetry,
-  prepareReview,
-  prepareSolutionDesign,
-} from "../core/orchestrator.js";
-import { createRng } from "../simulation/rng.js";
+import type { Locale, RunPhase } from "../core/domain.js";
 import { projectReplay, type LearnerReplay } from "../replay/projector.js";
 import { loadLearnerProfile } from "../storage/fs-store.js";
 import { createEmptyProfile } from "../profile/learner-profile.js";
@@ -33,17 +14,13 @@ import type {
   PublicScenario,
   ScenarioEventCandidate,
 } from "../scenarios/schema.js";
-import type { ScoreBreakdown, FinalReviewResult } from "../core/domain.js";
-import type { StageStates } from "../scoring/provenance.js";
-import type { MeasuredCapability } from "../scoring/formulas.js";
 import type { CliEnvelope, CliFailure, CliResult } from "./render.js";
 import { localize } from "./render.js";
 import { buildDeps } from "../application/deps.js";
-import { loadRun, resolveScenario } from "../application/run-load.js";
+import { loadRun } from "../application/run-load.js";
 import {
   ask,
   clarify,
-  distinctInjectedChallengeIds,
   frame,
   repairEvidence,
   requestHint,
@@ -58,6 +35,23 @@ import {
   type StartArgs,
   type StartData,
 } from "../application/use-cases/discovery.js";
+import {
+  respondChallenge,
+  review,
+  submitBrief,
+  submitDesign,
+  submitPitch,
+  type BriefData,
+  type DesignData,
+  type RespondChallengeArgs,
+  type RespondData,
+  type ReviewArgs,
+  type ReviewData,
+  type SubmitBriefArgs,
+  type SubmitDesignArgs,
+  type SubmitPitchArgs,
+} from "../application/use-cases/framing-review.js";
+import { retry, type RetryArgs, type RetryData } from "../application/use-cases/retry.js";
 
 /**
  * FDE Gym — CLI command implementations (Task 11).
@@ -113,47 +107,8 @@ export interface StatusData {
   challengeResponseCount: number;
 }
 
-export interface BriefData {
-  passed: boolean;
-  supportRatio: number;
-  feedback: LocalizedText;
-}
-
-export interface DesignData {
-  phase: RunPhase;
-  injectedChallengeIds: string[];
-  interruptions: Array<{ challengeId: string; reply: LocalizedText; stakeholderId: string }>;
-}
-
-export interface RespondData {
-  challengesAddressed: boolean;
-  phase: RunPhase;
-}
-
-export interface ReviewData {
-  review: FinalReviewResult;
-  /** The deterministic pass-gate `ScoreBreakdown` over ALL stages (byte-stable
-   *  committed artifact). `final`/`raw` may fold deterministic fallbacks, so a
-   *  proxy/unscorable stage can appear here — it is NOT a capability figure. */
-  score: ScoreBreakdown;
-  /** Per-stage three-state classification (measured/proxy/unscorable). */
-  stageStates: StageStates;
-  /** Display-time capability figure over discovery + measured stages only —
-   *  this (not `score.final`) is the capability number. */
-  measuredCapability: MeasuredCapability;
-}
-
 export interface ReplayData {
   replay: LearnerReplay;
-}
-
-export interface RetryData {
-  runId: string;
-  parentRunId: string;
-  scenarioId: string;
-  locale: Locale;
-  phase: RunPhase;
-  focusSummaries: LocalizedText[];
 }
 
 export interface ProfileData {
@@ -191,16 +146,6 @@ function toFailure(error: unknown, locale: Locale): CliFailure {
   const code = errorCodeOf(error);
   const localized = localize(code, locale);
   return { ok: false, code, message: localized.message, nextActions: localized.nextActions };
-}
-
-/** Deterministic FNV-1a seed from a run id (no randomness, no wall-clock). */
-function hashSeed(input: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
 }
 
 /** Wrap a command handler so failures always reduce to a learner-safe envelope. */
@@ -281,12 +226,6 @@ export async function clarifyCommand(
   });
 }
 
-export interface SubmitBriefArgs {
-  runId: string;
-  brief: ProblemBrief;
-  commandId: string;
-}
-
 export async function submitBriefCommand(
   ctx: CommandContext,
   args: SubmitBriefArgs,
@@ -294,42 +233,9 @@ export async function submitBriefCommand(
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "submit-brief", brief: args.brief },
-      store: { baseDir: ctx.baseDir },
-      canaries: [scenario.evaluator.canary],
-      prepare: async () => {
-        const result = await prepareFramingGate({
-          runtime: ctx.runtime,
-          capsule: scenario.evaluator,
-          state: loaded.aggregate,
-          brief: args.brief,
-          commandId: args.commandId,
-          scenarioBundleDigest: loaded.scenarioBundleDigest,
-        });
-        return {
-          events: result.acceptedEvents,
-          result: {
-            passed: result.passed,
-            supportRatio: result.supportRatio,
-            feedback: result.result.feedback,
-          },
-        };
-      },
-    });
-    const phase = data.passed ? "SOLUTION_DESIGN" : "PROBLEM_FRAMING";
-    return ok(args.runId, phase, loaded.locale, data);
+    const r = await submitBrief(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface SubmitDesignArgs {
-  runId: string;
-  proposal: SolutionProposal;
-  commandId: string;
-  seed?: number;
 }
 
 export async function submitDesignCommand(
@@ -339,44 +245,9 @@ export async function submitDesignCommand(
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "submit-design", proposal: args.proposal, seed: args.seed ?? null },
-      store: { baseDir: ctx.baseDir },
-      prepare: async () => {
-        const design = await prepareSolutionDesign({
-          state: loaded.aggregate,
-          proposal: args.proposal,
-          commandId: args.commandId,
-        });
-        const injection = await prepareChallengeInjection({
-          state: design.updatedState,
-          capsule: scenario.customer,
-          candidates: scenario.events,
-          rng: createRng(args.seed ?? hashSeed(args.runId)),
-          commandId: `${args.commandId}:inject`,
-          alreadyInjectedChallengeIds: distinctInjectedChallengeIds(loaded.events),
-        });
-        return {
-          events: [...design.acceptedEvents, ...injection.acceptedEvents],
-          result: {
-            phase: "CHALLENGE" as const,
-            injectedChallengeIds: injection.injectedChallengeIds,
-            interruptions: injection.interruptions,
-          },
-        };
-      },
-    });
-    return ok(args.runId, "CHALLENGE", loaded.locale, data);
+    const r = await submitDesign(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface RespondChallengeArgs {
-  runId: string;
-  response: ChallengeResponse;
-  commandId: string;
 }
 
 export async function respondChallengeCommand(
@@ -386,35 +257,9 @@ export async function respondChallengeCommand(
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "respond-challenge", response: args.response },
-      store: { baseDir: ctx.baseDir },
-      prepare: async () => {
-        const result = await prepareRespondToChallenge({
-          state: loaded.aggregate,
-          response: args.response,
-          commandId: args.commandId,
-          mandatoryChallengeIds: distinctInjectedChallengeIds(loaded.events),
-        });
-        return {
-          events: result.acceptedEvents,
-          result: {
-            challengesAddressed: result.challengesAddressed,
-            phase: result.updatedState.phase ?? "CHALLENGE",
-          },
-        };
-      },
-    });
-    return ok(args.runId, data.phase, loaded.locale, data);
+    const r = await respondChallenge(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface SubmitPitchArgs {
-  runId: string;
-  pitch: PitchArtifact;
-  commandId: string;
 }
 
 export async function submitPitchCommand(
@@ -424,66 +269,17 @@ export async function submitPitchCommand(
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "submit-pitch", pitch: args.pitch },
-      store: { baseDir: ctx.baseDir },
-      prepare: async () => {
-        const result = await preparePitch({
-          state: loaded.aggregate,
-          pitch: args.pitch,
-          commandId: args.commandId,
-        });
-        return {
-          events: result.acceptedEvents,
-          result: { phase: result.updatedState.phase ?? "REVIEW" },
-        };
-      },
-    });
-    return ok(args.runId, data.phase, loaded.locale, data);
+    const r = await submitPitch(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
-}
-
-export interface ReviewArgs {
-  runId: string;
-  commandId: string;
 }
 
 export async function reviewCommand(ctx: CommandContext, args: ReviewArgs): Promise<CliResult<ReviewData>> {
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
-    const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "review" },
-      store: { baseDir: ctx.baseDir },
-      canaries: [scenario.evaluator.canary],
-      prepare: async () => {
-        const result = await prepareReview({
-          runtime: ctx.runtime,
-          capsule: scenario.evaluator,
-          customerCapsule: scenario.customer,
-          publicScenario: scenario.public,
-          events: loaded.events,
-          state: loaded.aggregate,
-          commandId: args.commandId,
-        });
-        return {
-          events: result.events,
-          effects: [result.effect],
-          result: {
-            review: result.review,
-            score: result.score,
-            stageStates: result.stageStates,
-            measuredCapability: result.measuredCapability,
-          },
-        };
-      },
-    });
-    return ok(args.runId, loaded.phase, loaded.locale, data);
+    const r = await review(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
 
@@ -502,63 +298,12 @@ export async function replayCommand(ctx: CommandContext, args: ReplayArgs): Prom
   });
 }
 
-export interface RetryArgs {
-  runId: string;
-  newRunId: string;
-  commandId: string;
-  focusSummaries?: LocalizedText[];
-  seed?: number;
-}
-
 export async function retryCommand(ctx: CommandContext, args: RetryArgs): Promise<CliResult<RetryData>> {
   const deps = buildDeps(ctx);
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
-    let focusSummaries = args.focusSummaries;
-    if (!focusSummaries) {
-      const review = [...loaded.events].reverse().find((event) => event.type === "review.completed");
-      focusSummaries = review && review.type === "review.completed" ? review.review.nextFocus : undefined;
-    }
-    if (!focusSummaries) {
-      throw { code: "INVALID_RETRY_FOCUS" };
-    }
-    const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
-    const data = await executeCommandTransaction({
-      runId: args.runId,
-      commandId: args.commandId,
-      request: { type: "retry", newRunId: args.newRunId, seed: args.seed ?? null, focusSummaries },
-      store: { baseDir: ctx.baseDir },
-      prepare: async () => {
-        const result = await prepareRetry(loaded.aggregate, {
-          newRunId: args.newRunId,
-          commandId: args.commandId,
-          seed: args.seed,
-          focusSummaries,
-          ...(scenario.bundleDigest !== undefined ? { scenarioBundleDigest: scenario.bundleDigest } : {}),
-        });
-        return {
-          events: result.parentEvents,
-          effects: [
-            {
-              type: "retry.ensure-child",
-              effectId: `${result.parentRunId}:${args.commandId}:child`,
-              parentRunId: result.parentRunId,
-              childRunId: result.runId,
-              events: result.newRunEvents,
-            },
-          ],
-          result: {
-            runId: result.runId,
-            parentRunId: result.parentRunId,
-            scenarioId: result.scenarioId,
-            locale: result.locale,
-            phase: result.state.phase ?? "DISCOVERY",
-            focusSummaries: result.focusSummaries,
-          },
-        };
-      },
-    });
-    return ok(args.newRunId, data.phase, data.locale, data);
+    const r = await retry(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
 
