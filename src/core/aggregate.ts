@@ -36,7 +36,8 @@ export const COACH_TASKS = ["brief-validation", "final-review"] as const;
 export type CoachTask = (typeof COACH_TASKS)[number];
 export const CoachTaskSchema = z.enum(COACH_TASKS);
 
-export interface RunAggregate {
+/** The learner-safe public view of a run — every field a role input may be built from. */
+export interface PublicRunView {
   runId: string;
   scenarioId: string;
   locale: Locale;
@@ -58,12 +59,18 @@ export interface RunAggregate {
   pendingEvidence: { turnId: string; code: string } | null;
   /** Clarifications consumed this framing attempt, folded from committed phase changes. */
   clarificationBudgetUsed: number;
-  // ---- Sensitive fields. Recognized, never projected into a role input. ----
+}
+
+/** Fields that must NEVER reach a role input. Recognized by the schema (so they
+ *  never trip fail-closed) but excluded from the public view's type. */
+export interface SensitiveRunState {
   score?: unknown;
   learnerProfile?: unknown;
   previousAttemptReview?: unknown;
   rubric?: unknown;
 }
+
+export type RunAggregate = PublicRunView & SensitiveRunState;
 
 export const RunAggregateSchema = z
   .object({
