@@ -167,6 +167,12 @@ async function main(): Promise<void> {
 
   const locale = parseLocale(flags.locale);
   const runtime = resolveDefaultRuntime();
+  process.stderr.write(
+    `[fde-gym] runtime: provider=${runtime.capabilities.provider} ` +
+    `structuredOutput=${runtime.capabilities.structuredOutput} ` +
+    `seed=${runtime.capabilities.supportsSeed} cancel=${runtime.capabilities.supportsCancellation} ` +
+    `maxInputTokens=${runtime.capabilities.maxInputTokens ?? "unknown"}\n`,
+  );
   const ctx: CommandContext = {
     runtime,
     baseDir: typeof flags["base-dir"] === "string" ? flags["base-dir"] : undefined,
