@@ -71,16 +71,22 @@ export interface SensitiveRunState {
 export type RunAggregate = PublicRunView & SensitiveRunState;
 ```
 
-`PublicRunViewSchema` = the current `RunAggregateSchema` minus the four sensitive
-`.optional()` fields; `SensitiveRunStateSchema` = those four fields; `RunAggregateSchema`
-= `PublicRunViewSchema.and(SensitiveRunStateSchema)` (still `.strict()`). The
-`COACH_TASKS`/`CoachTask`/`CoachTaskSchema` exports stay as-is.
+**`RunAggregateSchema` stays UNCHANGED** (the single strict object over all fields,
+still rejecting unknown keys — fail-closed). The split is **type-only**: the runtime
+validation must keep accepting the full aggregate (which legitimately carries the four
+sensitive fields). No `PublicRunViewSchema`/`SensitiveRunStateSchema` is introduced — a
+strict public-only schema would wrongly reject a full aggregate carrying `score`, breaking
+fail-closed. The `COACH_TASKS`/`CoachTask`/`CoachTaskSchema` exports stay as-is.
 
 ## Firewall change (`src/security/context-firewall.ts`)
 
 - Change the three `buildRoleInput` overloads' `state` parameter from `RunAggregate` to
-  `PublicRunView`, and the implementation's `RunAggregateSchema.safeParse(state)` to
-  `PublicRunViewSchema.safeParse(state)`.
+  `PublicRunView`.
+- Keep the runtime check `RunAggregateSchema.safeParse(state)` (fail-closed over the full
+  aggregate).
+- After the parse, narrow the local: `const agg: PublicRunView = parsed.data;` so the
+  `switch` body's `agg` is typed `PublicRunView` — reading `agg.score` etc. there becomes a
+  TypeScript error.
 - No other change. The field-by-field construction stays; only the type narrows.
 
 ## Out of scope (later sub-projects / explicitly not here)
