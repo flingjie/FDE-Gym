@@ -232,16 +232,18 @@ export async function frameCommand(
   args: FrameArgs,
 ): Promise<CliResult<{ phase: RunPhase }>> {
   const deps = buildDeps(ctx);
-  return guard("zh-CN", async () => {
-    const r = await frame(deps, args);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await frame(deps, args, loaded);
     return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
 
 export async function askCommand(ctx: CommandContext, args: AskArgs): Promise<CliResult<AskData>> {
   const deps = buildDeps(ctx);
-  return guard("zh-CN", async () => {
-    const r = await ask(deps, args);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await ask(deps, args, loaded);
     return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
@@ -251,16 +253,18 @@ export async function repairEvidenceCommand(
   args: RepairEvidenceArgs,
 ): Promise<CliResult<AskData>> {
   const deps = buildDeps(ctx);
-  return guard("zh-CN", async () => {
-    const r = await repairEvidence(deps, args);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await repairEvidence(deps, args, loaded);
     return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
 
 export async function hintCommand(ctx: CommandContext, args: HintArgs): Promise<CliResult<HintData>> {
   const deps = buildDeps(ctx);
-  return guard("zh-CN", async () => {
-    const r = await requestHint(deps, args);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await requestHint(deps, args, loaded);
     return ok(r.runId, r.phase, r.locale, r.data);
   });
 }
@@ -270,8 +274,9 @@ export async function clarifyCommand(
   args: ClarifyArgs,
 ): Promise<CliResult<{ phase: RunPhase }>> {
   const deps = buildDeps(ctx);
-  return guard("zh-CN", async () => {
-    const r = await clarify(deps, args);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await clarify(deps, args, loaded);
     return ok(r.runId, r.phase, r.locale, r.data);
   });
 }

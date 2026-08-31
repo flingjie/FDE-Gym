@@ -1,7 +1,7 @@
 import type { Locale, LocalizedText, RunEvent, RunPhase } from "../../core/domain.js";
 import type { PublicScenario } from "../../scenarios/schema.js";
 import type { ApplicationDeps } from "../deps.js";
-import { loadRun, resolveScenario, stripEnvelope } from "../run-load.js";
+import { resolveScenario, stripEnvelope, type LoadedRun } from "../run-load.js";
 import { executeCommandTransaction } from "../../core/command-transaction.js";
 import { foldRunAggregate } from "../../replay/projector.js";
 import {
@@ -21,12 +21,13 @@ import { requestHint as grantHint } from "../../simulation/hints.js";
 /**
  * FDE Gym — discovery/framing mutating use cases (Phase 2a, Task 2).
  *
- * Each use case takes the application dependencies plus its command arguments,
- * loads the run aggregate, resolves the scenario, runs the `prepare*` step and
- * the write-ahead `executeCommandTransaction`, and returns BOTH the learner-safe
- * data AND the envelope fields (`runId`/`phase`/`locale`) the CLI needs to wrap
- * the result in `ok()`. `commands.ts` stays a thin caller: build deps, guard,
- * call the use case, wrap in `ok`.
+ * Each mutating use case takes the application dependencies, its command
+ * arguments, and the already-loaded run (`LoadedRun`), resolves the scenario,
+ * runs the `prepare*` step and the write-ahead `executeCommandTransaction`, and
+ * returns BOTH the learner-safe data AND the envelope fields (`runId`/`phase`/
+ * `locale`) the CLI needs to wrap the result in `ok()`. `commands.ts` stays a
+ * thin caller: build deps, load the run (so it can guard on the run's actual
+ * locale), call the use case, wrap in `ok`.
  */
 
 /** The envelope + data a use case returns so the CLI command can stay thin. */
@@ -153,8 +154,8 @@ export async function startRun(deps: ApplicationDeps, args: StartArgs): Promise<
 export async function frame(
   deps: ApplicationDeps,
   args: FrameArgs,
+  loaded: LoadedRun,
 ): Promise<CommandResult<{ phase: RunPhase }>> {
-  const loaded = await loadRun(deps, args.runId);
   assertFrameAllowed(loaded.aggregate.pendingEvidence);
   const data = await executeCommandTransaction({
     runId: args.runId,
@@ -172,8 +173,11 @@ export async function frame(
   return { runId: args.runId, phase: "PROBLEM_FRAMING", locale: loaded.locale, data };
 }
 
-export async function ask(deps: ApplicationDeps, args: AskArgs): Promise<CommandResult<AskData>> {
-  const loaded = await loadRun(deps, args.runId);
+export async function ask(
+  deps: ApplicationDeps,
+  args: AskArgs,
+  loaded: LoadedRun,
+): Promise<CommandResult<AskData>> {
   const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
   const data = await executeCommandTransaction({
     runId: args.runId,
@@ -211,8 +215,8 @@ export async function ask(deps: ApplicationDeps, args: AskArgs): Promise<Command
 export async function repairEvidence(
   deps: ApplicationDeps,
   args: RepairEvidenceArgs,
+  loaded: LoadedRun,
 ): Promise<CommandResult<AskData>> {
-  const loaded = await loadRun(deps, args.runId);
   const pending = loaded.aggregate.pendingEvidence;
   if (!pending) {
     throw { code: "NOTHING_TO_REPAIR" };
@@ -256,8 +260,8 @@ export async function repairEvidence(
 export async function requestHint(
   deps: ApplicationDeps,
   args: HintArgs,
+  loaded: LoadedRun,
 ): Promise<CommandResult<HintData>> {
-  const loaded = await loadRun(deps, args.runId);
   const scenario = resolveScenario(deps, loaded.scenarioId, loaded.scenarioBundleDigest);
   const data = await executeCommandTransaction({
     runId: args.runId,
@@ -304,8 +308,8 @@ export async function requestHint(
 export async function clarify(
   deps: ApplicationDeps,
   args: ClarifyArgs,
+  loaded: LoadedRun,
 ): Promise<CommandResult<{ phase: RunPhase }>> {
-  const loaded = await loadRun(deps, args.runId);
   const data = await executeCommandTransaction({
     runId: args.runId,
     commandId: args.commandId,
