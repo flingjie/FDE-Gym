@@ -118,7 +118,7 @@ function usage(): string {
     "  submit-design     submit a solution design + inject challenges (--run-id --command-id; JSON stdin)",
     "  respond-challenge answer a challenge (--run-id --command-id; JSON stdin)",
     "  submit-pitch      submit the pitch (--run-id --command-id; JSON stdin)",
-    "  review            run final review + score (--run-id --command-id)",
+    "  review            run final review + score (--run-id --command-id [--samples N])",
     "  replay            project the learner-safe replay (--run-id [--locale])",
     "  retry             start a clean retry (--run-id --new-run-id --command-id; JSON stdin)",
     "  profile           show the learner profile",
@@ -157,6 +157,7 @@ async function main(): Promise<void> {
       "level": { type: "string" },
       "seed": { type: "string" },
       "new-run-id": { type: "string" },
+      "samples": { type: "string" },
       "base-dir": { type: "string" },
       "dry-run": { type: "boolean" },
       "json": { type: "boolean" },
@@ -336,7 +337,11 @@ async function main(): Promise<void> {
         result = { ok: false, code: "MISSING_ARGUMENT", ...localize("MISSING_ARGUMENT", locale) };
         break;
       }
-      result = await reviewCommand(ctx, { runId, commandId });
+      result = await reviewCommand(ctx, {
+        runId,
+        commandId,
+        samples: typeof flags.samples === "string" ? Number(flags.samples) : undefined,
+      });
       break;
     }
     case "replay": {

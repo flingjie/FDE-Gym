@@ -68,6 +68,8 @@ export interface ReviewData {
   /** Display-time capability figure over discovery + measured stages only —
    *  this (not `score.final`) is the capability number. */
   measuredCapability: MeasuredCapability;
+  /** Cross-sample aggregation confidence; null for the single-invocation path. */
+  confidence: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +104,9 @@ export interface SubmitPitchArgs {
 export interface ReviewArgs {
   runId: string;
   commandId: string;
+  /** Number of independent Coach final-review invocations to aggregate
+   *  (default 1 = the single-invocation path). */
+  samples?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +280,7 @@ export async function review(
         events: loaded.events,
         state: loaded.aggregate,
         commandId: args.commandId,
+        samples: args.samples,
       });
       return {
         events: result.events,
@@ -284,6 +290,7 @@ export async function review(
           score: result.score,
           stageStates: result.stageStates,
           measuredCapability: result.measuredCapability,
+          confidence: result.confidence,
         },
       };
     },

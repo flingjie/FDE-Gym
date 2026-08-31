@@ -845,3 +845,96 @@ describe("profile effect exactly-once through the transaction", () => {
     expect(profile!.appliedRunIds).toEqual([runId]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Review sampling (samples > 1 aggregation)
+// ---------------------------------------------------------------------------
+
+describe("review sampling", () => {
+  function samplingFixtures(): Record<string, unknown> {
+    const fx = fixtures();
+    fx["coach_evaluator:cmd-review-samples:coach:1"] = {
+      verdict: "pass",
+      strengths: [text("清晰的问题定义", "Clear problem framing")],
+      weaknesses: [text("假设未验证", "Assumptions unverified")],
+      missedOpportunities: [text("未追问根因", "Did not probe root cause")],
+      decisionDivergencePoints: [{ id: "ddp-s1", description: text("变更而非保留", "Changed rather than kept") }],
+      nextFocus: [text("强化证据支撑", "Strengthen evidence support")],
+      criterionScores: {
+        solution: { traceability: 60, feasibility: 60, tradeoffs: 60, validation: 60, "scope-discipline": 60 },
+      },
+    };
+    fx["coach_evaluator:cmd-review-samples:coach:2"] = {
+      verdict: "pass",
+      strengths: [text("清晰的问题定义", "Clear problem framing")],
+      weaknesses: [text("假设未验证", "Assumptions unverified")],
+      missedOpportunities: [text("未追问根因", "Did not probe root cause")],
+      decisionDivergencePoints: [{ id: "ddp-s2", description: text("变更而非保留", "Changed rather than kept") }],
+      nextFocus: [text("强化证据支撑", "Strengthen evidence support")],
+      criterionScores: {
+        solution: { traceability: 80, feasibility: 80, tradeoffs: 80, validation: 80, "scope-discipline": 80 },
+      },
+    };
+    return fx;
+  }
+
+  async function driveToReview(baseDir: string, runId: string, reviewCommandId: string, samples?: number) {
+    const runtime = new FixtureAgentRuntime({ fixtures: samplingFixtures() });
+    const ctx: CommandContext = { runtime, baseDir, scenario: scenario() };
+
+    mustOk(await startCommand(ctx, { runId, scenarioId: "scn-1", locale: "zh-CN", commandId: "cmd-start" }));
+    mustOk(await askCommand(ctx, { runId, question: "每天产生多少条告警？", stakeholderId: "vp-operations", commandId: "cmd-ask-1" }));
+    mustOk(await askCommand(ctx, { runId, question: "告警有优先级吗？", stakeholderId: "technical-lead", commandId: "cmd-ask-2" }));
+    mustOk(await hintCommand(ctx, { runId, topic: "workflow", level: 1, commandId: "cmd-hint-1" }));
+    mustOk(await frameCommand(ctx, { runId, commandId: "cmd-frame-1" }));
+    mustOk(await submitBriefCommand(ctx, { runId, brief: brief1(), commandId: "cmd-brief-1" }));
+    mustOk(await clarifyCommand(ctx, { runId, commandId: "cmd-clarify-1" }));
+    mustOk(await askCommand(ctx, { runId, question: "工程师的时间花在哪里？", stakeholderId: "technical-lead", commandId: "cmd-ask-3" }));
+    mustOk(await frameCommand(ctx, { runId, commandId: "cmd-frame-2" }));
+    mustOk(await submitBriefCommand(ctx, { runId, brief: brief2(), commandId: "cmd-brief-2" }));
+    mustOk(await submitDesignCommand(ctx, { runId, proposal: proposal(), commandId: "cmd-design-1", seed: 20260823 }));
+    mustOk(await respondChallengeCommand(ctx, { runId, response: response(), commandId: "cmd-resp-1" }));
+    mustOk(await submitPitchCommand(ctx, { runId, pitch: pitch(), commandId: "cmd-pitch-1" }));
+
+    return reviewCommand(ctx, { runId, commandId: reviewCommandId, ...(samples !== undefined ? { samples } : {}) });
+  }
+
+  it("aggregates samples into a mean score + confidence in (0, 1] and omits the judgment envelope", async () => {
+    const baseDir = makeStore();
+    const reviewed = mustOk(await driveToReview(baseDir, "run-samples-2", "cmd-review-samples", 2));
+
+    // Mean criterion score across the two samples: (60 + 80) / 2 = 70.
+    expect(reviewed.review.verdict).toBe("pass");
+    expect(reviewed.review.criterionScores?.solution?.traceability).toBeCloseTo(70);
+    // The mean flows into the deterministic score (all-solution-70 -> solution 70).
+    expect(reviewed.score.solution).toBeCloseTo(70);
+    // Divergent samples -> confidence strictly inside (0, 1].
+    expect(reviewed.confidence).not.toBeNull();
+    expect(reviewed.confidence!).toBeGreaterThan(0);
+    expect(reviewed.confidence!).toBeLessThanOrEqual(1);
+    expect(reviewed.confidence!).toBeLessThan(1);
+
+    // The aggregated review.completed event OMITS the per-invocation judgment envelope.
+    const recorded = await loadEvents("run-samples-2", { baseDir });
+    const reviewEvent = recorded.find((event) => event.type === "review.completed");
+    expect(reviewEvent).toBeDefined();
+    expect(reviewEvent).not.toHaveProperty("judgment");
+  });
+
+  it("samples: 1 stays byte-identical to the default single-invocation path", async () => {
+    const baseDir = makeStore();
+    const single = mustOk(await driveToReview(baseDir, "run-samples-cmp", "cmd-review-1", 1));
+    const defaulted = mustOk(await driveToReview(makeStore(), "run-samples-cmp", "cmd-review-1"));
+
+    // Same run + command, one with an explicit samples: 1 and one defaulted —
+    // both must produce byte-identical output with null confidence.
+    expect(JSON.stringify(single)).toBe(JSON.stringify(defaulted));
+    expect(single.confidence).toBeNull();
+
+    // The single-invocation review.completed keeps its judgment envelope.
+    const recorded = await loadEvents("run-samples-cmp", { baseDir });
+    const reviewEvent = recorded.find((event) => event.type === "review.completed");
+    expect(reviewEvent).toBeDefined();
+    expect(reviewEvent).toHaveProperty("judgment");
+  });
+});

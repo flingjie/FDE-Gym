@@ -8,9 +8,11 @@ import {
 } from "../agents/evidence-tracker.js";
 import {
   runFinalReview,
+  sampleFinalReview,
   validateProblemBrief,
   type BriefValidationInvocation,
 } from "../agents/coach.js";
+import { aggregateReviews } from "../scoring/review-aggregation.js";
 import {
   BRIEF_VALIDATION_OUTPUT_SCHEMA_VERSION,
   EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION,
@@ -40,6 +42,7 @@ import {
 } from "../scoring/formulas.js";
 import { buildScoreInput, deriveAttemptReview } from "../scoring/score-input.js";
 import type { StageStates } from "../scoring/provenance.js";
+import type { JudgmentProvenance } from "./judgment.js";
 import { type AttemptReview, type LearnerProfile } from "../profile/learner-profile.js";
 import {
   ChallengeResponseSchema,
@@ -1078,6 +1081,9 @@ export interface SubmitReviewInput {
   state: RunAggregate;
   commandId: string;
   timeoutMs?: number;
+  /** Number of independent Coach final-review invocations to aggregate.
+   *  Defaults to 1 (the single-invocation path, byte-identical to pre-sampling). */
+  samples?: number;
   canaries?: readonly string[];
   store?: StoreOptions;
   profileStore?: { baseDir?: string };
@@ -1104,6 +1110,8 @@ export interface PreparedReview {
   stageStates: StageStates;
   /** Display-time capability figure over discovery + measured stages only. */
   measuredCapability: MeasuredCapability;
+  /** Cross-sample aggregation confidence (null for the single-invocation path). */
+  confidence: number | null;
   /** The attempt review to fold into the durable learner profile as a transaction effect. */
   effect: CommandEffect;
 }
@@ -1113,24 +1121,73 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   const runId = state.runId;
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
+  const samples = input.samples ?? 1;
 
   // Phase guard: `assertCommandPhase` enforces REVIEW (and emits nothing).
   assertCommandPhase(state.phase, "review");
-
-  // 1. Coach final-review through the firewall (public-only input).
-  const { review, invocationId, modelId, rawOutputDigest, promptDigest } = await runFinalReview({
-    runtime,
-    state: { ...state, coachTask: "final-review" },
-    capsule,
-    invocationId: `${commandId}:coach`,
-    timeoutMs,
-    canaries,
-  });
 
   // The verified scenario-bundle digest recorded at run start (provenance only).
   const started = events.find((event) => event.type === "run.started");
   const scenarioBundleSha256 =
     started && started.type === "run.started" ? (started.scenarioBundleDigest ?? null) : null;
+
+  // 1. Coach final-review through the firewall (public-only input).
+  //
+  // `samples <= 1` (the default) is the single-invocation path and stays
+  // byte-identical to the pre-sampling behavior, including its per-invocation
+  // `judgment` envelope and `confidence: null`. `samples > 1` runs N independent
+  // Coach invocations and mean-aggregates them (`aggregateReviews`): the
+  // aggregated criterion scores feed the deterministic score, and `confidence`
+  // is derived from the cross-sample criterion dispersion.
+  let review: FinalReviewResult;
+  let confidence: number | null;
+  // Scoring provenance (evaluator invocation id + model family). For a single
+  // sample this is the one invocation; for an aggregation it is the FIRST
+  // sample's invocation (there is no single aggregated invocation to cite).
+  let evaluatorInvocationId: string | null;
+  let modelId: string | null;
+  // The `review.completed` `judgment` envelope is PER-INVOCATION: only a single
+  // invocation has a well-defined judgment. For an aggregation there is no
+  // single judgment, so the envelope is OMITTED (the schema marks it optional)
+  // rather than inventing a synthetic judgment id.
+  let judgment: JudgmentProvenance | undefined;
+
+  if (samples <= 1) {
+    const inv = await runFinalReview({
+      runtime,
+      state: { ...state, coachTask: "final-review" },
+      capsule,
+      invocationId: `${commandId}:coach`,
+      timeoutMs,
+      canaries,
+    });
+    review = inv.review;
+    confidence = null;
+    evaluatorInvocationId = inv.invocationId;
+    modelId = inv.modelId;
+    judgment = {
+      judgmentId: `${commandId}:coach`,
+      invocationId: inv.invocationId,
+      modelId: inv.modelId,
+      promptDigest: inv.promptDigest,
+      schemaVersion: FINAL_REVIEW_OUTPUT_SCHEMA_VERSION,
+      scenarioDigest: scenarioBundleSha256 ?? "",
+      rawOutputDigest: inv.rawOutputDigest,
+    };
+  } else {
+    const invocations = await sampleFinalReview(runtime, { ...state, coachTask: "final-review" }, capsule, {
+      samples,
+      commandId,
+      timeoutMs,
+      canaries,
+    });
+    const aggregated = aggregateReviews(invocations);
+    review = aggregated.review;
+    confidence = aggregated.confidence;
+    evaluatorInvocationId = invocations[0]?.invocationId ?? null;
+    modelId = invocations[0]?.modelId ?? null;
+    judgment = undefined;
+  }
 
   // 2. Deterministic score + provenance.
   const { input: scoreInput, provenance, stageStates } = buildScoreInput({
@@ -1140,7 +1197,7 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     evaluatorCapsule: capsule,
     publicScenario,
     criterionScores: review.criterionScores,
-    evaluatorInvocationId: invocationId,
+    evaluatorInvocationId,
     modelId,
     scenarioBundleSha256,
   });
@@ -1156,15 +1213,7 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     runId,
     commandId,
     review,
-    judgment: {
-      judgmentId: `${commandId}:coach`,
-      invocationId,
-      modelId,
-      promptDigest,
-      schemaVersion: FINAL_REVIEW_OUTPUT_SCHEMA_VERSION,
-      scenarioDigest: scenarioBundleSha256 ?? "",
-      rawOutputDigest,
-    },
+    ...(judgment !== undefined ? { judgment } : {}),
   };
   const scoreEvent: RunEvent = { type: "score.computed", runId, commandId, score, provenance };
 
@@ -1185,5 +1234,5 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
     review: attemptReview,
   };
 
-  return { events: [reviewEvent, scoreEvent], review, score, stageStates, measuredCapability, effect };
+  return { events: [reviewEvent, scoreEvent], review, score, stageStates, measuredCapability, confidence, effect };
 }
