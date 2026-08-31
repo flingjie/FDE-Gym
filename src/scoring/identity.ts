@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson } from "../storage/canonical-json.js";
 import { CAPABILITY_RUBRIC_VERSION } from "./rubric.js";
-import { SCORE_SCHEMA_VERSION, FORMULA_VERSION } from "./provenance.js";
+import { SCORE_SCHEMA_VERSION, FORMULA_VERSION } from "./versions.js";
 
 /** Manual version bumped when the runtime's observable behavior changes (timeout,
  *  structured-output approach, cancellation semantics). Provenance-only. */

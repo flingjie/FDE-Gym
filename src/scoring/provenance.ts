@@ -10,9 +10,18 @@ import {
 import {
   computeEvaluationIdentity,
   computeEvaluationIdentityHash,
-  promptSetDigest,
-  RUNTIME_POLICY_VERSION,
 } from "./identity.js";
+import {
+  FORMULA_VERSION,
+  OUTPUT_SCHEMA_VERSION,
+  SCORE_SCHEMA_VERSION,
+} from "./versions.js";
+
+export {
+  FORMULA_VERSION,
+  OUTPUT_SCHEMA_VERSION,
+  SCORE_SCHEMA_VERSION,
+} from "./versions.js";
 
 /**
  * FDE Gym — score provenance (Task 8).
@@ -33,12 +42,9 @@ import {
 // Version constants
 // ---------------------------------------------------------------------------
 
-/** The persisted score schema version (the `score.computed` shape). */
-export const SCORE_SCHEMA_VERSION = 1 as const;
-/** The exact scoring formula version (`src/scoring/formulas.ts`). */
-export const FORMULA_VERSION = 1 as const;
-/** The Coach final-review output schema version that produced the criterion scores. */
-export const OUTPUT_SCHEMA_VERSION = 1 as const;
+// `SCORE_SCHEMA_VERSION`, `FORMULA_VERSION`, and `OUTPUT_SCHEMA_VERSION` are
+// imported (and re-exported) from the leaf `./versions.js` module so this file
+// and `./identity.js` can both consume them without a module-init cycle.
 
 /**
  * Comparability key assigned to legacy (pre-Task 8) scores that predate
@@ -108,6 +114,14 @@ const StagesSchema = z
   })
   .strict();
 
+/**
+ * Zod schema for persisted provenance. `promptSetDigest` and
+ * `runtimePolicyVersion` are OPTIONAL here (they were added after the initial
+ * provenance shape) so a runFormatVersion-2 `score.computed` persisted by
+ * immediately-prior code — provenance present but those two fields absent —
+ * still validates. The `ScoreProvenance` INTERFACE keeps them required because
+ * `buildScoreProvenance` always sets them.
+ */
 export const ScoreProvenanceSchema = z
   .object({
     scoreSchemaVersion: z.literal(SCORE_SCHEMA_VERSION),
@@ -116,8 +130,8 @@ export const ScoreProvenanceSchema = z
     capabilityRubricVersion: z.literal(CAPABILITY_RUBRIC_VERSION),
     capabilityRubricSha256: z.string().regex(/^[0-9a-f]{64}$/),
     scenarioBundleSha256: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
-    promptSetDigest: z.string().regex(/^[0-9a-f]{64}$/),
-    runtimePolicyVersion: z.number().int().positive(),
+    promptSetDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    runtimePolicyVersion: z.number().int().positive().optional(),
     outputSchemaVersion: z.literal(OUTPUT_SCHEMA_VERSION),
     evaluatorInvocationId: z.string().min(1).nullable(),
     modelId: z.string().min(1).nullable(),
@@ -228,11 +242,16 @@ export function buildScoreProvenance(input: BuildScoreProvenanceInput): ScorePro
     modelId: input.modelId,
     stages: input.stageProvenance,
     comparabilityKey: computeEvaluationIdentityHash(identity),
-  });
+  }) as ScoreProvenance;
 }
 
-/** The non-comparable provenance assigned to legacy (pre-Task 8) v1 scores at upcast time. */
-export function legacyScoreProvenance(): ScoreProvenance {
+/**
+ * The non-comparable provenance assigned to legacy (pre-Task 8) v1 scores at
+ * upcast time. `promptSetDigest`/`runtimePolicyVersion` are deliberately ABSENT
+ * (rather than calling `promptSetDigest()`, which reads the prompt files) —
+ * they are OPTIONAL in the schema and never read from a legacy score.
+ */
+export function legacyScoreProvenance(): z.infer<typeof ScoreProvenanceSchema> {
   return {
     scoreSchemaVersion: SCORE_SCHEMA_VERSION,
     formulaVersion: FORMULA_VERSION,
@@ -240,8 +259,6 @@ export function legacyScoreProvenance(): ScoreProvenance {
     capabilityRubricVersion: CAPABILITY_RUBRIC_VERSION,
     capabilityRubricSha256: capabilityRubricSha256(),
     scenarioBundleSha256: null,
-    promptSetDigest: promptSetDigest(),
-    runtimePolicyVersion: RUNTIME_POLICY_VERSION,
     outputSchemaVersion: OUTPUT_SCHEMA_VERSION,
     evaluatorInvocationId: null,
     modelId: null,

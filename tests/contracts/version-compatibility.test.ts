@@ -236,6 +236,15 @@ describe("score.computed provenance requirement", () => {
     });
     expect(parsed.success).toBe(true);
   });
+
+  it("accepts legacy provenance with promptSetDigest/runtimePolicyVersion absent", () => {
+    // The pre-14-field provenance persisted by immediately-prior code has no
+    // `promptSetDigest`/`runtimePolicyVersion`; those are schema-optional.
+    const legacy = legacyScoreProvenance();
+    expect(legacy).not.toHaveProperty("promptSetDigest");
+    expect(legacy).not.toHaveProperty("runtimePolicyVersion");
+    expect(ScoreProvenanceSchema.safeParse(legacy).success).toBe(true);
+  });
 });
 
 describe("comparability keys", () => {

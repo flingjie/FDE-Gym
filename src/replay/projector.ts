@@ -460,12 +460,17 @@ export type { HintLedgerEntry, DecisionDivergencePoint };
  * The learner-safe subset of a score's provenance: everything needed to explain
  * comparability (score/formula/rubric/model identity + comparability key) and
  * fallback use (per-stage source), minus the internal `evaluatorInvocationId`
- * and `scenarioBundleSha256` the learner does not need.
+ * and `scenarioBundleSha256` the learner does not need. `promptSetDigest` and
+ * `runtimePolicyVersion` are OPTIONAL here because legacy (upcast) provenance
+ * leaves them absent (they are schema-optional).
  */
 export type LearnerSafeScoreProvenance = Omit<
   ScoreProvenance,
-  "scenarioBundleSha256" | "evaluatorInvocationId"
->;
+  "scenarioBundleSha256" | "evaluatorInvocationId" | "promptSetDigest" | "runtimePolicyVersion"
+> & {
+  promptSetDigest?: string;
+  runtimePolicyVersion?: number;
+};
 
 /**
  * Project the persisted `score.computed` provenance into its learner-safe
