@@ -6,6 +6,7 @@ import {
   type AgentInvocationResult,
   type AgentInvokeOptions,
   type AgentRuntime,
+  type RuntimeCapabilities,
 } from "../../agents/agent-runtime.js";
 import { roleInputSchema } from "../../security/context-firewall.js";
 import {
@@ -92,6 +93,14 @@ function tryExtractJson(raw: string): unknown {
 }
 
 export class DirectModelRuntime implements AgentRuntime {
+  readonly capabilities: RuntimeCapabilities = {
+    structuredOutput: "prompted",
+    supportsSeed: false,
+    supportsCancellation: true,
+    maxInputTokens: null,
+    provider: "openai-compatible",
+  };
+
   private readonly baseUrl: string;
   private readonly model: string;
   private readonly timeoutMs: number;

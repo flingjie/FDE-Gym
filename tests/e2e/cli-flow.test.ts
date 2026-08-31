@@ -9,6 +9,7 @@ import type {
   AgentInvocationResult,
   AgentInvokeOptions,
   AgentRuntime,
+  RuntimeCapabilities,
 } from "../../src/agents/agent-runtime.js";
 import {
   askCommand,
@@ -333,7 +334,10 @@ function mustOk<T>(result: CliResult<T>): T {
 /** Records every role invocation id so tests can assert the model is not re-invoked on replay. */
 class CountingRuntime implements AgentRuntime {
   readonly invoked: string[] = [];
-  constructor(private readonly inner: AgentRuntime) {}
+  readonly capabilities: RuntimeCapabilities;
+  constructor(private readonly inner: AgentRuntime) {
+    this.capabilities = inner.capabilities;
+  }
 
   async invoke<TInput, TOutput>(
     role: AgentRole,

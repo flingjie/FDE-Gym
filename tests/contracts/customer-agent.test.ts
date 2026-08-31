@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime";
-import type { AgentRuntime } from "../../src/agents/agent-runtime";
+import type { AgentRuntime, RuntimeCapabilities } from "../../src/agents/agent-runtime";
 import {
   answerDiscoveryQuestion,
   renderCustomerPrompt,
@@ -127,7 +127,10 @@ function context(
 /** Captures the input each role actually receives, to prove firewall isolation. */
 class RecordingRuntime implements AgentRuntime {
   lastInput: unknown = null;
-  constructor(private readonly delegate: AgentRuntime) {}
+  readonly capabilities: RuntimeCapabilities;
+  constructor(private readonly delegate: AgentRuntime) {
+    this.capabilities = delegate.capabilities;
+  }
   async invoke<TInput, TOutput>(
     role: Parameters<AgentRuntime["invoke"]>[0],
     input: TInput,

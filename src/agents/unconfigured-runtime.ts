@@ -5,6 +5,7 @@ import {
   type AgentInvocationResult,
   type AgentInvokeOptions,
   type AgentRuntime,
+  type RuntimeCapabilities,
 } from "./agent-runtime.js";
 
 /**
@@ -17,6 +18,14 @@ import {
  * `MODEL_ENDPOINT_REQUIRED` error instead of running without a model.
  */
 export class UnconfiguredModelRuntime implements AgentRuntime {
+  readonly capabilities: RuntimeCapabilities = {
+    structuredOutput: "native",
+    supportsSeed: false,
+    supportsCancellation: false,
+    maxInputTokens: null,
+    provider: "unconfigured",
+  };
+
   async invoke<TInput, TOutput>(
     role: AgentRole,
     _input: TInput,

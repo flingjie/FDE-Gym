@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentRole } from "../core/domain.js";
 import { canonicalJson } from "../core/event-store.js";
-import type { AgentInvocationResult, AgentInvokeOptions, AgentRuntime } from "./agent-runtime.js";
+import type { AgentInvocationResult, AgentInvokeOptions, AgentRuntime, RuntimeCapabilities } from "./agent-runtime.js";
 
 /**
  * FDE Gym — deterministic fixture runtime.
@@ -29,6 +29,14 @@ function sha256Hex(input: string): string {
 }
 
 export class FixtureAgentRuntime implements AgentRuntime {
+  readonly capabilities: RuntimeCapabilities = {
+    structuredOutput: "native",
+    supportsSeed: true,
+    supportsCancellation: false,
+    maxInputTokens: null,
+    provider: "fixture",
+  };
+
   private readonly fixtureDir: string | undefined;
   private readonly fixtures: Record<string, unknown>;
   private readonly modelId: string | null;

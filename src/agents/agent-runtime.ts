@@ -33,6 +33,20 @@ export interface AgentInvokeOptions<TOutput> {
   timeoutMs: number;
 }
 
+export interface RuntimeCapabilities {
+  /** Native = schema enforced by the endpoint/runtime itself; prompted = a JSON
+   *  schema handed to the model in the prompt/system message. */
+  structuredOutput: "native" | "prompted";
+  /** Whether the runtime honors a seed for reproducibility. */
+  supportsSeed: boolean;
+  /** Whether in-flight calls can be cancelled (e.g. AbortController timeout). */
+  supportsCancellation: boolean;
+  /** Maximum input tokens, or `null` when unknown/unbounded by the runtime. */
+  maxInputTokens: number | null;
+  /** Stable provider/transport identifier. */
+  provider: string;
+}
+
 /**
  * Stable contract for the three logical model roles. Implementations are
  * `FixtureAgentRuntime` (deterministic tests), `DirectModelRuntime` (real
@@ -40,6 +54,7 @@ export interface AgentInvokeOptions<TOutput> {
  * orchestrator depends only on this interface.
  */
 export interface AgentRuntime {
+  readonly capabilities: RuntimeCapabilities;
   invoke<TInput, TOutput>(
     role: AgentRole,
     input: TInput,
