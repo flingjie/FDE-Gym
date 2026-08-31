@@ -26,6 +26,8 @@ export const AGENT_OUTPUT_DOMAIN_INVALID = "AGENT_OUTPUT_DOMAIN_INVALID" as cons
 export const SCENARIO_BUNDLE_INVALID = "SCENARIO_BUNDLE_INVALID" as const;
 /** The current scenario bundle's digest differs from the one a run was started against. */
 export const SCENARIO_BUNDLE_MISMATCH = "SCENARIO_BUNDLE_MISMATCH" as const;
+/** A command's prepared plan is stale: the run's event-log head moved between prepare and commit. */
+export const RUN_VERSION_CONFLICT = "RUN_VERSION_CONFLICT" as const;
 
 export type FdeErrorCode =
   | typeof INVALID_PHASE_COMMAND
@@ -39,7 +41,8 @@ export type FdeErrorCode =
   | typeof UNSUPPORTED_SCHEMA_VERSION
   | typeof AGENT_OUTPUT_DOMAIN_INVALID
   | typeof SCENARIO_BUNDLE_INVALID
-  | typeof SCENARIO_BUNDLE_MISMATCH;
+  | typeof SCENARIO_BUNDLE_MISMATCH
+  | typeof RUN_VERSION_CONFLICT;
 
 /** Base class for all FDE Gym errors. The `code` field is the stable contract. */
 export class FdeError extends Error {
@@ -170,5 +173,15 @@ export class ScenarioBundleMismatchError extends FdeError {
     );
     this.name = "ScenarioBundleMismatchError";
     this.scenarioId = scenarioId;
+  }
+}
+
+/** A command's prepared plan is stale: the run's event-log head moved between prepare and commit. */
+export class RunVersionConflictError extends FdeError {
+  readonly runId: string;
+  constructor(runId: string) {
+    super(RUN_VERSION_CONFLICT, `run version conflict: ${runId}`);
+    this.name = "RunVersionConflictError";
+    this.runId = runId;
   }
 }

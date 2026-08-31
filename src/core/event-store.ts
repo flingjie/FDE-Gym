@@ -251,6 +251,21 @@ export async function loadEvents(runId: string, options: StoreOptions = {}): Pro
   return events;
 }
 
+/** The committed log head — `{ seq, hash }` of the last recorded event, or `null` for an empty/absent run. */
+export async function readHead(
+  runId: string,
+  options: StoreOptions = {},
+): Promise<{ seq: number; hash: string } | null> {
+  assertSafeResourceId("run", runId);
+  const baseDir = options.baseDir ?? resolveBaseDir();
+  const file = eventsFile(baseDir, runId);
+  if (!(await fileExists(file))) return null;
+  const { events } = await readEventsAndPrefix(baseDir, runId);
+  if (events.length === 0) return null;
+  const last = events[events.length - 1];
+  return { seq: last.seq, hash: last.hash };
+}
+
 function recordEvent(
   domainEvent: RunEvent,
   seq: number,
