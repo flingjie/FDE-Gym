@@ -1,10 +1,14 @@
 # Architecture
 
-FDE Gym is a **deterministic control plane** around a **role-scoped model
+FDE Gym is a **deterministic-replay control plane** around a **role-scoped model
 runtime**. The control plane (phases, event store, evidence graph, scoring,
-firewall) is pure and deterministic; the only non-determinism is the model
-prose each role produces, which is confined behind strict, schema-validated
-boundaries and never touches the control plane's decisions.
+firewall) is deterministic in the one sense the product relies on: it never
+*generates* model judgment — it consumes schema-validated, provenance-carrying
+judgment events the roles produce, and folds them into state and scores with
+pure, replayable functions. A role's *prose* (free text) is confined behind
+strict boundaries and never drives control flow; a role's *judgments*
+(structured outputs — assessments, entailments, verdicts, criterion scores) do
+drive phase transitions and scoring, and are committed as immutable events.
 
 ## The three role contexts
 
@@ -137,10 +141,37 @@ verification suite asserts each one:
    so the digest + seed + trigger context fully determine the scheduled order.
 3. **Same event log → byte-stable recorded replay.** `projectReplay` is a pure
    projection of the committed events (see `docs/replay.md`).
-4. **A fresh model invocation does NOT guarantee identical prose or judgment.**
-   Only the control plane (state and ordering) is deterministic; role prose is
-   confined behind schema-validated boundaries and never drives the control
-   plane's decisions.
+4. **A fresh model invocation does NOT guarantee identical judgment.**
+   First-time judgment generation is non-deterministic. What is deterministic is
+   the *replay* of committed judgments: once a role's schema-validated judgment
+   is authored into a committed event, that event is immutable, and re-folding
+   the same log always yields the same state and score. The control plane never
+   generates judgments itself — it only consumes them as provenance-carrying
+   events (see "Model judgments" below).
+
+## Model judgments are first-class, provenance-carrying events
+
+The determinism claim above is precisely scoped: the control plane never
+*generates* model judgment. Every place a model output affects state — the
+evidence tracker's `question.assessed`, the coach's `brief.validated` gate and
+its `criterionScores` — is a **judgment**, not free prose. A judgment is
+schema-validated, authored into the event stream by the owning `prepare*`
+function as an ordinary `RunEvent`, and committed through
+`executeCommandTransaction`. From that point it is an immutable fact in the hash
+chain; determinism means "same committed judgments → same state and score," not
+"the model will judge the same way twice."
+
+To answer *who judged, with which model and prompt, and why a score changed when
+the model changed*, every judgment must carry provenance. Today that is partial:
+each invocation records an `invocationId` and, where known, a `modelId`
+(`src/agents/agent-runtime.ts`), the transaction journals a canonical
+`requestHash`, and scoring records model-vs-fallback in `ScoreProvenance`
+(`src/scoring/score-input.ts`). The next correctness step is a unified
+**`JudgmentEnvelope`** that binds a judgment's value to its provenance —
+invocation id, model id/revision, scenario + prompt digests, and a raw-output
+digest — so events reference a `judgmentId` rather than embedding raw model
+output, and "comparable across model versions" becomes a queryable property
+rather than an assumption.
 
 "**MVP v1 frozen**" means the specification and acceptance baseline are frozen,
 **not** that the product is release-ready (see `docs/mvp-acceptance.md`).

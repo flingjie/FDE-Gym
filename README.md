@@ -60,9 +60,10 @@ npm run release:gate              # npm ci → typecheck → build → test, sto
 
 Four claims are precise and are what the verification suite asserts:
 
-1. **Same committed events → same state.** `decide()`/`reduce()` are pure folds
-   over the event log — no wall-clock, no `Math.random` (see
-   `docs/architecture.md`).
+1. **Same committed events → same state.** Phase legality is enforced by
+   `assertCommandPhase`, event authorship by the `prepare*` functions, and
+   `reduce` is a minimal pure fold over the committed events — no wall-clock,
+   no `Math.random` (see `docs/architecture.md`).
 2. **Same scenario bundle digest + seed + trigger context → same scheduled
    event order.** The only randomness is a seeded PRNG consumed solely to order
    the scenario-event wave.
@@ -70,10 +71,13 @@ Four claims are precise and are what the verification suite asserts:
    projects the committed events; identical committed events yield identical
    bytes within a given locale, not across locales (zh-CN ≠ en-US bytes)
    (see `docs/replay.md`).
-4. **A fresh model invocation does NOT guarantee identical prose or judgment.**
-   Only the control-plane state and ordering are deterministic; role prose is
-   confined behind schema-validated boundaries and never drives the control
-   plane.
+4. **A fresh model invocation does NOT guarantee identical judgment.**
+   First-time judgment generation is non-deterministic. What is deterministic is
+   the *replay* of committed judgments: once a role's schema-validated judgment
+   is authored into a committed event, re-folding the same log always yields the
+   same state and score. Role *prose* never drives control flow; role
+   *judgments* do — and are committed as immutable, provenance-carrying events
+   (see `docs/architecture.md`).
 
 "**MVP v1 frozen**" means the specification and acceptance baseline are frozen,
 **not** that the product is release-ready (see `docs/mvp-acceptance.md`).
