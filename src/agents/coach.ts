@@ -240,3 +240,38 @@ export async function runFinalReview(context: CoachContext): Promise<FinalReview
     promptDigest: sha256Hex(renderCoachPrompt(input)),
   };
 }
+
+export interface SampleFinalReviewOptions {
+  samples: number;
+  commandId: string;
+  timeoutMs: number;
+  canaries: readonly string[];
+}
+
+/**
+ * Run the Coach final review `samples` times, each with a distinct invocation id
+ * `${commandId}:coach:${i}`, and return the N `FinalReviewInvocation`s. The
+ * caller aggregates the samples (see `aggregateReviews`); this loop only samples.
+ */
+export async function sampleFinalReview(
+  runtime: AgentRuntime,
+  state: RunAggregate,
+  capsule: EvaluatorCapsule,
+  options: SampleFinalReviewOptions,
+): Promise<FinalReviewInvocation[]> {
+  if (!Number.isInteger(options.samples) || options.samples < 1) {
+    throw new CoachError(COACH_OUTPUT_REJECTED, "samples must be a positive integer");
+  }
+  const out: FinalReviewInvocation[] = [];
+  for (let i = 1; i <= options.samples; i++) {
+    out.push(await runFinalReview({
+      runtime,
+      state,
+      capsule,
+      invocationId: `${options.commandId}:coach:${i}`,
+      timeoutMs: options.timeoutMs,
+      canaries: options.canaries,
+    }));
+  }
+  return out;
+}

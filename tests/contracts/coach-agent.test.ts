@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime";
 import type { AgentRuntime, RuntimeCapabilities } from "../../src/agents/agent-runtime";
 import {
+  COACH_OUTPUT_REJECTED,
   renderCoachPrompt,
+  sampleFinalReview,
   validateProblemBrief,
   type CoachContext,
 } from "../../src/agents/coach";
@@ -13,6 +15,7 @@ import {
 } from "../../src/agents/output-validation";
 import type { BriefValidationInput } from "../../src/agents/contracts";
 import { BriefValidationResultSchema } from "../../src/core/domain";
+import type { PitchArtifact, SolutionProposal } from "../../src/core/domain";
 import { buildRoleInput } from "../../src/security/context-firewall";
 import type { RunAggregate } from "../../src/core/aggregate";
 import { LEAK_GUARD_TRIGGERED } from "../../src/security/sanitizer";
@@ -141,6 +144,58 @@ function coachEntailmentOutput() {
     missingCategories: [],
     unsupportedClaimIds: ["claim-2"],
     feedback: text("自动化论断缺乏事实证据。", "The automation claim lacks factual evidence."),
+  };
+}
+
+function proposal(): SolutionProposal {
+  return {
+    id: "proposal-1",
+    objective: text("降低告警处理负担", "Reduce alert burden"),
+    approach: text("分层AI告警分类", "Tiered AI classification"),
+    approachEvidenceIds: ["ev-a"],
+    assumptions: [text("规则可替换", "Rules replaceable")],
+    alternatives: [{ id: "alt-1", description: text("外包", "Outsource"), tradeoff: text("成本高", "Costly") }],
+    tradeoffs: [text("集成复杂度", "Integration complexity")],
+    risks: [{ id: "risk-1", description: text("误报", "False positives"), mitigation: text("阈值调优", "Threshold tuning") }],
+    validationPlan: [text("六周试点", "Six-week pilot")],
+    rolloutPlan: [text("分阶段上线", "Phased rollout")],
+    decisions: [{ id: "dec-1", decision: text("本地部署", "On-premises"), rationale: text("符合内网要求", "Meets VPC"), evidenceIds: ["ev-a"] }],
+  };
+}
+
+function pitch(): PitchArtifact {
+  return {
+    id: "pitch-1",
+    audience: text("管理层", "Leadership"),
+    problem: text("告警处理低效", "Inefficient alerts"),
+    recommendation: text("分层AI分类", "Tiered AI classification"),
+    expectedValue: text("削减50%工作量", "Cut 50% workload"),
+    evidenceIds: ["ev-a"],
+    risks: [text("误报率", "False positive rate")],
+    ask: text("批准六周试点", "Approve six-week pilot"),
+    nextSteps: [text("组建试点团队", "Form pilot team")],
+  };
+}
+
+function finalReviewAggregate(overrides: Partial<RunAggregate> = {}): RunAggregate {
+  return aggregate({
+    coachTask: "final-review",
+    proposal: proposal(),
+    pitch: pitch(),
+    challengeResponses: [],
+    grantedHints: [],
+    ...overrides,
+  });
+}
+
+function finalReviewOutput(verdict: "pass" | "fail", note: string) {
+  return {
+    verdict,
+    strengths: [text(note, note)],
+    weaknesses: [text("假设未验证", "Assumptions unverified")],
+    missedOpportunities: [],
+    decisionDivergencePoints: [],
+    nextFocus: [text(note, note)],
   };
 }
 
@@ -313,5 +368,91 @@ describe("coach output domain validation — brief validation", () => {
 
     const error = await validateProblemBrief(context(runtime)).catch((e) => e);
     expect((error as { code?: string }).code).toBe(AGENT_OUTPUT_DOMAIN_INVALID);
+  });
+});
+
+describe("coach agent — final review sampling", () => {
+  it("runs N final-review invocations with distinct ids and fixture-backed results", async () => {
+    const runtime = new FixtureAgentRuntime({
+      fixtures: {
+        "coach_evaluator:id:coach:1": finalReviewOutput("pass", "first"),
+        "coach_evaluator:id:coach:2": finalReviewOutput("fail", "second"),
+        "coach_evaluator:id:coach:3": finalReviewOutput("pass", "third"),
+      },
+    });
+
+    const invocations = await sampleFinalReview(
+      runtime,
+      finalReviewAggregate(),
+      evaluatorCapsule(),
+      { samples: 3, commandId: "id", timeoutMs: 1_000, canaries: [CANARY] },
+    );
+
+    expect(invocations).toHaveLength(3);
+    expect(invocations.map((i) => i.invocationId)).toEqual([
+      "id:coach:1",
+      "id:coach:2",
+      "id:coach:3",
+    ]);
+    // Distinct fixture outputs surface per invocation.
+    expect(invocations.map((i) => i.review.verdict)).toEqual(["pass", "fail", "pass"]);
+    expect(invocations[0].review.nextFocus[0]["zh-CN"]).toBe("first");
+    expect(invocations[1].review.nextFocus[0]["zh-CN"]).toBe("second");
+    expect(invocations[2].review.nextFocus[0]["zh-CN"]).toBe("third");
+  });
+
+  it("builds the final-review input through the firewall per invocation", async () => {
+    const delegate = new FixtureAgentRuntime({
+      fixtures: {
+        "coach_evaluator:id:coach:1": finalReviewOutput("pass", "first"),
+        "coach_evaluator:id:coach:2": finalReviewOutput("pass", "second"),
+      },
+    });
+    const recording = new RecordingRuntime(delegate);
+
+    await sampleFinalReview(recording, finalReviewAggregate(), evaluatorCapsule(), {
+      samples: 2,
+      commandId: "id",
+      timeoutMs: 1_000,
+      canaries: [CANARY],
+    });
+
+    const input = recording.lastInput as Record<string, unknown>;
+    expect(Object.keys(input).sort()).toEqual([
+      "brief",
+      "challengeResponses",
+      "graph",
+      "hintLedger",
+      "locale",
+      "pitch",
+      "proposal",
+      "rubric",
+      "transcript",
+    ]);
+    const serialized = JSON.stringify(input);
+    expect(serialized).not.toContain(CANARY);
+    expect(serialized).not.toContain("expectedEvidence");
+  });
+
+  it("throws for a zero sample count", async () => {
+    const runtime = new FixtureAgentRuntime({ fixtures: {} });
+    const error = await sampleFinalReview(
+      runtime,
+      finalReviewAggregate(),
+      evaluatorCapsule(),
+      { samples: 0, commandId: "id", timeoutMs: 1_000, canaries: [CANARY] },
+    ).catch((e) => e);
+    expect((error as { code?: string }).code).toBe(COACH_OUTPUT_REJECTED);
+  });
+
+  it("throws for a non-integer sample count", async () => {
+    const runtime = new FixtureAgentRuntime({ fixtures: {} });
+    const error = await sampleFinalReview(
+      runtime,
+      finalReviewAggregate(),
+      evaluatorCapsule(),
+      { samples: 2.5, commandId: "id", timeoutMs: 1_000, canaries: [CANARY] },
+    ).catch((e) => e);
+    expect((error as { code?: string }).code).toBe(COACH_OUTPUT_REJECTED);
   });
 });
