@@ -355,4 +355,28 @@ describe("computeMeasuredCapability: measured-only aggregation", () => {
     };
     expect(computeMeasuredCapability(score, states).value).toBe(80);
   });
+
+  it("clamps after subtracting penalties so value never goes negative", () => {
+    const score = {
+      discovery: 20,
+      framing: 20,
+      solution: 0,
+      challenge: 0,
+      pitch: 0,
+      process: 0,
+      raw: 5,
+      final: 0,
+      hintPenalty: 12,
+      integrity: 10,
+    } as ScoreBreakdown;
+    const states: StageStates = {
+      framing: "measured",
+      solution: "unscorable",
+      challenge: "unscorable",
+      pitch: "unscorable",
+      process: "unscorable",
+    };
+    // discovery-only: normalized = 20; 20 - 12 - 10 = -2 → clamped to 0.
+    expect(computeMeasuredCapability(score, states).value).toBe(0);
+  });
 });

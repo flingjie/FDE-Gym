@@ -286,6 +286,8 @@ export function computeMeasuredCapability(
     }
   }
   const normalized = appliedWeight > 0 ? (weightedSum / (appliedWeight / 100)) : 0;
-  const value = Math.round(clamp100(normalized) - score.hintPenalty - score.integrity);
+  // Clamp AFTER subtracting the run-level penalties (mirrors `final` in
+  // `calculateScore`), so the figure stays in 0..100 and never goes negative.
+  const value = Math.round(clamp100(normalized - score.hintPenalty - score.integrity));
   return { value, measuredStages: measured, proxyStages: proxy, unscorableStages: unscorable };
 }

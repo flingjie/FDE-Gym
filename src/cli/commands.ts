@@ -145,10 +145,14 @@ export interface RespondData {
 
 export interface ReviewData {
   review: FinalReviewResult;
+  /** The deterministic pass-gate `ScoreBreakdown` over ALL stages (byte-stable
+   *  committed artifact). `final`/`raw` may fold deterministic fallbacks, so a
+   *  proxy/unscorable stage can appear here — it is NOT a capability figure. */
   score: ScoreBreakdown;
   /** Per-stage three-state classification (measured/proxy/unscorable). */
   stageStates: StageStates;
-  /** Display-time capability figure over discovery + measured stages only. */
+  /** Display-time capability figure over discovery + measured stages only —
+   *  this (not `score.final`) is the capability number. */
   measuredCapability: MeasuredCapability;
 }
 
