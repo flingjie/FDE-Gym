@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resolveDirectModelConfig } from "../../src/integrations/direct/config.js";
 import { DirectModelRuntime } from "../../src/integrations/direct/direct-runtime.js";
 import {
   askCommand,
@@ -56,7 +55,16 @@ import type {
  * violation of this repo's own code.
  */
 
-const config = resolveDirectModelConfig();
+// Gate on the EXPLICIT env vars only — NOT `resolveDirectModelConfig()`, which
+// also falls back to `~/.codex/config.toml`. That fallback would make the suite
+// run in any environment with a Codex config (e.g. this dev machine), turning
+// `release:gate` slow and model-flaky. The suite must run only when a developer
+// opts in with the two env vars.
+const envBaseUrl = process.env.FDE_GYM_MODEL_BASE_URL;
+const envModel = process.env.FDE_GYM_MODEL;
+const config = envBaseUrl && envModel
+  ? { baseUrl: envBaseUrl, model: envModel, apiKey: process.env.FDE_GYM_MODEL_API_KEY }
+  : null;
 const configured = config !== null;
 
 const SCENARIO_ID = "customer-support-agent";
