@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { resolveBaseDir } from "../core/event-store.js";
 import { upcastLearnerProfile } from "../core/versioning.js";
 import { atomicWriteFile } from "./atomic-file.js";
+import { withProfileLock } from "./run-lock.js";
 import {
   LearnerProfileSchema,
   createEmptyProfile,
@@ -48,6 +49,9 @@ export async function saveLearnerProfile(
  * the commit marker can therefore be safely replayed). Otherwise the EMA update
  * runs, the effect/run ids are appended, and the complete profile is written
  * atomically.
+ *
+ * The whole fold (read → dedup check → update → write) runs under the profile
+ * lock so concurrent folds across runs serialize instead of losing updates.
  */
 export async function applyProfileAttemptEffect(
   effectId: string,
@@ -55,17 +59,20 @@ export async function applyProfileAttemptEffect(
   review: AttemptReview,
   options: ProfileStoreOptions = {},
 ): Promise<LearnerProfile> {
-  const base = (await loadLearnerProfile(options)) ?? createEmptyProfile();
-  if (base.appliedEffectIds.includes(effectId)) return base;
+  const baseDir = options.baseDir ?? resolveBaseDir();
+  return withProfileLock(baseDir, async () => {
+    const base = (await loadLearnerProfile(options)) ?? createEmptyProfile();
+    if (base.appliedEffectIds.includes(effectId)) return base;
 
-  const updated = updateLearnerProfile(base, review);
-  const complete: LearnerProfile = {
-    ...updated,
-    appliedEffectIds: [...updated.appliedEffectIds, effectId],
-    appliedRunIds: [...updated.appliedRunIds, runId],
-  };
-  await saveLearnerProfile(complete, options);
-  return complete;
+    const updated = updateLearnerProfile(base, review);
+    const complete: LearnerProfile = {
+      ...updated,
+      appliedEffectIds: [...updated.appliedEffectIds, effectId],
+      appliedRunIds: [...updated.appliedRunIds, runId],
+    };
+    await saveLearnerProfile(complete, options);
+    return complete;
+  });
 }
 
 /** Load and validate the profile; `null` when none has been saved yet. */

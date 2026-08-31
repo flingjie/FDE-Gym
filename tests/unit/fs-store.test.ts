@@ -45,7 +45,7 @@ async function codeOf(promise: Promise<unknown>): Promise<unknown> {
   return undefined;
 }
 
-function review(): AttemptReview {
+function review(n = 1): AttemptReview {
   return {
     competencies: {
       discovery: 60,
@@ -60,7 +60,7 @@ function review(): AttemptReview {
     unsupportedClaimRate: 0,
     contradictionHandling: 0,
     retryFocuses: [],
-    comparabilityKey: "key-1",
+    comparabilityKey: `key-${n}`,
   };
 }
 
@@ -139,5 +139,19 @@ describe("applyProfileAttemptEffect (exactly-once profile projection)", () => {
     expect(loaded!.appliedEffectIds).toEqual([]);
     expect(loaded!.appliedRunIds).toEqual([]);
     expect(loaded!.attempts).toBe(0);
+  });
+
+  it("serializes concurrent profile folds (no lost update)", async () => {
+    await Promise.all(
+      [1, 2, 3].map((n) =>
+        applyProfileAttemptEffect(`effect-${n}`, `run-${n}`, { ...review(n) }, { baseDir }),
+      ),
+    );
+    const profile = await loadLearnerProfile({ baseDir });
+    expect([...profile!.appliedEffectIds].sort()).toEqual([
+      "effect-1",
+      "effect-2",
+      "effect-3",
+    ]);
   });
 });

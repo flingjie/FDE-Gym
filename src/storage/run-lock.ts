@@ -9,15 +9,28 @@ import { InvalidResourceIdError, RunLockedError } from "../core/errors.js";
 import type { StoreOptions } from "../core/event-store.js";
 
 /**
- * Cross-process exclusive writer lock for a run, keyed by runId and held under
- * `<baseDir>/runs/.locks/<runId>.lock`. The on-disk owner is JSON carrying
- * `pid`, `hostname`, and `token`; a lock is released only when the on-disk token
- * matches the holder's token, so a lock can never be dropped out from under a
- * live writer by another process.
+ * Cross-process exclusive writer locks. The shared machinery (`acquire` /
+ * `release`) backs both run locks — keyed by runId and held under
+ * `<baseDir>/runs/.locks/<runId>.lock` — and the single profile lock, keyed by
+ * the fixed learner id `"learner"` and held under `<baseDir>/profile.lock`. The
+ * on-disk owner is JSON carrying `pid`, `hostname`, and `token`; a lock is
+ * released only when the on-disk token matches the holder's token, so a lock can
+ * never be dropped out from under a live writer by another process.
  */
 
 export interface RunLock {
   runId: string;
+  token: string;
+  lockPath: string;
+}
+
+/**
+ * The shared shape the lock machinery operates on. `RunLock` supplies `runId`
+ * as the name; the profile lock uses the fixed key `"learner"`. The `key` only
+ * ever surfaces in the `RUN_LOCKED` error — it is never a filename component.
+ */
+interface NamedLock {
+  key: string;
   token: string;
   lockPath: string;
 }
@@ -52,11 +65,12 @@ export async function withRunLock<T>(
     token: randomUUID(),
     lockPath: join(baseDir, "runs", ".locks", `${runId}.lock`),
   };
-  await acquire(lock);
+  const handle: NamedLock = { key: runId, token: lock.token, lockPath: lock.lockPath };
+  await acquire(handle);
   try {
     return await work(lock);
   } finally {
-    await release(lock);
+    await release(handle);
   }
 }
 
@@ -97,7 +111,7 @@ export async function withSortedRunLocks<T>(
         token: randomUUID(),
         lockPath: join(baseDir, "runs", ".locks", `${runId}.lock`),
       };
-      await acquire(lock);
+      await acquire({ key: runId, token: lock.token, lockPath: lock.lockPath });
       held.set(runId, lock);
     }
     return await work(held);
@@ -105,21 +119,75 @@ export async function withSortedRunLocks<T>(
     for (const runId of [...sorted].reverse()) {
       const lock = held.get(runId);
       if (lock !== undefined && lock !== provided) {
-        await release(lock);
+        await release({ token: lock.token, lockPath: lock.lockPath });
       }
     }
   }
 }
 
 /**
- * Acquire with `open(path, "wx")`. On `EEXIST`, if the existing owner is on this
- * host and its PID is dead (`ESRCH`), remove the stale lock and retry ONCE. A
- * live owner (or an owner on another host) fails closed with `RUN_LOCKED` and is
- * never deleted. No time-based expiry of a live PID.
+ * Run `work` while holding a named exclusive lock at `lockPath`. The `key` is
+ * surfaced only in `RUN_LOCKED` errors; it is never a filename component.
+ * Contending acquisitions wait (bounded) for a live same-host owner to release,
+ * unlike the fail-closed run lock, which `withRunLock`/`withSortedRunLocks`
+ * acquire directly.
  */
-async function acquire(lock: RunLock): Promise<void> {
+export async function withNamedLock<T>(
+  key: string,
+  lockPath: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  const lock: NamedLock = { key, token: randomUUID(), lockPath };
+  await acquire(lock, true);
+  try {
+    return await work();
+  } finally {
+    await release(lock);
+  }
+}
+
+/**
+ * Exclusive lock guarding the whole profile fold (read → dedup → update →
+ * write). Held at `<baseDir>/profile.lock`, keyed by the fixed learner id
+ * `"learner"` (there is a single learner per local machine). Contending folds
+ * wait (bounded) for the holder to release, so they serialize rather than
+ * losing updates; a dead holder's stale lock is recovered like the run lock.
+ */
+export async function withProfileLock<T>(
+  baseDir: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  return withNamedLock("learner", join(baseDir, "profile.lock"), work);
+}
+
+/**
+ * How long a waiting acquisition (`wait` mode) polls a live same-host owner
+ * before failing closed with `RUN_LOCKED`.
+ */
+const LOCK_WAIT_TIMEOUT_MS = 30_000;
+/** Back-off between wait-mode acquisition attempts. */
+const LOCK_RETRY_DELAY_MS = 10;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Acquire with `open(path, "wx")`. On `EEXIST`, if the existing owner is on this
+ * host and its PID is dead (`ESRCH`), remove the stale lock and retry.
+ *
+ * - Fail-closed (`wait` false — the run lock): a live owner (or an owner on
+ *   another host) fails closed with `RUN_LOCKED` and is never deleted; a stale
+ *   lock is recovered at most once. No time-based expiry of a live PID.
+ * - Waiting (`wait` true — the profile lock): a live owner on this host is
+ *   polled until it releases or `LOCK_WAIT_TIMEOUT_MS` elapses, so concurrent
+ *   folds serialize instead of failing; a stale lock is recovered on every
+ *   iteration, and an owner on another host still fails closed.
+ */
+async function acquire(lock: NamedLock, wait = false): Promise<void> {
   await mkdir(dirname(lock.lockPath), { recursive: true });
   const owner: LockOwner = { pid: process.pid, hostname: hostname(), token: lock.token };
+  const deadline = wait ? Date.now() + LOCK_WAIT_TIMEOUT_MS : Number.POSITIVE_INFINITY;
 
   let recovered = false;
   for (;;) {
@@ -136,22 +204,31 @@ async function acquire(lock: RunLock): Promise<void> {
     }
 
     const existing = await readOwner(lock.lockPath);
-    if (
-      existing !== null &&
-      !recovered &&
-      existing.hostname === owner.hostname &&
-      isDeadPid(existing.pid)
-    ) {
+    const stale =
+      existing !== null && existing.hostname === owner.hostname && isDeadPid(existing.pid);
+
+    // A dead owner's lock is dropped. Fail-closed mode recovers once; wait mode
+    // re-checks ownership on every iteration, so a stale lock is always cleared.
+    if (stale && (!recovered || wait)) {
       recovered = true;
       await rm(lock.lockPath, { force: true });
       continue;
     }
-    throw new RunLockedError(lock.runId);
+
+    if (!wait) throw new RunLockedError(lock.key);
+
+    // Waiting: the lock was freed between our failed open and the owner read —
+    // retry immediately. A live owner on this host keeps us waiting; an owner on
+    // another host or an elapsed deadline fails closed.
+    if (existing === null) continue;
+    if (existing.hostname !== owner.hostname) throw new RunLockedError(lock.key);
+    if (Date.now() >= deadline) throw new RunLockedError(lock.key);
+    await sleep(LOCK_RETRY_DELAY_MS);
   }
 }
 
 /** Remove the lock only when the on-disk token still belongs to this holder. */
-async function release(lock: RunLock): Promise<void> {
+async function release(lock: Pick<NamedLock, "token" | "lockPath">): Promise<void> {
   const existing = await readOwner(lock.lockPath);
   if (existing !== null && existing.token === lock.token) {
     await rm(lock.lockPath, { force: true });
