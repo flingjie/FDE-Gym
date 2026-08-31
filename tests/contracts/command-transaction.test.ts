@@ -9,8 +9,8 @@ import {
   type CommandPlan,
   type JsonValue,
 } from "../../src/core/command-transaction.js";
-import { canonicalJson, loadEvents } from "../../src/core/event-store.js";
-import { COMMAND_ID_CONFLICT, JOURNAL_CANARY_LEAK, RUN_LOCKED } from "../../src/core/errors.js";
+import { appendEvents, canonicalJson, loadEvents } from "../../src/core/event-store.js";
+import { COMMAND_ID_CONFLICT, JOURNAL_CANARY_LEAK, RUN_VERSION_CONFLICT } from "../../src/core/errors.js";
 import type { RunEvent } from "../../src/core/domain.js";
 
 /**
@@ -205,17 +205,13 @@ describe("command transaction journal", () => {
   });
 
   it("produces one journal and one event batch for concurrent identical commands", async () => {
-    let calls = 0;
     const plan: CommandPlan<{ n: number }> = { events: [hintEvent("cmd-5")], result: { n: 1 } };
     const options = {
       runId: RUN_ID,
       commandId: "cmd-5",
       request: { type: "hint", topic: "workflow" },
       store: { baseDir },
-      prepare: async () => {
-        calls += 1;
-        return plan;
-      },
+      prepare: async () => plan,
     };
 
     const settled = await Promise.allSettled([
@@ -223,15 +219,21 @@ describe("command transaction journal", () => {
       executeCommandTransaction(options),
     ]);
 
-    const fulfilled = settled.filter((result) => result.status === "fulfilled");
-    const rejected = settled.filter((result) => result.status === "rejected");
-    expect(fulfilled).toHaveLength(1);
-    expect(rejected).toHaveLength(1);
-    expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: RUN_LOCKED });
-
-    expect(calls).toBe(1);
+    // Idempotency is the durable guarantee: exactly one committed journal and
+    // one event batch, and every caller that commits converges on the stored
+    // result. Which caller wins the run lock — and whether the loser rejects
+    // with RUN_LOCKED or re-observes the committed journal — is the lock
+    // layer's contract (covered by run-lock.test.ts), not asserted here.
     expect(await loadEvents(RUN_ID, { baseDir })).toHaveLength(1);
     expect(readdirSync(join(baseDir, "runs", RUN_ID, "commands"))).toEqual(["cmd-5.json"]);
+
+    const fulfilled = settled.filter(
+      (result): result is PromiseFulfilledResult<{ n: number }> => result.status === "fulfilled",
+    );
+    expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+    for (const result of fulfilled) {
+      expect(result.value).toEqual({ n: 1 });
+    }
   });
 
   it("rejects a non-JSON result before writing the journal", async () => {
@@ -274,5 +276,66 @@ describe("command transaction journal", () => {
     for (const file of files) {
       expect(readFileSync(join(commandsDir, file), "utf8")).not.toContain(canary);
     }
+  });
+
+  it("does not re-invoke prepare when the head is unchanged", async () => {
+    let calls = 0;
+    const prepare = async () => {
+      calls += 1;
+      return { events: [], result: { ok: true } };
+    };
+    await executeCommandTransaction({
+      runId: "run-1",
+      commandId: "cmd-1",
+      request: { type: "ask", question: "q", stakeholderId: "s" },
+      store: { baseDir },
+      prepare,
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("throws RUN_VERSION_CONFLICT (without re-running prepare) when the head moves", async () => {
+    await appendEvents(
+      "run-1",
+      [
+        {
+          type: "run.started",
+          runId: "run-1",
+          commandId: "start",
+          scenarioId: "s",
+          locale: "zh-CN",
+        },
+      ],
+      { baseDir },
+    );
+    let calls = 0;
+    const prepare = async () => {
+      calls += 1;
+      // Simulate another writer committing here (prepare runs outside the lock).
+      await appendEvents(
+        "run-1",
+        [
+          {
+            type: "phase.changed",
+            runId: "run-1",
+            commandId: "other",
+            from: "SCENARIO",
+            to: "SCENARIO",
+          },
+        ],
+        { baseDir },
+      );
+      return { events: [], result: { ok: true } };
+    };
+    await expect(
+      executeCommandTransaction({
+        runId: "run-1",
+        commandId: "cmd-2",
+        request: { type: "ask", question: "q", stakeholderId: "s" },
+        store: { baseDir },
+        prepare,
+      }),
+    ).rejects.toMatchObject({ code: RUN_VERSION_CONFLICT });
+    expect(calls).toBe(1);
   });
 });

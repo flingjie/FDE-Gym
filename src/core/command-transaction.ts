@@ -10,11 +10,12 @@ import { atomicWriteFile } from "../storage/atomic-file.js";
 import { applyProfileAttemptEffect } from "../storage/fs-store.js";
 import { withRunLock, withSortedRunLocks, type RunLock } from "../storage/run-lock.js";
 import { RunEventSchema, type RunEvent } from "./domain.js";
-import { CommandIdConflictError, JournalCanaryLeakError } from "./errors.js";
+import { CommandIdConflictError, JournalCanaryLeakError, RunVersionConflictError } from "./errors.js";
 import {
   appendEvents,
   assertSafeResourceId,
   canonicalJson,
+  readHead,
   resolveBaseDir,
   type StoreOptions,
 } from "./event-store.js";
@@ -240,6 +241,15 @@ async function applyEffects(
   }
 }
 
+/** True when both heads are absent, or when both present heads carry the same seq + hash. */
+function sameHead(
+  a: { seq: number; hash: string } | null,
+  b: { seq: number; hash: string } | null,
+): boolean {
+  if (a === null || b === null) return a === b;
+  return a.seq === b.seq && a.hash === b.hash;
+}
+
 // ---------------------------------------------------------------------------
 // The transaction
 // ---------------------------------------------------------------------------
@@ -247,11 +257,16 @@ async function applyEffects(
 /**
  * Run a mutating command as an atomic, recoverable transaction:
  *
- *   absent    -> prepare() -> atomic write `prepared`
+ *   absent    -> prepare() OUTSIDE the lock -> re-check head under lock ->
+ *                atomic write `prepared` (RUN_VERSION_CONFLICT if the head moved)
  *   prepared  -> append missing event batch -> apply missing effects
  *   all durable -> atomic write `committed`
  *   committed + matching hash -> return stored result
  *   any state + different hash -> COMMAND_ID_CONFLICT
+ *
+ * A pre-existing journal (committed or prepared) is recovered under the first
+ * short lock WITHOUT re-invoking the model; `prepare` runs exactly once, outside
+ * the run lock, and is never retried on a version conflict.
  */
 export async function executeCommandTransaction<T extends JsonValue>(options: {
   runId: string;
@@ -273,7 +288,54 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
   const requestHash = sha256Hex(canonicalJson(request));
   const path = journalFile(baseDir, runId, commandId);
 
-  return withRunLock(runId, options.store ?? {}, async (lock) => {
+  const storeBase: StoreOptions = { baseDir };
+
+  // 1. Read the existing journal (or, when absent, the committed log head)
+  //    under a short lock, then release. A pre-existing journal is recovered
+  //    WITHOUT re-invoking the model (idempotent replay/recovery).
+  let headBefore: { seq: number; hash: string } | null = null;
+  let recovered: T | undefined;
+  let hadJournal = false;
+  await withRunLock(runId, storeBase, async (lock) => {
+    const store: StoreOptions = { baseDir, lock };
+    const existing = await readJournal(path);
+
+    if (existing) {
+      hadJournal = true;
+      if (existing.requestHash !== requestHash) {
+        throw new CommandIdConflictError(runId, commandId);
+      }
+      if (existing.status === "committed") {
+        recovered = existing.result as T;
+        return;
+      }
+      // Finish a prepared (interrupted) command: append is idempotent by
+      // commandId; effects are applied once more (idempotent per effect).
+      await appendEvents(runId, existing.events, store);
+      await applyEffects(existing.effects, baseDir, lock);
+      await writeJournal(path, { ...existing, status: "committed" }, canaries);
+      recovered = existing.result as T;
+      return;
+    }
+
+    headBefore = await readHead(runId, store);
+  });
+
+  if (hadJournal) {
+    return recovered as T;
+  }
+
+  // 2. Model call OUTSIDE the lock.
+  const plan = await options.prepare();
+  const events = plan.events ?? [];
+  const result = plan.result;
+  const effects = plan.effects ?? [];
+  validatePlan(events, result, effects);
+
+  // 3. Re-acquire the lock and commit iff the head is unchanged. A journal
+  //    written by a concurrent duplicate is recovered (its plan discarded);
+  //    only a moved head with no journal is a version conflict.
+  return withRunLock(runId, storeBase, async (lock) => {
     const store: StoreOptions = { baseDir, lock };
     const existing = await readJournal(path);
 
@@ -284,19 +346,16 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
       if (existing.status === "committed") {
         return existing.result as T;
       }
-      // Finish a prepared (interrupted) command: append is idempotent by
-      // commandId; effects are applied once more (idempotent per effect).
       await appendEvents(runId, existing.events, store);
       await applyEffects(existing.effects, baseDir, lock);
       await writeJournal(path, { ...existing, status: "committed" }, canaries);
       return existing.result as T;
     }
 
-    const plan = await options.prepare();
-    const events = plan.events ?? [];
-    const result = plan.result;
-    const effects = plan.effects ?? [];
-    validatePlan(events, result, effects);
+    const headNow = await readHead(runId, store);
+    if (!sameHead(headBefore, headNow)) {
+      throw new RunVersionConflictError(runId);
+    }
 
     const prepared: PreparedCommand<JsonValue> = {
       journalVersion: JOURNAL_VERSION,
