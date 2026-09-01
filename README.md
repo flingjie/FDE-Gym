@@ -118,7 +118,10 @@ Four claims are precise and are what the verification suite asserts:
 | `submit-pitch` | submit the pitch (JSON on stdin) |
 | `review` | final review + score breakdown |
 | `replay` | project the learner-safe replay (`[--locale]`) |
-| `retry` | start a clean retry (`--new-run-id`; focus summaries on stdin) |
+| `retry` | mark the run ready to retry (REVIEW → RETRY_READY; focus summaries on stdin) |
+| `start-retry` | start the retry child run (`--new-run-id [--seed n]`) |
+| `complete` | finalize the run (REVIEW → COMPLETED) |
+| `abort` | abort the run from any active phase (`[--reason …]`) |
 | `profile` | show the learner profile |
 
 Resume a run with any of its commands (`status`, `ask`, …) using the same

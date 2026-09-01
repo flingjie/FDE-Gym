@@ -10,8 +10,10 @@ import { UnconfiguredModelRuntime } from "../agents/unconfigured-runtime.js";
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import { LocaleSchema, type Locale } from "../core/domain.js";
 import {
+  abortCommand,
   askCommand,
   clarifyCommand,
+  completeCommand,
   frameCommand,
   hintCommand,
   listCommand,
@@ -22,6 +24,7 @@ import {
   retryCommand,
   reviewCommand,
   startCommand,
+  startRetryCommand,
   statusCommand,
   submitBriefCommand,
   submitDesignCommand,
@@ -61,6 +64,9 @@ const COMMAND_NAMES = [
   "review",
   "replay",
   "retry",
+  "start-retry",
+  "complete",
+  "abort",
   "profile",
   "install-skill",
 ] as const;
@@ -120,7 +126,10 @@ function usage(): string {
     "  submit-pitch      submit the pitch (--run-id --command-id; JSON stdin)",
     "  review            run final review + score (--run-id --command-id [--samples N])",
     "  replay            project the learner-safe replay (--run-id [--locale])",
-    "  retry             start a clean retry (--run-id --new-run-id --command-id; JSON stdin)",
+    "  retry             mark a run ready to retry (--run-id --command-id; JSON stdin)",
+    "  start-retry       start the retry child run (--run-id --new-run-id --command-id [--seed])",
+    "  complete          finalize the run (--run-id --command-id)",
+    "  abort             abort the run (--run-id --command-id [--reason])",
     "  profile           show the learner profile",
     "  install-skill     install the Codex Skill to the repo-local .codex/skills/ (--dry-run)",
     "",
@@ -158,6 +167,7 @@ async function main(): Promise<void> {
       "seed": { type: "string" },
       "new-run-id": { type: "string" },
       "samples": { type: "string" },
+      "reason": { type: "string" },
       "base-dir": { type: "string" },
       "dry-run": { type: "boolean" },
       "json": { type: "boolean" },
@@ -353,8 +363,7 @@ async function main(): Promise<void> {
       break;
     }
     case "retry": {
-      const newRunId = flags["new-run-id"];
-      if (!runId || !commandId || typeof newRunId !== "string") {
+      if (!runId || !commandId) {
         result = { ok: false, code: "MISSING_ARGUMENT", ...localize("MISSING_ARGUMENT", locale) };
         break;
       }
@@ -362,9 +371,41 @@ async function main(): Promise<void> {
       result = await retryCommand(ctx, {
         runId,
         commandId,
-        newRunId,
         focusSummaries: Array.isArray(payload.focusSummaries) ? (payload.focusSummaries as never) : undefined,
+      });
+      break;
+    }
+    case "start-retry": {
+      const newRunId = flags["new-run-id"];
+      if (!runId || !commandId || typeof newRunId !== "string") {
+        result = { ok: false, code: "MISSING_ARGUMENT", ...localize("MISSING_ARGUMENT", locale) };
+        break;
+      }
+      result = await startRetryCommand(ctx, {
+        runId,
+        commandId,
+        newRunId,
         seed: typeof flags.seed === "string" ? Number(flags.seed) : undefined,
+      });
+      break;
+    }
+    case "complete": {
+      if (!runId || !commandId) {
+        result = { ok: false, code: "MISSING_ARGUMENT", ...localize("MISSING_ARGUMENT", locale) };
+        break;
+      }
+      result = await completeCommand(ctx, { runId, commandId });
+      break;
+    }
+    case "abort": {
+      if (!runId || !commandId) {
+        result = { ok: false, code: "MISSING_ARGUMENT", ...localize("MISSING_ARGUMENT", locale) };
+        break;
+      }
+      result = await abortCommand(ctx, {
+        runId,
+        commandId,
+        reason: typeof flags.reason === "string" ? flags.reason : undefined,
       });
       break;
     }

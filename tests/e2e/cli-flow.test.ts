@@ -20,6 +20,7 @@ import {
   replayCommand,
   respondChallengeCommand,
   retryCommand,
+  startRetryCommand,
   reviewCommand,
   startCommand,
   statusCommand,
@@ -384,7 +385,8 @@ async function driveJourney(baseDir: string, locale: Locale, runId: string): Pro
 
   const replay = mustOk(await replayCommand(ctx, { runId, locale }));
 
-  const retry = mustOk(await retryCommand(ctx, { runId, newRunId: `${runId}-child`, commandId: "cmd-retry-1" }));
+  mustOk(await retryCommand(ctx, { runId, commandId: "cmd-retry-1" }));
+  const retry = mustOk(await startRetryCommand(ctx, { runId, newRunId: `${runId}-child`, commandId: "cmd-start-retry-1" }));
   expect(retry.runId).toBe(`${runId}-child`);
 
   // Comparison: the child is a fresh DISCOVERY run with no prior transcript.

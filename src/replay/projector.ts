@@ -12,6 +12,7 @@ import type { HintLedgerEntry } from "../agents/contracts.js";
 import type { RunAggregate } from "../core/aggregate.js";
 import type { ScoreProvenance } from "../scoring/provenance.js";
 import { applyEvidencePatch, createEmptyEvidenceGraph } from "../evidence/graph.js";
+import { reduceInjectedChallenges } from "../graph/challenge-state.js";
 
 /**
  * FDE Gym — learner-safe replay projector (Task 11).
@@ -167,6 +168,7 @@ function emptyAggregate(scenarioId: string, locale: Locale): RunAggregate {
     proposal: null,
     pitch: null,
     challengeResponses: [],
+    injectedChallenges: [],
     pendingEvidence: null,
     clarificationBudgetUsed: 0,
   };
@@ -255,8 +257,13 @@ export function foldRunAggregate(
         agg.proposal = event.proposal;
         break;
       }
+      case "challenge.injected": {
+        agg.injectedChallenges = reduceInjectedChallenges(agg.injectedChallenges ?? [], event);
+        break;
+      }
       case "challenge.responded": {
         agg.challengeResponses = [...agg.challengeResponses, event.response];
+        agg.injectedChallenges = reduceInjectedChallenges(agg.injectedChallenges ?? [], event);
         break;
       }
       case "pitch.submitted": {

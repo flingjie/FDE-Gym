@@ -11,6 +11,7 @@ import { applyProfileAttemptEffect } from "../storage/fs-store.js";
 import { withRunLock, withSortedRunLocks, type RunLock } from "../storage/run-lock.js";
 import { RunEventSchema, type RunEvent } from "./domain.js";
 import { CommandIdConflictError, JournalCanaryLeakError, RunVersionConflictError } from "./errors.js";
+import { validateEventBatch } from "./event-batch-validator.js";
 import {
   appendEvents,
   assertSafeResourceId,
@@ -349,6 +350,10 @@ export async function executeCommandTransaction<T extends JsonValue>(options: {
   const plannedEvents = plan.events ?? [];
   const result = plan.result;
   const effects = plan.effects ?? [];
+  validateEventBatch({
+    events: plannedEvents,
+    expectedRunId: runId,
+  });
   validatePlan(plannedEvents, result, effects);
 
   // 3. Re-acquire the lock and commit iff the head is unchanged. A journal

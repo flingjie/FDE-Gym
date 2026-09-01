@@ -1,98 +1,30 @@
 import type { RunCommand, RunEvent, RunPhase } from "./domain.js";
 import { InvalidPhaseCommandError, RunAlreadyExistsError } from "./errors.js";
-
-/**
- * Phases in which a run is "active" (i.e. `abort` is legal). Terminal phases
- * (COMPLETED, ABORTED) and the pristine unstarted state are excluded.
- */
-const ACTIVE_PHASES: ReadonlySet<RunPhase> = new Set<RunPhase>([
-  "SCENARIO",
-  "DISCOVERY",
-  "PROBLEM_FRAMING",
-  "SOLUTION_DESIGN",
-  "CHALLENGE",
-  "PITCH",
-  "REVIEW",
-  "RETRY_READY",
-]);
+import { PHASE_EDGES } from "../graph/phase-spec.js";
 
 /**
  * Phase legality only — emits NO events and performs NO model I/O. Throws the
  * stable cross-phase error (or `RUN_ALREADY_EXISTS` for a re-`start`) when a
  * command is not legal in the current phase.
  *
- * Event authorship lives in the `prepare*` functions (and the thin event
- * helpers below for the simple `start`/`accept`/`frame` transitions); this
- * function is the single source of truth for what phase each command requires.
+ * Legality is DERIVED from the phase transition spec (`src/graph/phase-spec.ts`),
+ * the single source of truth. This function keeps the stable facade and error
+ * codes while delegating the legality table to the Spec — no second transition
+ * map is maintained here.
  */
 export function assertCommandPhase(
   phase: RunPhase | null,
   commandType: RunCommand["type"],
 ): void {
-  switch (commandType) {
-    case "start": {
-      // No runId reaches this pure phase assert; the store boundary throws the
-      // real `RunAlreadyExistsError(runId)` on a persisted re-`start`.
-      if (phase !== null) throw new RunAlreadyExistsError("");
-      return;
-    }
-    case "accept":
-      requirePhase(phase, "SCENARIO", commandType);
-      return;
-    case "ask":
-      requirePhase(phase, "DISCOVERY", commandType);
-      return;
-    case "frame":
-      requirePhase(phase, "DISCOVERY", commandType);
-      return;
-    case "hint": {
-      if (phase !== "DISCOVERY" && phase !== "PROBLEM_FRAMING") {
-        throw new InvalidPhaseCommandError(commandType, phase);
-      }
-      return;
-    }
-    case "submit-brief":
-      requirePhase(phase, "PROBLEM_FRAMING", commandType);
-      return;
-    case "clarify":
-      requirePhase(phase, "PROBLEM_FRAMING", commandType);
-      return;
-    case "submit-design":
-      requirePhase(phase, "SOLUTION_DESIGN", commandType);
-      return;
-    case "respond-challenge":
-      requirePhase(phase, "CHALLENGE", commandType);
-      return;
-    case "submit-pitch":
-      requirePhase(phase, "PITCH", commandType);
-      return;
-    case "review":
-      requirePhase(phase, "REVIEW", commandType);
-      return;
-    case "retry":
-      requirePhase(phase, "REVIEW", commandType);
-      return;
-    case "start-retry":
-      requirePhase(phase, "RETRY_READY", commandType);
-      return;
-    case "complete":
-      requirePhase(phase, "REVIEW", commandType);
-      return;
-    case "abort": {
-      if (phase === null || !ACTIVE_PHASES.has(phase)) {
-        throw new InvalidPhaseCommandError(commandType, phase);
-      }
-      return;
-    }
-    default: {
-      const exhaustive: never = commandType;
-      throw new Error(`unhandled command type: ${(exhaustive as { type?: string }).type}`);
-    }
+  for (const edge of PHASE_EDGES) {
+    if (edge.action === commandType && edge.from === phase) return;
   }
-}
-
-function requirePhase(actual: RunPhase | null, expected: RunPhase, commandType: string): void {
-  if (actual !== expected) throw new InvalidPhaseCommandError(commandType, actual);
+  if (commandType === "start") {
+    // `start` is the only action whose edge has `from === null`; a non-null
+    // phase is a re-`start`, which throws the dedicated (not phase) error.
+    throw new RunAlreadyExistsError("");
+  }
+  throw new InvalidPhaseCommandError(commandType, phase);
 }
 
 /**

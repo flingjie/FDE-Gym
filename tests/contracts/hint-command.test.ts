@@ -128,8 +128,15 @@ describe("hintCommand ledger and journal", () => {
         {
           type: "phase.changed",
           runId,
-          commandId: "cmd-force-phase",
+          commandId: "cmd-force-frame",
           from: "DISCOVERY",
+          to: "PROBLEM_FRAMING",
+        },
+        {
+          type: "phase.changed",
+          runId,
+          commandId: "cmd-force-brief",
+          from: "PROBLEM_FRAMING",
           to: "SOLUTION_DESIGN",
         },
       ],

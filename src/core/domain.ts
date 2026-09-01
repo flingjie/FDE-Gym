@@ -844,11 +844,18 @@ export const ScoreComputedEventSchema = z
   })
   .strict();
 
+/**
+ * Marks a REVIEW-phase parent run as ready to retry. Committed to the PARENT's
+ * event log by the `retry` command, carrying the 2–3 learner-visible focus
+ * summaries so `start-retry` can reconstruct the child's `previousAttemptReview`
+ * after a process restart without re-invoking the parent's review model. The
+ * child run id is not yet known at this point (it arrives with `start-retry`).
+ */
 export const RetryStartedEventSchema = z
   .object({
     type: z.literal("retry.started"),
     ...EVENT_BASE,
-    newRunId: z.string().min(1),
+    focusSummaries: z.array(LocalizedTextSchema),
   })
   .strict();
 

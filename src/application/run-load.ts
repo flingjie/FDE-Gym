@@ -1,4 +1,5 @@
 import { foldRunAggregate } from "../replay/projector.js";
+import { validatePhaseContinuity } from "../graph/replay-validator.js";
 import { loadScenarioBundle, defaultCompiledRoot } from "../scenarios/bundle.js";
 import { ScenarioBundleMismatchError } from "../core/errors.js";
 import type { RecordedEvent, Locale, RunEvent, RunPhase } from "../core/domain.js";
@@ -27,6 +28,8 @@ export async function loadRun(deps: ApplicationDeps, runId: string): Promise<Loa
   const locale = started && started.type === "run.started" ? started.locale : "zh-CN";
   const scenarioBundleDigest =
     started && started.type === "run.started" ? started.scenarioBundleDigest : undefined;
+  // Fail closed on an illegal phase path before recovering the aggregate (G1-02).
+  validatePhaseContinuity(events);
   const aggregate = foldRunAggregate(events, scenarioId, locale);
   return { events, scenarioId, locale, phase: aggregate.phase, aggregate, scenarioBundleDigest };
 }

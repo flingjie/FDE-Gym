@@ -28,6 +28,10 @@ export const SCENARIO_BUNDLE_INVALID = "SCENARIO_BUNDLE_INVALID" as const;
 export const SCENARIO_BUNDLE_MISMATCH = "SCENARIO_BUNDLE_MISMATCH" as const;
 /** A command's prepared plan is stale: the run's event-log head moved between prepare and commit. */
 export const RUN_VERSION_CONFLICT = "RUN_VERSION_CONFLICT" as const;
+/** A command's event batch violates the graph semantics (illegal transition, mixed ids, …) — rejected before journal. */
+export const EVENT_BATCH_INVALID = "EVENT_BATCH_INVALID" as const;
+/** A committed event log violates the graph semantics (broken phase continuity, illegal transition, terminal-after) — fail closed. */
+export const REPLAY_INVALID = "REPLAY_INVALID" as const;
 
 export type FdeErrorCode =
   | typeof INVALID_PHASE_COMMAND
@@ -42,7 +46,9 @@ export type FdeErrorCode =
   | typeof AGENT_OUTPUT_DOMAIN_INVALID
   | typeof SCENARIO_BUNDLE_INVALID
   | typeof SCENARIO_BUNDLE_MISMATCH
-  | typeof RUN_VERSION_CONFLICT;
+  | typeof RUN_VERSION_CONFLICT
+  | typeof EVENT_BATCH_INVALID
+  | typeof REPLAY_INVALID;
 
 /** Base class for all FDE Gym errors. The `code` field is the stable contract. */
 export class FdeError extends Error {
@@ -183,5 +189,21 @@ export class RunVersionConflictError extends FdeError {
     super(RUN_VERSION_CONFLICT, `run version conflict: ${runId}`);
     this.name = "RunVersionConflictError";
     this.runId = runId;
+  }
+}
+
+/** A command's event batch violates the graph semantics — rejected before journal. */
+export class EventBatchInvalidError extends FdeError {
+  constructor(message: string) {
+    super(EVENT_BATCH_INVALID, message);
+    this.name = "EventBatchInvalidError";
+  }
+}
+
+/** A committed event log violates the graph semantics — replay fails closed. */
+export class ReplayInvalidError extends FdeError {
+  constructor(message: string) {
+    super(REPLAY_INVALID, message);
+    this.name = "ReplayInvalidError";
   }
 }

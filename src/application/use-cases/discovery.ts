@@ -103,19 +103,6 @@ export interface ClarifyArgs {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Deterministic challenge ids already injected into a run (deduplicated, in order). */
-export function distinctInjectedChallengeIds(events: readonly RunEvent[]): string[] {
-  const seen = new Set<string>();
-  for (const event of events) {
-    if (event.type === "challenge.injected") seen.add(event.challengeId);
-  }
-  return [...seen];
-}
-
-// ---------------------------------------------------------------------------
 // Use cases
 // ---------------------------------------------------------------------------
 

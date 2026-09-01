@@ -59,7 +59,22 @@ import {
   type StatusArgs,
   type StatusData,
 } from "../application/use-cases/read.js";
-import { retry, type RetryArgs, type RetryData } from "../application/use-cases/retry.js";
+import {
+  retry,
+  startRetry,
+  type RetryArgs,
+  type RetryData,
+  type StartRetryArgs,
+  type StartRetryData,
+} from "../application/use-cases/retry.js";
+import {
+  abort,
+  complete,
+  type AbortArgs,
+  type AbortData,
+  type CompleteArgs,
+  type CompleteData,
+} from "../application/use-cases/lifecycle.js";
 
 /**
  * FDE Gym — CLI command implementations (Task 11).
@@ -268,6 +283,42 @@ export async function retryCommand(ctx: CommandContext, args: RetryArgs): Promis
   const loaded = await loadRun(deps, args.runId);
   return guard(loaded.locale, async () => {
     const r = await retry(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
+  });
+}
+
+export async function startRetryCommand(
+  ctx: CommandContext,
+  args: StartRetryArgs,
+): Promise<CliResult<StartRetryData>> {
+  const deps = buildDeps(ctx);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await startRetry(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
+  });
+}
+
+export async function completeCommand(
+  ctx: CommandContext,
+  args: CompleteArgs,
+): Promise<CliResult<CompleteData>> {
+  const deps = buildDeps(ctx);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await complete(deps, args, loaded);
+    return ok(r.runId, r.phase, r.locale, r.data);
+  });
+}
+
+export async function abortCommand(
+  ctx: CommandContext,
+  args: AbortArgs,
+): Promise<CliResult<AbortData>> {
+  const deps = buildDeps(ctx);
+  const loaded = await loadRun(deps, args.runId);
+  return guard(loaded.locale, async () => {
+    const r = await abort(deps, args, loaded);
     return ok(r.runId, r.phase, r.locale, r.data);
   });
 }

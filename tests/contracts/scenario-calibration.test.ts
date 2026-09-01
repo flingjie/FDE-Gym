@@ -19,6 +19,7 @@ import {
   frameCommand,
   respondChallengeCommand,
   retryCommand,
+  startRetryCommand,
   reviewCommand,
   startCommand,
   statusCommand,
@@ -465,7 +466,8 @@ async function driveJourney(id: ScenarioId, baseDir: string, runId: string): Pro
   ok(await submitPitchCommand(ctx, { runId, pitch: pitch(), commandId: "pitch-1" }));
   const reviewed = await reviewCommand(ctx, { runId, commandId: "review-1" });
   expect(reviewed.ok).toBe(true);
-  const retry = await retryCommand(ctx, { runId, newRunId: `${runId}-child`, commandId: "retry-1" });
+  ok(await retryCommand(ctx, { runId, commandId: "retry-1" }));
+  const retry = await startRetryCommand(ctx, { runId, newRunId: `${runId}-child`, commandId: "start-retry-1" });
   expect(retry.ok).toBe(true);
 
   const child = await statusCommand(ctx, { runId: `${runId}-child` });

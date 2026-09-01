@@ -34,6 +34,7 @@ import {
   validateBriefStructure,
 } from "../evidence/brief-validator.js";
 import { selectScenarioEvents, type EventTriggerContext } from "../simulation/event-scheduler.js";
+import { allChallengesAnswered, reduceInjectedChallenges } from "../graph/challenge-state.js";
 import type { Rng } from "../simulation/rng.js";
 import {
   calculateScore,
@@ -60,11 +61,11 @@ import type {
   PitchArtifact,
   ProblemBrief,
   RunEvent,
+  RunPhase,
   ScoreBreakdown,
   SolutionProposal,
   TranscriptTurn,
 } from "./domain.js";
-import { InvalidPhaseCommandError } from "./errors.js";
 import {
   assertCommandPhase,
   buildPhaseChangedEvent,
@@ -692,8 +693,6 @@ export interface ChallengeInjectionInput {
   candidates: readonly ScenarioEventCandidate[];
   rng: Rng;
   commandId: string;
-  /** Challenge ids already injected by an earlier wave; skipped to avoid re-injection. */
-  alreadyInjectedChallengeIds?: readonly string[];
   store?: StoreOptions;
 }
 
@@ -770,7 +769,7 @@ export async function prepareChallengeInjection(
   const context = buildTriggerContext(state, capsule);
   const selected = selectScenarioEvents(candidates, context, rng);
 
-  const alreadyInjected = new Set(input.alreadyInjectedChallengeIds ?? []);
+  const alreadyInjected = new Set((state.injectedChallenges ?? []).map((entry) => entry.id));
   const toInject = selected.filter((candidate) => !alreadyInjected.has(candidate.id));
 
   const stakeholderId = capsule.stakeholders[0]?.id ?? "customer";
@@ -795,12 +794,25 @@ export async function prepareChallengeInjection(
     interruptions.push({ challengeId, reply: prompt, stakeholderId });
   }
 
+  // Fold the newly-injected challenges into the aggregate so `updatedState`
+  // (and a resumed fold) sees them as pending.
+  let injectedChallenges = state.injectedChallenges ?? [];
+  for (const candidate of toInject) {
+    injectedChallenges = reduceInjectedChallenges(injectedChallenges, {
+      type: "challenge.injected",
+      runId,
+      commandId,
+      challengeId: candidate.id,
+      prompt: candidate.prompt,
+    });
+  }
+
   return {
     runId,
     injectedChallengeIds: toInject.map((candidate) => candidate.id),
     interruptions,
     acceptedEvents: events,
-    updatedState: { ...state },
+    updatedState: { ...state, injectedChallenges },
   };
 }
 
@@ -809,12 +821,10 @@ export async function prepareChallengeInjection(
 // ---------------------------------------------------------------------------
 
 export interface RespondToChallengeInput {
-  /** Aggregate; `phase` must be CHALLENGE. */
+  /** Aggregate; `phase` must be CHALLENGE and `injectedChallenges` folded. */
   state: RunAggregate;
   response: ChallengeResponse;
   commandId: string;
-  /** The injected challenge ids the learner must answer before advancing. */
-  mandatoryChallengeIds: readonly string[];
   store?: StoreOptions;
 }
 
@@ -851,12 +861,16 @@ export async function prepareRespondToChallenge(
   // Re-validate (structural gate). Throws before any event is emitted.
   ChallengeResponseSchema.parse(response);
 
-  const responses = [...state.challengeResponses, response];
-  const challengesAddressed = input.mandatoryChallengeIds.every((id) =>
-    responses.some((entry) => entry.challengeId === id),
-  );
+  // Fold the response into the injected-challenge aggregate: this both VALIDATES
+  // (the target challenge must be injected and pending — it throws on an unknown
+  // or already-answered id) and marks it answered. `all-answered` is derived
+  // solely from the aggregate, never a caller-tracked list.
+  const respondEvent: RunEvent = { type: "challenge.responded", runId, commandId, response };
+  const updatedInjected = reduceInjectedChallenges(state.injectedChallenges ?? [], respondEvent);
+  const challengesAddressed = allChallengesAnswered(updatedInjected);
 
-  const events: RunEvent[] = [{ type: "challenge.responded", runId, commandId, response }];
+  const responses = [...state.challengeResponses, response];
+  const events: RunEvent[] = [respondEvent];
   let phase = state.phase;
   if (challengesAddressed) {
     events.push({ type: "phase.changed", runId, commandId, from: "CHALLENGE", to: "PITCH" });
@@ -867,7 +881,12 @@ export async function prepareRespondToChallenge(
     runId,
     challengesAddressed,
     acceptedEvents: events,
-    updatedState: { ...state, challengeResponses: responses, phase },
+    updatedState: {
+      ...state,
+      challengeResponses: responses,
+      injectedChallenges: updatedInjected,
+      phase,
+    },
   };
 }
 
@@ -921,13 +940,35 @@ export async function preparePitch(input: SubmitPitchInput): Promise<SubmitPitch
 }
 
 // ---------------------------------------------------------------------------
-// Retry (Task 10): spawn a clean, isolated second attempt
+// Retry (Task 10): two-step retry — `retry` marks ready, `start-retry` spawns
 // ---------------------------------------------------------------------------
 
-export interface CreateRetryOptions {
+export interface RetryReadyOptions {
+  /** Idempotency key for the parent's `retry.started` + `phase.changed`. */
+  commandId: string;
+  /** Defaults to the parent's scenario. */
+  scenarioId?: string;
+  /** Defaults to the parent's locale. */
+  locale?: Locale;
+  /** Exactly 2 or 3 learner-visible focus summaries from the previous attempt. */
+  focusSummaries: LocalizedText[];
+}
+
+export interface RetryReadyResult {
+  parentRunId: string;
+  scenarioId: string;
+  locale: Locale;
+  focusSummaries: LocalizedText[];
+  /** The parent's minimal state after the transition (RETRY_READY). */
+  state: RunState;
+  /** Events persisted to the PARENT run (`retry.started` + the REVIEW→RETRY_READY hop). */
+  parentEvents: RunEvent[];
+}
+
+export interface StartRetryOptions {
   /** The new attempt's run id (deterministic, caller-supplied — no randomness). */
   newRunId: string;
-  /** Idempotency key for both the parent's `retry.started` and the new run's `start`. */
+  /** Idempotency key for the child run's `start`. */
   commandId: string;
   /** Defaults to the parent's scenario. */
   scenarioId?: string;
@@ -935,14 +976,13 @@ export interface CreateRetryOptions {
   locale?: Locale;
   /** Carried through unchanged (the run seed is caller-owned; not in the aggregate). */
   seed?: number;
-  /** Exactly 2 or 3 learner-visible focus summaries from the previous attempt. */
+  /** Exactly 2 or 3 learner-visible focus summaries (from the parent's `retry.started`). */
   focusSummaries: LocalizedText[];
   /** Verified scenario-bundle digest stamped onto the child run's `run.started` (Task 7). */
   scenarioBundleDigest?: string;
-  store?: StoreOptions;
 }
 
-export interface CreateRetryResult {
+export interface StartRetryResult {
   parentRunId: string;
   runId: string;
   scenarioId: string;
@@ -955,42 +995,82 @@ export interface CreateRetryResult {
   aggregate: RunAggregate;
   /** Events persisted to the NEW run. */
   newRunEvents: RunEvent[];
-  /** Events persisted to the PARENT run (the durable `retry.started` link). */
-  parentEvents: RunEvent[];
 }
 
 export const INVALID_RETRY_FOCUS = "INVALID_RETRY_FOCUS" as const;
 
 /**
- * Start a clean retry of a REVIEW-phase attempt.
+ * Mark a REVIEW-phase attempt as ready to retry (step 1 of the two-step retry).
+ * Moves the PARENT run to `RETRY_READY` and durably records the 2–3
+ * learner-visible focus summaries on the parent (`retry.started`), so a later
+ * `start-retry` can reconstruct the child's `previousAttemptReview` after a
+ * process restart without re-invoking the parent's review model.
  *
- * Semantics (verbatim from the brief):
- *   - NEW `runId`; the parent link is recorded durably as a `retry.started`
- *     event on the PARENT run (`run.started` has no parent field).
- *   - Scenario and locale default to the parent's; the seed is carried through
- *     options unchanged.
- *   - The Evidence Graph, disclosure ledger, transcript, and granted hints are
- *     CLEARED; the new run carries only the 2-3 learner-visible focus summaries
- *     (`previousAttemptReview`). The Customer and Evidence Tracker therefore
- *     receive NO previous transcript (their firewall inputs build only from the
- *     new run's empty transcript/graph).
- *   - The new run starts in DISCOVERY: `start` (SCENARIO) followed immediately
- *     by `accept` (SCENARIO → DISCOVERY).
- *
- * Deterministic: no randomness, no wall-clock. `newRunId` is caller-supplied so
- * the CLI (Task 11) controls the identity.
+ * No child is created here and no model is invoked — this is a pure transition.
  */
-export async function prepareRetry(
+export function prepareRetry(
   parentRun: RunAggregate,
-  options: CreateRetryOptions,
-): Promise<CreateRetryResult> {
-  if (parentRun.phase !== "REVIEW") {
-    throw new InvalidPhaseCommandError("retry", parentRun.phase);
-  }
+  options: RetryReadyOptions,
+): RetryReadyResult {
+  assertCommandPhase(parentRun.phase, "retry");
   if (options.focusSummaries.length < 2 || options.focusSummaries.length > 3) {
     throw new OrchestratorError(
       INVALID_RETRY_FOCUS,
       "retry requires 2 or 3 focus summaries",
+    );
+  }
+
+  const scenarioId = options.scenarioId ?? parentRun.scenarioId;
+  const locale = options.locale ?? parentRun.locale;
+  const commandId = options.commandId;
+
+  const parentEvents: RunEvent[] = [
+    {
+      type: "retry.started",
+      runId: parentRun.runId,
+      commandId,
+      focusSummaries: options.focusSummaries,
+    },
+    buildPhaseChangedEvent(parentRun.runId, commandId, "REVIEW", "RETRY_READY"),
+  ];
+
+  return {
+    parentRunId: parentRun.runId,
+    scenarioId,
+    locale,
+    focusSummaries: options.focusSummaries,
+    state: { runId: parentRun.runId, phase: "RETRY_READY", seq: parentEvents.length },
+    parentEvents,
+  };
+}
+
+/**
+ * Spawn the clean, isolated second attempt (step 2 of the two-step retry).
+ * Requires the parent to be in `RETRY_READY`; creates the child run in DISCOVERY
+ * with the focus summaries carried in from the parent's `retry.started`.
+ *
+ * Semantics (verbatim from the brief):
+ *   - NEW `runId`; the parent link is recorded durably as the child's
+ *     `run.started.parentRunId`.
+ *   - The Evidence Graph, disclosure ledger, transcript, and granted hints are
+ *     CLEARED; the new run carries only the 2-3 learner-visible focus summaries
+ *     (`previousAttemptReview`). The Customer and Evidence Tracker therefore
+ *     receive NO previous transcript.
+ *   - The new run starts in DISCOVERY: `start` (SCENARIO) followed immediately
+ *     by `accept` (SCENARIO → DISCOVERY).
+ *
+ * Deterministic: no randomness, no model, no wall-clock. `newRunId` is
+ * caller-supplied so the CLI controls the identity.
+ */
+export function prepareStartRetry(
+  parentRun: RunAggregate,
+  options: StartRetryOptions,
+): StartRetryResult {
+  assertCommandPhase(parentRun.phase, "start-retry");
+  if (options.focusSummaries.length < 2 || options.focusSummaries.length > 3) {
+    throw new OrchestratorError(
+      INVALID_RETRY_FOCUS,
+      "start-retry requires 2 or 3 focus summaries",
     );
   }
 
@@ -1040,14 +1120,11 @@ export async function prepareRetry(
     proposal: null,
     pitch: null,
     challengeResponses: [],
+    injectedChallenges: [],
     pendingEvidence: null,
     clarificationBudgetUsed: 0,
     previousAttemptReview: { focusSummaries: options.focusSummaries },
   };
-
-  const parentEvents: RunEvent[] = [
-    { type: "retry.started", runId: parentRun.runId, commandId, newRunId },
-  ];
 
   return {
     parentRunId: parentRun.runId,
@@ -1059,7 +1136,52 @@ export async function prepareRetry(
     state: { runId: newRunId, phase: "DISCOVERY", seq: newRunEvents.length },
     aggregate,
     newRunEvents,
-    parentEvents,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Terminal transitions: complete + abort
+// ---------------------------------------------------------------------------
+
+export interface TerminalResult {
+  state: RunState;
+  events: RunEvent[];
+}
+
+/**
+ * Finalize a REVIEW-phase run: emit `run.completed` and move REVIEW → COMPLETED.
+ * Pure — no model, no I/O. Legality (REVIEW only) is enforced by
+ * `assertCommandPhase`.
+ */
+export function prepareComplete(parentRun: RunAggregate, commandId: string): TerminalResult {
+  assertCommandPhase(parentRun.phase, "complete");
+  return {
+    state: { runId: parentRun.runId, phase: "COMPLETED", seq: 2 },
+    events: [
+      { type: "run.completed", runId: parentRun.runId, commandId },
+      buildPhaseChangedEvent(parentRun.runId, commandId, "REVIEW", "COMPLETED"),
+    ],
+  };
+}
+
+/**
+ * Terminate a run from any active phase: emit `run.aborted` (optional reason)
+ * and move the current phase → ABORTED. Pure — no model, no I/O.
+ */
+export function prepareAbort(
+  parentRun: RunAggregate,
+  commandId: string,
+  reason?: string,
+): TerminalResult {
+  assertCommandPhase(parentRun.phase, "abort");
+  const from = parentRun.phase as RunPhase; // non-null: assertCommandPhase rejects the unstarted state
+  const abortEvent: RunEvent =
+    reason !== undefined
+      ? { type: "run.aborted", runId: parentRun.runId, commandId, reason }
+      : { type: "run.aborted", runId: parentRun.runId, commandId };
+  return {
+    state: { runId: parentRun.runId, phase: "ABORTED", seq: 2 },
+    events: [abortEvent, buildPhaseChangedEvent(parentRun.runId, commandId, from, "ABORTED")],
   };
 }
 

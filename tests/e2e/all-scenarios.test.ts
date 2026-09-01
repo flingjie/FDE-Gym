@@ -13,6 +13,7 @@ import {
   hintCommand,
   respondChallengeCommand,
   retryCommand,
+  startRetryCommand,
   reviewCommand,
   startCommand,
   statusCommand,
@@ -438,7 +439,8 @@ async function driveJourney(
   expect(replay.ok).toBe(true);
   if (!replay.ok) throw new Error("replay failed");
 
-  const retry = await retryCommand(ctx, { runId, newRunId: `${runId}-child`, commandId: "retry-1" });
+  ok(await retryCommand(ctx, { runId, commandId: "retry-1" }));
+  const retry = await startRetryCommand(ctx, { runId, newRunId: `${runId}-child`, commandId: "start-retry-1" });
   expect(retry.ok).toBe(true);
 
   const child = await statusCommand(ctx, { runId: `${runId}-child` });

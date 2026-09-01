@@ -22,7 +22,7 @@ import {
   prepareSolutionDesign,
 } from "../../core/orchestrator.js";
 import { createRng } from "../../simulation/rng.js";
-import { distinctInjectedChallengeIds, type CommandResult } from "./discovery.js";
+import type { CommandResult } from "./discovery.js";
 
 /**
  * FDE Gym — framing/review mutating use cases (Phase 2a, Task 3).
@@ -187,7 +187,6 @@ export async function submitDesign(
         candidates: scenario.events,
         rng: createRng(args.seed ?? hashSeed(args.runId)),
         commandId: `${args.commandId}:inject`,
-        alreadyInjectedChallengeIds: distinctInjectedChallengeIds(loaded.events),
       });
       return {
         events: [...design.acceptedEvents, ...injection.acceptedEvents],
@@ -218,7 +217,6 @@ export async function respondChallenge(
         state: loaded.aggregate,
         response: args.response,
         commandId: args.commandId,
-        mandatoryChallengeIds: distinctInjectedChallengeIds(loaded.events),
       });
       return {
         events: result.acceptedEvents,

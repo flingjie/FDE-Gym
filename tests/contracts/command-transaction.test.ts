@@ -147,12 +147,16 @@ describe("command transaction journal", () => {
   });
 
   it("replays a prepared effect (crash after event commit) exactly once", async () => {
-    const request = { type: "retry", newRunId: "child-run" };
+    const focus = [
+      { "zh-CN": "a", "en-US": "a" },
+      { "zh-CN": "b", "en-US": "b" },
+    ];
+    const request = { type: "retry", focusSummaries: focus };
     const parentEvent: RunEvent = {
       type: "retry.started",
       runId: RUN_ID,
       commandId: "cmd-4",
-      newRunId: "child-run",
+      focusSummaries: focus,
     };
     const childEvents: RunEvent[] = [
       { type: "run.started", runId: "child-run", commandId: "cmd-4", scenarioId: "scn-1", locale: "zh-CN" },

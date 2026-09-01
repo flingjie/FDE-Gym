@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "generatedFromCommit": "d7b84b78340800194c26c83e4ec860715d703074",
+  "phases": [
+    "SCENARIO",
+    "DISCOVERY",
+    "PROBLEM_FRAMING",
+    "SOLUTION_DESIGN",
+    "CHALLENGE",
+    "PITCH",
+    "REVIEW",
+    "RETRY_READY",
+    "COMPLETED",
+    "ABORTED"
+  ],
+  "commands": [
+    {
+      "type": "start",
+      "cliName": "start",
+      "classification": "DomainCommand",
+      "allowedFromPhases": [],
+      "unstartedOnly": true,
+      "phaseEffect": { "from": null, "to": "DISCOVERY" },
+      "events": ["run.started", "phase.changed", "phase.changed"],
+      "notes": "Legal only when phase === null (unstarted); a re-start throws RunAlreadyExistsError. Net effect null -> DISCOVERY: prepare authors run.started + the phase.changed anchor (SCENARIO -> SCENARIO) from buildRunStartedEvents, and the startRun use case then bundles the auto-accept phase.changed (SCENARIO -> DISCOVERY, commandId `${commandId}:accept`)."
+    },
+    {
+      "type": "accept",
+      "cliName": null,
+      "classification": "InternalAction",
+      "allowedFromPhases": ["SCENARIO"],
+      "phaseEffect": { "from": "SCENARIO", "to": "DISCOVERY" },
+      "events": ["phase.changed"],
+      "notes": "Auto-issued inside startRun and prepareRetry; there is NO standalone learner CLI command. The plan text described accept as 'SCENARIO -> SCENARIO anchor', but the SCENARIO -> SCENARIO anchor is authored by buildRunStartedEvents (the start command); accept's own phase.changed is SCENARIO -> DISCOVERY."
+    },
+    {
+      "type": "ask",
+      "cliName": "ask",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["DISCOVERY"],
+      "phaseEffect": null,
+      "events": ["question.asked", "customer.replied", "evidence.patched", "question.assessed"],
+      "notes": "No phase change (stays DISCOVERY). Success batch: question.asked, customer.replied, evidence.patched, question.assessed. On Evidence Tracker failure the batch is question.asked, customer.replied, evidence.pending (reply retained, frame blocked until repair)."
+    },
+    {
+      "type": "frame",
+      "cliName": "frame",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["DISCOVERY"],
+      "phaseEffect": { "from": "DISCOVERY", "to": "PROBLEM_FRAMING" },
+      "events": ["phase.changed"],
+      "notes": "Blocked (FRAME_BLOCKED) while pendingEvidence is non-null (assertFrameAllowed)."
+    },
+    {
+      "type": "hint",
+      "cliName": "hint",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["DISCOVERY", "PROBLEM_FRAMING"],
+      "phaseEffect": null,
+      "events": ["hint.granted"],
+      "notes": "No phase change. Legal in DISCOVERY and PROBLEM_FRAMING only."
+    },
+    {
+      "type": "submit-brief",
+      "cliName": "submit-brief",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["PROBLEM_FRAMING"],
+      "phaseEffect": { "from": "PROBLEM_FRAMING", "to": "SOLUTION_DESIGN" },
+      "events": ["brief.submitted", "brief.validated"],
+      "notes": "On gate PASS also appends phase.changed (PROBLEM_FRAMING -> SOLUTION_DESIGN); on FAIL it stays PROBLEM_FRAMING with no phase.changed (brief.validated passed=false)."
+    },
+    {
+      "type": "clarify",
+      "cliName": "clarify",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["PROBLEM_FRAMING"],
+      "phaseEffect": { "from": "PROBLEM_FRAMING", "to": "DISCOVERY" },
+      "events": ["phase.changed"],
+      "notes": "Consumes one unit of the clarification budget (default DEFAULT_CLARIFICATION_BUDGET=3); throws CLARIFICATION_BUDGET_EXCEEDED when exhausted."
+    },
+    {
+      "type": "submit-design",
+      "cliName": "submit-design",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["SOLUTION_DESIGN"],
+      "phaseEffect": { "from": "SOLUTION_DESIGN", "to": "CHALLENGE" },
+      "events": ["design.submitted", "phase.changed"],
+      "notes": "Emits design.submitted + phase.changed (SOLUTION_DESIGN -> CHALLENGE). The submitDesign use case then bundles the deterministic challenge injection (challenge.injected + customer.replied per selected candidate), which does NOT change phase."
+    },
+    {
+      "type": "respond-challenge",
+      "cliName": "respond-challenge",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["CHALLENGE"],
+      "phaseEffect": { "from": "CHALLENGE", "to": "PITCH" },
+      "events": ["challenge.responded"],
+      "notes": "Appends phase.changed (CHALLENGE -> PITCH) only when every mandatory challenge id has a recorded response; otherwise stays CHALLENGE (no phase.changed)."
+    },
+    {
+      "type": "submit-pitch",
+      "cliName": "submit-pitch",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["PITCH"],
+      "phaseEffect": { "from": "PITCH", "to": "REVIEW" },
+      "events": ["pitch.submitted", "phase.changed"],
+      "notes": "Emits pitch.submitted + phase.changed (PITCH -> REVIEW)."
+    },
+    {
+      "type": "review",
+      "cliName": "review",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["REVIEW"],
+      "phaseEffect": null,
+      "events": ["review.completed", "score.computed"],
+      "notes": "No phase change: review does NOT advance REVIEW -> COMPLETED and does NOT emit run.completed. Also folds a profile.apply-attempt command effect."
+    },
+    {
+      "type": "retry",
+      "cliName": "retry",
+      "classification": "DomainCommand",
+      "allowedFromPhases": ["REVIEW"],
+      "phaseEffect": null,
+      "events": ["retry.started"],
+      "notes": "Parent run stays REVIEW (retry.started is the only parent event; no parent phase.changed). A retry.ensure-child effect spawns a NEW child run at DISCOVERY whose events are run.started, retry.focus, phase.changed (SCENARIO -> SCENARIO), phase.changed (SCENARIO -> DISCOVERY)."
+    },
+    {
+      "type": "start-retry",
+      "cliName": null,
+      "classification": "InternalAction",
+      "allowedFromPhases": ["RETRY_READY"],
+      "phaseEffect": null,
+      "events": [],
+      "notes": "Declared in the RunCommand union and assertCommandPhase (requires RETRY_READY) but UNWIRED: no use case, orchestrator prepare, or CLI command references it. No code path sets phase to RETRY_READY either, so RETRY_READY is currently unreachable."
+    },
+    {
+      "type": "complete",
+      "cliName": null,
+      "classification": "InternalAction",
+      "allowedFromPhases": ["REVIEW"],
+      "phaseEffect": null,
+      "events": [],
+      "notes": "Declared but UNWIRED: no use case, orchestrator prepare, or CLI command. Would emit run.completed (REVIEW -> COMPLETED) per domain, but no code path does so; COMPLETED is currently unreachable (review stays in REVIEW)."
+    },
+    {
+      "type": "abort",
+      "cliName": null,
+      "classification": "InternalAction",
+      "allowedFromPhases": [
+        "SCENARIO",
+        "DISCOVERY",
+        "PROBLEM_FRAMING",
+        "SOLUTION_DESIGN",
+        "CHALLENGE",
+        "PITCH",
+        "REVIEW",
+        "RETRY_READY"
+      ],
+      "phaseEffect": null,
+      "events": [],
+      "notes": "Legal in ACTIVE_PHASES (all phases except COMPLETED, ABORTED, and the unstarted null state) but UNWIRED: no use case, orchestrator prepare, or CLI command. Would emit run.aborted (-> ABORTED) per domain; ABORTED is currently unreachable."
+    }
+  ],
+  "feedbackLoops": [
+    {
+      "name": "discovery",
+      "description": "The learner asks many questions inside DISCOVERY; ask does not change phase, so DISCOVERY is a self-loop until the learner commits to framing.",
+      "selfLoop": { "from": "DISCOVERY", "to": "DISCOVERY", "via": "ask" },
+      "entries": [
+        { "from": "SCENARIO", "to": "DISCOVERY", "via": "accept (auto, inside start/retry)" },
+        { "from": "PROBLEM_FRAMING", "to": "DISCOVERY", "via": "clarify" }
+      ],
+      "exits": [
+        { "from": "DISCOVERY", "to": "PROBLEM_FRAMING", "via": "frame" }
+      ]
+    },
+    {
+      "name": "problem-framing",
+      "description": "The learner iterates on the brief: clarify returns PROBLEM_FRAMING -> DISCOVERY for more questions, frame re-enters PROBLEM_FRAMING, and a rejected submit-brief stays in PROBLEM_FRAMING for revision. Only a passing brief exits.",
+      "selfLoop": { "from": "PROBLEM_FRAMING", "to": "PROBLEM_FRAMING", "via": "submit-brief (fail)" },
+      "entries": [
+        { "from": "DISCOVERY", "to": "PROBLEM_FRAMING", "via": "frame" }
+      ],
+      "exits": [
+        { "from": "PROBLEM_FRAMING", "to": "SOLUTION_DESIGN", "via": "submit-brief (pass)" }
+      ]
+    },
+    {
+      "name": "challenge",
+      "description": "The learner addresses injected challenges: each respond-challenge records a response; the run stays in CHALLENGE until every mandatory injected challenge has a response, at which point it advances to PITCH.",
+      "selfLoop": { "from": "CHALLENGE", "to": "CHALLENGE", "via": "respond-challenge (partial)" },
+      "entries": [
+        { "from": "SOLUTION_DESIGN", "to": "CHALLENGE", "via": "submit-design" }
+      ],
+      "exits": [
+        { "from": "CHALLENGE", "to": "PITCH", "via": "respond-challenge (all addressed)" }
+      ]
+    }
+  ]
+}

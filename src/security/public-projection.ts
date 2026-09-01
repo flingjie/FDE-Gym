@@ -52,7 +52,7 @@ export type PublicEvent =
       nextFocus: LocalizedText[];
     }
   | { type: "score.computed"; runId: string; score: ScoreBreakdown }
-  | { type: "retry.started"; runId: string; newRunId: string }
+  | { type: "retry.started"; runId: string; focusSummaries: LocalizedText[] }
   | { type: "run.completed"; runId: string }
   | { type: "run.aborted"; runId: string; reason?: string };
 
@@ -151,7 +151,7 @@ export function projectPublic(event: RunEvent): PublicEvent | null {
       // The score breakdown is numeric + boolean only — no hidden content.
       return { type: "score.computed", runId: event.runId, score: event.score };
     case "retry.started":
-      return { type: "retry.started", runId: event.runId, newRunId: event.newRunId };
+      return { type: "retry.started", runId: event.runId, focusSummaries: event.focusSummaries };
     case "retry.focus":
       // Internal reconstruction marker (previous attempt focus for a resumed
       // child run). The focus summaries are already learner-visible through the

@@ -18,6 +18,10 @@ import {
   type TranscriptTurn,
 } from "./domain.js";
 import { HintLedgerEntrySchema, type HintLedgerEntry } from "../agents/contracts.js";
+import {
+  InjectedChallengeStateSchema,
+  type InjectedChallengeCollection,
+} from "../graph/challenge-state.js";
 
 /**
  * FDE Gym — the internal run aggregate.
@@ -55,6 +59,13 @@ export interface PublicRunView {
   proposal: SolutionProposal | null;
   pitch: PitchArtifact | null;
   challengeResponses: ChallengeResponse[];
+  /**
+   * The injected-challenge lifecycle (which challenges were injected and which
+   * are answered), folded from `challenge.injected`/`challenge.responded`. The
+   * single source of truth for `all-answered` (G1-03). Optional for leniency on
+   * hand-built/legacy aggregates; `foldRunAggregate` always populates it.
+   */
+  injectedChallenges?: InjectedChallengeCollection;
   /** Durable pending-evidence marker: the turn's id + a stable failure code (never a message). */
   pendingEvidence: { turnId: string; code: string } | null;
   /** Clarifications consumed this framing attempt, folded from committed phase changes. */
@@ -91,6 +102,7 @@ export const RunAggregateSchema = z
     proposal: SolutionProposalSchema.nullable(),
     pitch: PitchArtifactSchema.nullable(),
     challengeResponses: z.array(ChallengeResponseSchema),
+    injectedChallenges: z.array(InjectedChallengeStateSchema).optional(),
     pendingEvidence: z
       .object({ turnId: z.string().min(1), code: z.string().min(1) })
       .strict()
