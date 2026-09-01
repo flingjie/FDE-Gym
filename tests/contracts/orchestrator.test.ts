@@ -7,11 +7,11 @@ import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime";
 import {
   assertFrameAllowed,
   computeDiscoveryMetrics,
-  FRAME_BLOCKED,
   prepareDiscoveryTurn,
   prepareRepairPendingEvidence,
   type RunDiscoveryTurnInput,
 } from "../../src/core/orchestrator";
+import { FRAME_BLOCKED } from "../../src/core/errors";
 import { loadEvents, loadRun } from "../../src/core/event-store";
 import { commitPrepared } from "../helpers/commit-prepared";
 import { foldRunAggregate } from "../../src/replay/projector";

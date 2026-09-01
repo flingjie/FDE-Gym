@@ -30,6 +30,8 @@ import {
   allChallengesAnswered as challengesAllAnswered,
   type InjectedChallengeCollection,
 } from "./challenge-state.js";
+import { CLARIFICATION_BUDGET_EXCEEDED, FRAME_BLOCKED } from "../core/errors.js";
+export { CLARIFICATION_BUDGET_EXCEEDED, FRAME_BLOCKED } from "../core/errors.js";
 import type { GuardId } from "./action-types.js";
 
 /**
@@ -77,15 +79,11 @@ export type Guard = (input: unknown) => GuardResult;
 export const GUARD_INPUT_INVALID = "GUARD_INPUT_INVALID" as const;
 
 /**
- * Re-declared from `src/core/orchestrator.ts` rather than imported: importing
- * the orchestrator from a graph module would couple the graph package to the
- * orchestrator's transitive dependency graph (agents/scoring/simulation) and
- * would create a cycle the moment the runtime wires this registry back into the
- * orchestrator (the orchestrator already imports `../graph/challenge-state.js`).
- * These literals must stay byte-identical to the orchestrator's.
+ * `FRAME_BLOCKED` / `CLARIFICATION_BUDGET_EXCEEDED` are shared with the
+ * orchestrator via `errors.ts` (a leaf module with no graph imports), so the
+ * registry and the orchestrator use one definition. `DEFAULT_CLARIFICATION_BUDGET`
+ * is a config default owned here (consumed by the `discovery.clarify` node).
  */
-export const FRAME_BLOCKED = "FRAME_BLOCKED" as const;
-export const CLARIFICATION_BUDGET_EXCEEDED = "CLARIFICATION_BUDGET_EXCEEDED" as const;
 export const DEFAULT_CLARIFICATION_BUDGET = 3;
 
 /** Fallback when `applyEvidencePatch` throws something other than `EvidenceGraphError`. */

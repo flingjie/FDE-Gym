@@ -66,6 +66,7 @@ import {
   buildPhaseChangedEvent,
   buildRunStartedEvents,
 } from "./state-machine.js";
+import { FRAME_BLOCKED } from "./errors.js";
 import type { StoreOptions } from "./event-store.js";
 import type { CommandEffect } from "./command-transaction.js";
 import type { RunState } from "./reducer.js";
@@ -150,7 +151,6 @@ export interface RepairPendingEvidenceInput {
 // Errors + helpers
 // ---------------------------------------------------------------------------
 
-export const FRAME_BLOCKED = "FRAME_BLOCKED" as const;
 export const EVIDENCE_EXTRACTION_FAILED = "EVIDENCE_EXTRACTION_FAILED" as const;
 
 export class OrchestratorError extends Error {
@@ -304,11 +304,6 @@ export async function prepareRepairPendingEvidence(
 // Framing gate (Task 8): submit-brief + clarify
 // ---------------------------------------------------------------------------
 
-export const CLARIFICATION_BUDGET_EXCEEDED = "CLARIFICATION_BUDGET_EXCEEDED" as const;
-
-/** Default cap on `clarify` returns to DISCOVERY per framing attempt. */
-export const DEFAULT_CLARIFICATION_BUDGET = 3;
-
 export interface FramingGateInput {
   runtime: AgentRuntime;
   capsule: EvaluatorCapsule;
@@ -384,7 +379,7 @@ export interface ClarificationInput {
   commandId: string;
   /** Clarifications already consumed this framing attempt. */
   clarificationBudgetUsed: number;
-  /** Defaults to `DEFAULT_CLARIFICATION_BUDGET`. */
+  /** Defaults to the clarification-budget cap (see the `discovery.clarify` node). */
   clarificationBudgetLimit?: number;
   store?: StoreOptions;
 }
@@ -398,9 +393,9 @@ export interface ClarificationResult {
 
 /**
  * Return PROBLEM_FRAMING -> DISCOVERY for a clarification, tracked against a
- * separate small clarification budget (default `DEFAULT_CLARIFICATION_BUDGET`).
- * Throws `CLARIFICATION_BUDGET_EXCEEDED` when the budget is exhausted. The
- * budget is caller-managed (in-memory), mirroring `pendingEvidence`.
+ * separate small clarification budget (the `discovery.clarify` node's
+ * `clarification-budget-available` guard). The budget is caller-managed
+ * (in-memory), mirroring `pendingEvidence`.
  */
 export async function prepareClarification(
   input: ClarificationInput,

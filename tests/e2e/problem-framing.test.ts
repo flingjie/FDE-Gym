@@ -5,12 +5,12 @@ import { join } from "node:path";
 
 import { FixtureAgentRuntime } from "../../src/agents/fixture-runtime";
 import {
-  CLARIFICATION_BUDGET_EXCEEDED,
-  DEFAULT_CLARIFICATION_BUDGET,
   prepareClarification,
   prepareFramingGate,
   type FramingGateInput,
 } from "../../src/core/orchestrator";
+import { CLARIFICATION_BUDGET_EXCEEDED } from "../../src/core/errors";
+import { DEFAULT_CLARIFICATION_BUDGET } from "../../src/graph/guards";
 import { loadRun } from "../../src/core/event-store";
 import { commitPrepared } from "../helpers/commit-prepared";
 import type { RunAggregate } from "../../src/core/aggregate";

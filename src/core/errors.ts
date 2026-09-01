@@ -33,6 +33,14 @@ export const EVENT_BATCH_INVALID = "EVENT_BATCH_INVALID" as const;
 /** A committed event log violates the graph semantics (broken phase continuity, illegal transition, terminal-after) — fail closed. */
 export const REPLAY_INVALID = "REPLAY_INVALID" as const;
 
+// Standalone stable codes thrown by `OrchestratorError` (a plain-string error,
+// not an `FdeError` subclass). Kept here so the orchestrator and the graph guard
+// registry share one definition rather than duplicating the literal.
+/** Evidence extraction is pending; `frame` is blocked until it is repaired. */
+export const FRAME_BLOCKED = "FRAME_BLOCKED" as const;
+/** The clarification budget is exhausted. */
+export const CLARIFICATION_BUDGET_EXCEEDED = "CLARIFICATION_BUDGET_EXCEEDED" as const;
+
 export type FdeErrorCode =
   | typeof INVALID_PHASE_COMMAND
   | typeof EVENT_CHAIN_INVALID
