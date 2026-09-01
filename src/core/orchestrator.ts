@@ -1,23 +1,8 @@
 import type { AgentRuntime } from "../agents/agent-runtime.js";
 import {
-  answerDiscoveryQuestion,
-  type CustomerTurn,
-} from "../agents/customer.js";
-import {
   extractEvidence,
 } from "../agents/evidence-tracker.js";
-import {
-  runFinalReview,
-  sampleFinalReview,
-  validateProblemBrief,
-  type BriefValidationInvocation,
-} from "../agents/coach.js";
-import { aggregateReviews } from "../scoring/review-aggregation.js";
-import {
-  BRIEF_VALIDATION_OUTPUT_SCHEMA_VERSION,
-  EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION,
-  FINAL_REVIEW_OUTPUT_SCHEMA_VERSION,
-} from "../agents/contracts.js";
+import { EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION } from "../agents/contracts.js";
 import type { QuestionAssessment } from "../agents/contracts.js";
 import type {
   CustomerCapsule,
@@ -27,29 +12,39 @@ import type {
 } from "../scenarios/schema.js";
 import type { RunAggregate } from "./aggregate.js";
 import { applyEvidencePatch, createEmptyEvidenceGraph } from "../evidence/graph.js";
+import { runQuestionAccept } from "../graph/nodes/discovery/question-accept.js";
+import { runCustomerInvoke } from "../graph/nodes/discovery/customer-invoke.js";
+import { runCustomerProject } from "../graph/nodes/discovery/customer-project.js";
+import { runEvidenceInvoke } from "../graph/nodes/discovery/evidence-invoke.js";
+import { runEvidencePatchGuard } from "../graph/nodes/discovery/evidence-patch-guard.js";
+import { runEvidencePatchApply } from "../graph/nodes/discovery/evidence-patch-apply.js";
+import { runMetricsCompute } from "../graph/nodes/discovery/metrics-compute.js";
+import { runEvidencePending } from "../graph/nodes/discovery/evidence-pending.js";
+import { runBriefAccept } from "../graph/nodes/framing/brief-accept.js";
+import { runBriefStructureGuard } from "../graph/nodes/framing/brief-structure-guard.js";
+import { runCoachBriefInvoke } from "../graph/nodes/framing/coach-brief-invoke.js";
+import { runBriefSupportGuard } from "../graph/nodes/framing/brief-support-guard.js";
+import { runDiscoveryClarify } from "../graph/nodes/framing/discovery-clarify.js";
+import { runChallengeSelect } from "../graph/nodes/challenge/select.js";
+import { runChallengeInject } from "../graph/nodes/challenge/inject.js";
+import { runResponseAccept } from "../graph/nodes/challenge/response-accept.js";
+import { runResponseMembershipGuard } from "../graph/nodes/challenge/membership-guard.js";
+import { runAllAnsweredGuard } from "../graph/nodes/challenge/all-answered-guard.js";
+import { runChallengeWait } from "../graph/nodes/challenge/wait.js";
+import { runPitchPrepare } from "../graph/nodes/challenge/pitch-prepare.js";
 import {
-  BRIEF_DANGLING_EVIDENCE_REFERENCE,
-  SUPPORT_RATIO_THRESHOLD,
-  calculateSupportRatio,
-  validateBriefStructure,
-} from "../evidence/brief-validator.js";
-import { selectScenarioEvents, type EventTriggerContext } from "../simulation/event-scheduler.js";
-import { allChallengesAnswered, reduceInjectedChallenges } from "../graph/challenge-state.js";
+  coachReviewInvoke,
+  profileEffectPrepare,
+  reviewCommit,
+  reviewInputBuild,
+  scoreCompute,
+} from "../graph/nodes/review/handlers.js";
 import type { Rng } from "../simulation/rng.js";
-import {
-  calculateScore,
-  computeMeasuredCapability,
-  type MeasuredCapability,
-} from "../scoring/formulas.js";
-import { buildScoreInput, deriveAttemptReview } from "../scoring/score-input.js";
+import type { MeasuredCapability } from "../scoring/formulas.js";
 import type { StageStates } from "../scoring/provenance.js";
-import type { JudgmentProvenance } from "./judgment.js";
-import { type AttemptReview, type LearnerProfile } from "../profile/learner-profile.js";
+import type { LearnerProfile } from "../profile/learner-profile.js";
 import {
-  ChallengeResponseSchema,
   PitchArtifactSchema,
-  ProblemBriefSchema,
-  ScoreBreakdownSchema,
   SolutionProposalSchema,
 } from "./domain.js";
 import type {
@@ -189,39 +184,6 @@ export function computeDiscoveryMetrics(assessment: QuestionAssessment): Discove
   return { questionAssessment: assessment, composite };
 }
 
-function dedupe(ids: string[]): string[] {
-  return [...new Set(ids)];
-}
-
-function foldReply(agg: RunAggregate, turn: CustomerTurn, commandId: string): RunAggregate {
-  const question = agg.pendingQuestion?.question ?? "";
-  const newTurn: TranscriptTurn = {
-    turnId: `${commandId}:turn`,
-    seq: agg.transcript.length,
-    question,
-    customerReply: turn.reply,
-    stakeholderId: turn.stakeholderId,
-  };
-  return {
-    ...agg,
-    transcript: [...agg.transcript, newTurn],
-    disclosedDisclosureUnitIds: dedupe([...agg.disclosedDisclosureUnitIds, ...turn.disclosedDisclosureUnitIds]),
-    pendingQuestion: null,
-  };
-}
-
-/** Reduce an unknown error to a stable, payload-free code + message. */
-function normalizeFailure(error: unknown): { code: string; message: string } {
-  if (error !== null && typeof error === "object" && "code" in error) {
-    const code = (error as { code?: unknown }).code;
-    const message = (error as { message?: unknown }).message;
-    if (typeof code === "string" && code.length > 0) {
-      return { code, message: typeof message === "string" ? message : code };
-    }
-  }
-  return { code: EVIDENCE_EXTRACTION_FAILED, message: "evidence extraction failed" };
-}
-
 // ---------------------------------------------------------------------------
 // The pipeline
 // ---------------------------------------------------------------------------
@@ -234,118 +196,48 @@ export async function prepareDiscoveryTurn(
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
 
-  // Step 1: record learner question. `assertCommandPhase` enforces the
-  // DISCOVERY phase; the `question.asked` event is authored here explicitly.
-  assertCommandPhase(state.phase, "ask");
-  const questionEvent: RunEvent = {
-    type: "question.asked",
-    runId,
-    commandId,
-    questionId: commandId,
-    question,
-  };
+  // Steps 1–3 are the node handlers (the DISCOVERY subgraph) wired in place of
+  // the previously-inlined pipeline. The `canaries` default mirrors the old
+  // inline behaviour (the customer capsule's canary) and is passed explicitly so
+  // the evidence node's own `[]` default never disables the leak guard.
+  const accepted = await runQuestionAccept({ state, question, stakeholderId, commandId });
+  const questionEvent = accepted.events[0];
+  const aggQuestion = accepted.updatedState;
 
-  const aggQuestion: RunAggregate = { ...state, pendingQuestion: { question, stakeholderId } };
+  const invoked = await runCustomerInvoke({ runtime, state: aggQuestion, capsule, commandId, timeoutMs, canaries });
 
-  // Step 2: invoke Customer.
-  const turn = await answerDiscoveryQuestion({
-    runtime,
-    state: aggQuestion,
-    capsule,
-    invocationId: `${commandId}:customer`,
-    timeoutMs,
-    canaries,
-  });
+  const projected = await runCustomerProject({ state: aggQuestion, capsule, turn: invoked.turn, commandId });
+  const replyEvent = projected.events[0];
+  const aggReply = projected.updatedState;
 
-  // Step 3: sanitize/project the customer reply and record it.
-  const replyEvent: RunEvent = {
-    type: "customer.replied",
-    runId,
-    commandId,
-    questionId: commandId,
-    reply: turn.reply,
-    stakeholderId: turn.stakeholderId,
-    disclosedDisclosureUnitIds: turn.disclosedDisclosureUnitIds,
-  };
-  const aggReply = foldReply(aggQuestion, turn, commandId);
-
-  // Steps 4–5: invoke Evidence Tracker on the public turn, validate/apply patch.
-  let evidenceEvent: RunEvent;
-  let assessmentEvent: RunEvent;
-  let aggPatched: RunAggregate;
-  let metrics: DiscoveryTurnMetrics;
   try {
-    const evidence = await extractEvidence({
-      runtime,
-      state: aggReply,
-      invocationId: `${commandId}:evidence`,
-      timeoutMs,
-      canaries,
+    const evidenceResult = await runEvidenceInvoke({ runtime, state: aggReply, commandId, timeoutMs, canaries });
+    const evidence = evidenceResult.evidence;
+    await runEvidencePatchGuard({ state: aggReply, evidence });
+    const applied = await runEvidencePatchApply({ state: aggReply, evidence, commandId });
+    const metricsResult = await runMetricsCompute({
+      state: applied.updatedState,
+      evidence,
+      commandId,
+      scenarioBundleDigest: input.scenarioBundleDigest,
     });
-    const nextGraph = applyEvidencePatch(aggReply.graph, evidence.patch);
-    evidenceEvent = {
-      type: "evidence.patched",
-      runId,
-      commandId: `${commandId}:evidence`,
-      patch: evidence.patch,
-    };
-    assessmentEvent = {
-      type: "question.assessed",
-      runId,
-      commandId: `${commandId}:evidence`,
-      questionId: commandId,
-      assessment: evidence.questionAssessment,
-      judgment: {
-        judgmentId: `${commandId}:evidence`,
-        invocationId: evidence.invocationId,
-        modelId: evidence.modelId,
-        promptDigest: evidence.promptDigest,
-        schemaVersion: EVIDENCE_TRACKER_OUTPUT_SCHEMA_VERSION,
-        scenarioDigest: input.scenarioBundleDigest ?? "",
-        rawOutputDigest: evidence.rawOutputDigest,
-      },
-    };
-    aggPatched = { ...aggReply, graph: nextGraph };
-    // Step 6: deterministic per-question metrics.
-    metrics = computeDiscoveryMetrics(evidence.questionAssessment);
-  } catch (error) {
-    // Retain the customer reply; mark the turn EVIDENCE_PENDING and block frame.
-    const failure = normalizeFailure(error);
-    const pending: PendingEvidence = {
-      turnId: `${commandId}:turn`,
-      // The thrown error's own `code` (e.g. LEAK_GUARD_TRIGGERED,
-      // AGENT_OUTPUT_INVALID) is an internal failure-mode side-channel. The
-      // in-memory `pending` object must carry only the stable, learner-visible
-      // code — never the distinct internal one.
-      code: EVIDENCE_EXTRACTION_FAILED,
-      message: failure.message,
-    };
-    const pendingEvent: RunEvent = {
-      type: "evidence.pending",
-      runId,
-      commandId: `${commandId}:evidence-pending`,
-      turnId: `${commandId}:turn`,
-      // Persist ONLY the stable code: the thrown error's own `code` (e.g.
-      // LEAK_GUARD_TRIGGERED) is an internal failure-mode side-channel that
-      // must never be projected to the learner.
-      failureCode: EVIDENCE_EXTRACTION_FAILED,
-    };
     return {
       runId,
-      acceptedEvents: [questionEvent, replyEvent, pendingEvent],
-      pendingEvidence: pending,
+      acceptedEvents: [questionEvent, replyEvent, applied.events[0], metricsResult.events[0]],
+      pendingEvidence: null,
+      metrics: metricsResult.metrics,
+      updatedState: applied.updatedState,
+    };
+  } catch (error) {
+    const pendingResult = await runEvidencePending({ state: aggReply, commandId, error });
+    return {
+      runId,
+      acceptedEvents: [questionEvent, replyEvent, pendingResult.events[0]],
+      pendingEvidence: pendingResult.pendingEvidence,
       metrics: null,
       updatedState: aggReply,
     };
   }
-
-  return {
-    runId,
-    acceptedEvents: [questionEvent, replyEvent, evidenceEvent, assessmentEvent],
-    pendingEvidence: null,
-    metrics,
-    updatedState: aggPatched,
-  };
 }
 
 /**
@@ -458,113 +350,31 @@ export async function prepareFramingGate(input: FramingGateInput): Promise<Frami
   const timeoutMs = input.timeoutMs ?? 60_000;
   const canaries = input.canaries ?? [capsule.canary];
 
-  // Phase guard: `assertCommandPhase` enforces PROBLEM_FRAMING and throws
-  // otherwise. Event authorship is the multi-step gate below.
-  assertCommandPhase(state.phase, "submit-brief");
+  // The framing gate is the PROBLEM_FRAMING subgraph wired in place of the
+  // previously-inlined structure → coach → support pipeline.
+  const accepted = await runBriefAccept({ state, brief, commandId });
+  const aggBrief = accepted.updatedState;
 
-  // (a) Zod validation.
-  ProblemBriefSchema.parse(brief);
+  const structureResult = await runBriefStructureGuard({ state: aggBrief });
+  const structure = structureResult.structure;
 
-  // (b) Deterministic structural gate.
-  const structure = validateBriefStructure(brief, state.graph);
+  const coach = await runCoachBriefInvoke({ runtime, state: aggBrief, capsule, structure, commandId, timeoutMs, canaries });
 
-  // (c) Coach entailment classification (public brief + graph + transcript).
-  // A dangling evidence reference would make the Coach's strict input schema
-  // reject the brief, so classification is skipped in that already-failing case.
-  let coachInvocation: BriefValidationInvocation | null = null;
-  let entailments = structure.entailments;
-  if (!structure.missingCategories.includes(BRIEF_DANGLING_EVIDENCE_REFERENCE)) {
-    coachInvocation = await validateProblemBrief({
-      runtime,
-      state: { ...state, coachTask: "brief-validation", brief },
-      capsule,
-      invocationId: `${commandId}:coach`,
-      timeoutMs,
-      canaries,
-    });
-    entailments = coachInvocation.result.entailments;
-  }
-
-  // (d) Final deterministic gate: supportRatio >= threshold AND structure passed.
-  const supportRatio = calculateSupportRatio(brief.claims, entailments);
-  const passed = structure.passed && supportRatio >= SUPPORT_RATIO_THRESHOLD;
-
-  const result = composeBriefValidationResult(structure, coachInvocation?.result ?? null, passed);
-
-  const validatedEvent: RunEvent = {
-    type: "brief.validated",
-    runId,
+  const supportResult = await runBriefSupportGuard({
+    state: aggBrief,
+    structure,
+    coachResult: coach.coachResult,
     commandId,
-    briefId: brief.id,
-    result,
-    ...(coachInvocation !== null
-      ? {
-          judgment: {
-            judgmentId: `${commandId}:coach`,
-            invocationId: coachInvocation.invocationId,
-            modelId: coachInvocation.modelId,
-            promptDigest: coachInvocation.promptDigest,
-            schemaVersion: BRIEF_VALIDATION_OUTPUT_SCHEMA_VERSION,
-            scenarioDigest: input.scenarioBundleDigest ?? "",
-            rawOutputDigest: coachInvocation.rawOutputDigest,
-          },
-        }
-      : {}),
-  };
-
-  const events: RunEvent[] = [
-    { type: "brief.submitted", runId, commandId, brief },
-    validatedEvent,
-  ];
-  let phase = state.phase;
-  if (passed) {
-    events.push({
-      type: "phase.changed",
-      runId,
-      commandId,
-      from: "PROBLEM_FRAMING",
-      to: "SOLUTION_DESIGN",
-    });
-    phase = "SOLUTION_DESIGN";
-  }
+    scenarioBundleDigest: input.scenarioBundleDigest,
+  });
 
   return {
     runId,
-    passed,
-    supportRatio,
-    result,
-    acceptedEvents: events,
-    updatedState: { ...state, brief, phase },
-  };
-}
-
-/**
- * Compose the deterministic structure result with the Coach's semantic result.
- * `passed` is the recomputed gate; `entailments` are the Coach's (semantic);
- * `missingCategories`/`unsupportedClaimIds` are the deduplicated union of both;
- * `feedback` is deterministic + ids-only when the structure gate failed, and the
- * Coach's (sanitized, public-only) feedback only when structure passed.
- */
-function composeBriefValidationResult(
-  structure: BriefValidationResult,
-  coach: BriefValidationResult | null,
-  passed: boolean,
-): BriefValidationResult {
-  const missingCategories = dedupe([
-    ...structure.missingCategories,
-    ...(coach?.missingCategories ?? []),
-  ]);
-  const unsupportedClaimIds = dedupe([
-    ...structure.unsupportedClaimIds,
-    ...(coach?.unsupportedClaimIds ?? []),
-  ]);
-  const feedback = structure.passed ? (coach?.feedback ?? structure.feedback) : structure.feedback;
-  return {
-    passed,
-    entailments: coach?.entailments ?? structure.entailments,
-    missingCategories,
-    unsupportedClaimIds,
-    feedback,
+    passed: supportResult.passed,
+    supportRatio: supportResult.supportRatio,
+    result: supportResult.result,
+    acceptedEvents: [...accepted.events, ...supportResult.events],
+    updatedState: supportResult.updatedState,
   };
 }
 
@@ -596,25 +406,19 @@ export async function prepareClarification(
   input: ClarificationInput,
 ): Promise<ClarificationResult> {
   const { state, commandId } = input;
-  const limit = input.clarificationBudgetLimit ?? DEFAULT_CLARIFICATION_BUDGET;
-  if (input.clarificationBudgetUsed >= limit) {
-    throw new OrchestratorError(
-      CLARIFICATION_BUDGET_EXCEEDED,
-      `clarification budget exhausted (limit ${limit})`,
-    );
-  }
-
   const runId = state.runId;
-  // Phase guard + the explicit `phase.changed` event (PROBLEM_FRAMING -> DISCOVERY).
-  assertCommandPhase(state.phase, "clarify");
-  const events: RunEvent[] = [
-    buildPhaseChangedEvent(runId, commandId, "PROBLEM_FRAMING", "DISCOVERY"),
-  ];
+
+  const result = await runDiscoveryClarify({
+    state,
+    commandId,
+    clarificationBudgetUsed: input.clarificationBudgetUsed,
+    clarificationBudgetLimit: input.clarificationBudgetLimit,
+  });
 
   return {
     runId,
-    acceptedEvents: events,
-    updatedState: { ...state, phase: "DISCOVERY" },
+    acceptedEvents: result.events,
+    updatedState: result.updatedState,
     clarificationBudgetUsed: input.clarificationBudgetUsed + 1,
   };
 }
@@ -706,33 +510,6 @@ export interface ChallengeInjectionResult {
 }
 
 /**
- * Build the scheduler's trigger-context snapshot from the public aggregate +
- * the customer capsule. All ids are PUBLIC identifiers only:
- *   - `revealedEvidenceIds`    = the `evidenceId` of every disclosed disclosure unit;
- *   - `unresolvedContradictionIds` = ids of `active` `contradiction`-kind graph nodes;
- *   - `questionCount`          = number of public transcript turns;
- *   - `challengeResponseCount` = responses already recorded.
- */
-function buildTriggerContext(state: RunAggregate, capsule: CustomerCapsule): EventTriggerContext {
-  const disclosed = new Set(state.disclosedDisclosureUnitIds);
-  const revealedEvidenceIds = dedupe(
-    capsule.disclosureUnits
-      .filter((unit) => disclosed.has(unit.id))
-      .map((unit) => unit.evidenceId),
-  );
-  const unresolvedContradictionIds = state.graph.nodes
-    .filter((node) => node.kind === "contradiction" && node.status === "active")
-    .map((node) => node.id);
-  return {
-    phase: state.phase,
-    questionCount: state.transcript.length,
-    revealedEvidenceIds,
-    unresolvedContradictionIds,
-    challengeResponseCount: state.challengeResponses.length,
-  };
-}
-
-/**
  * Select and inject the deterministic challenge wave for the current run state.
  *
  * ORDER (structural — a challenge can never be erased by a later failure):
@@ -757,62 +534,21 @@ export async function prepareChallengeInjection(
 
   // Phase guard: only legal once the run has entered CHALLENGE.
   if (state.phase !== "CHALLENGE") {
-    // `assertCommandPhase` has no `challenge.injected` command type; enforce
-    // the phase here with the same stable error code the rest of the pipeline
-    // uses.
     throw new OrchestratorError(
       "INVALID_PHASE_COMMAND",
       `challenge injection is not valid in phase ${state.phase ?? "UNSTARTED"}`,
     );
   }
 
-  const context = buildTriggerContext(state, capsule);
-  const selected = selectScenarioEvents(candidates, context, rng);
-
-  const alreadyInjected = new Set((state.injectedChallenges ?? []).map((entry) => entry.id));
-  const toInject = selected.filter((candidate) => !alreadyInjected.has(candidate.id));
-
-  const stakeholderId = capsule.stakeholders[0]?.id ?? "customer";
-
-  const events: RunEvent[] = [];
-  const interruptions: ChallengeInterruption[] = [];
-  for (const candidate of toInject) {
-    const challengeId = candidate.id;
-    const prompt = candidate.prompt;
-    // 1. The authoritative injected record — persisted first.
-    events.push({ type: "challenge.injected", runId, commandId, challengeId, prompt });
-    // 2. The learner-visible customer interruption (text is the scenario's prompt).
-    events.push({
-      type: "customer.replied",
-      runId,
-      commandId,
-      questionId: challengeId,
-      reply: prompt,
-      stakeholderId,
-      disclosedDisclosureUnitIds: [],
-    });
-    interruptions.push({ challengeId, reply: prompt, stakeholderId });
-  }
-
-  // Fold the newly-injected challenges into the aggregate so `updatedState`
-  // (and a resumed fold) sees them as pending.
-  let injectedChallenges = state.injectedChallenges ?? [];
-  for (const candidate of toInject) {
-    injectedChallenges = reduceInjectedChallenges(injectedChallenges, {
-      type: "challenge.injected",
-      runId,
-      commandId,
-      challengeId: candidate.id,
-      prompt: candidate.prompt,
-    });
-  }
+  const selected = await runChallengeSelect({ state, capsule, candidates, rng });
+  const injected = await runChallengeInject({ state, capsule, selected: selected.selected, commandId });
 
   return {
     runId,
-    injectedChallengeIds: toInject.map((candidate) => candidate.id),
-    interruptions,
-    acceptedEvents: events,
-    updatedState: { ...state, injectedChallenges },
+    injectedChallengeIds: injected.injectedChallengeIds,
+    interruptions: injected.interruptions,
+    acceptedEvents: injected.events,
+    updatedState: injected.updatedState,
   };
 }
 
@@ -858,35 +594,29 @@ export async function prepareRespondToChallenge(
   // Phase guard (discard the unconditional CHALLENGE -> PITCH collapse).
   assertCommandPhase(state.phase, "respond-challenge");
 
-  // Re-validate (structural gate). Throws before any event is emitted.
-  ChallengeResponseSchema.parse(response);
+  // response.accept (structural gate) then response.membership.guard (validate
+  // the target is injected + pending, and fold it answered).
+  await runResponseAccept({ state, response });
+  const membership = await runResponseMembershipGuard({ state, response, commandId });
+  const folded = membership.folded;
 
-  // Fold the response into the injected-challenge aggregate: this both VALIDATES
-  // (the target challenge must be injected and pending — it throws on an unknown
-  // or already-answered id) and marks it answered. `all-answered` is derived
-  // solely from the aggregate, never a caller-tracked list.
-  const respondEvent: RunEvent = { type: "challenge.responded", runId, commandId, response };
-  const updatedInjected = reduceInjectedChallenges(state.injectedChallenges ?? [], respondEvent);
-  const challengesAddressed = allChallengesAnswered(updatedInjected);
-
-  const responses = [...state.challengeResponses, response];
-  const events: RunEvent[] = [respondEvent];
-  let phase = state.phase;
-  if (challengesAddressed) {
-    events.push({ type: "phase.changed", runId, commandId, from: "CHALLENGE", to: "PITCH" });
-    phase = "PITCH";
+  // all-answered.guard (branch) → challenge.wait (stay) | pitch.prepare (advance).
+  const allAnswered = await runAllAnsweredGuard({ state, challenges: folded });
+  if (allAnswered.ok) {
+    const pitch = await runPitchPrepare({ state, commandId, folded, response });
+    return {
+      runId,
+      challengesAddressed: true,
+      acceptedEvents: pitch.events,
+      updatedState: pitch.updatedState,
+    };
   }
-
+  const wait = await runChallengeWait({ state, response, commandId, folded });
   return {
     runId,
-    challengesAddressed,
-    acceptedEvents: events,
-    updatedState: {
-      ...state,
-      challengeResponses: responses,
-      injectedChallenges: updatedInjected,
-      phase,
-    },
+    challengesAddressed: false,
+    acceptedEvents: wait.events,
+    updatedState: wait.updatedState,
   };
 }
 
@@ -1258,108 +988,63 @@ export async function prepareReview(input: SubmitReviewInput): Promise<PreparedR
   const scenarioBundleSha256 =
     started && started.type === "run.started" ? (started.scenarioBundleDigest ?? null) : null;
 
-  // 1. Coach final-review through the firewall (public-only input).
-  //
-  // `samples <= 1` (the default) is the single-invocation path and stays
-  // byte-identical to the pre-sampling behavior, including its per-invocation
-  // `judgment` envelope and `confidence: null`. `samples > 1` runs N independent
-  // Coach invocations and mean-aggregates them (`aggregateReviews`): the
-  // aggregated criterion scores feed the deterministic score, and `confidence`
-  // is derived from the cross-sample criterion dispersion.
-  let review: FinalReviewResult;
-  let confidence: number | null;
-  // Scoring provenance (evaluator invocation id + model family). For a single
-  // sample this is the one invocation; for an aggregation it is the FIRST
-  // sample's invocation (there is no single aggregated invocation to cite).
-  let evaluatorInvocationId: string | null;
-  let modelId: string | null;
-  // The `review.completed` `judgment` envelope is PER-INVOCATION: only a single
-  // invocation has a well-defined judgment. For an aggregation there is no
-  // single judgment, so the envelope is OMITTED (the schema marks it optional)
-  // rather than inventing a synthetic judgment id.
-  let judgment: JudgmentProvenance | undefined;
+  // The REVIEW subgraph, reconciled: the Coach runs FIRST because the score
+  // input's stage scores depend on its `criterionScores` (the plan's
+  // `review.input.build → coach.review.invoke` order was inverted). The
+  // `judgment.guard` node is dropped here — sanitize+validate is embedded in
+  // `runFinalReview`/`sampleFinalReview`.
+  const coach = await coachReviewInvoke.run({
+    runtime,
+    state,
+    capsule,
+    commandId,
+    timeoutMs,
+    samples,
+    canaries,
+    scenarioBundleSha256,
+  });
 
-  if (samples === 1) {
-    const inv = await runFinalReview({
-      runtime,
-      state: { ...state, coachTask: "final-review" },
-      capsule,
-      invocationId: `${commandId}:coach`,
-      timeoutMs,
-      canaries,
-    });
-    review = inv.review;
-    confidence = null;
-    evaluatorInvocationId = inv.invocationId;
-    modelId = inv.modelId;
-    judgment = {
-      judgmentId: `${commandId}:coach`,
-      invocationId: inv.invocationId,
-      modelId: inv.modelId,
-      promptDigest: inv.promptDigest,
-      schemaVersion: FINAL_REVIEW_OUTPUT_SCHEMA_VERSION,
-      scenarioDigest: scenarioBundleSha256 ?? "",
-      rawOutputDigest: inv.rawOutputDigest,
-    };
-  } else {
-    const invocations = await sampleFinalReview(runtime, { ...state, coachTask: "final-review" }, capsule, {
-      samples,
-      commandId,
-      timeoutMs,
-      canaries,
-    });
-    const aggregated = aggregateReviews(invocations);
-    review = aggregated.review;
-    confidence = aggregated.confidence;
-    evaluatorInvocationId = invocations[0]?.invocationId ?? null;
-    modelId = invocations[0]?.modelId ?? null;
-    judgment = undefined;
-  }
-
-  // 2. Deterministic score + provenance.
-  const { input: scoreInput, provenance, stageStates } = buildScoreInput({
+  const built = await reviewInputBuild.run({
+    state,
     events,
-    aggregate: state,
     customerCapsule,
     evaluatorCapsule: capsule,
     publicScenario,
-    criterionScores: review.criterionScores,
-    evaluatorInvocationId,
-    modelId,
+    criterionScores: coach.review.review.criterionScores,
+    evaluatorInvocationId: coach.review.evaluatorInvocationId,
+    modelId: coach.review.modelId,
     scenarioBundleSha256,
   });
-  const score = calculateScore(scoreInput);
-  // Defense-in-depth: the persisted score must satisfy the domain schema.
-  ScoreBreakdownSchema.parse(score);
-  // Display-time measured-only capability (not persisted in score.computed).
-  const measuredCapability = computeMeasuredCapability(score, stageStates);
 
-  // 3. review.completed + score.computed (persisted by the transaction).
-  const reviewEvent: RunEvent = {
-    type: "review.completed",
-    runId,
-    commandId,
-    review,
-    ...(judgment !== undefined ? { judgment } : {}),
-  };
-  const scoreEvent: RunEvent = { type: "score.computed", runId, commandId, score, provenance };
+  const computed = await scoreCompute.run({ state, built: built.built });
 
-  // 4. The profile fold becomes an idempotent transaction effect.
-  const attempt = deriveAttemptReview(
-    scoreInput,
-    score,
-    events,
+  const profile = await profileEffectPrepare.run({
     state,
-    provenance.comparabilityKey,
-    stageStates,
-  );
-  const attemptReview: AttemptReview = { ...attempt, retryFocuses: review.nextFocus };
-  const effect: CommandEffect = {
-    type: "profile.apply-attempt",
-    effectId: `${runId}:${commandId}:profile`,
-    runId,
-    review: attemptReview,
-  };
+    commandId,
+    events,
+    scoreInput: built.built.input,
+    score: computed.score.score,
+    stageStates: computed.score.stageStates,
+    comparabilityKey: computed.score.provenance.comparabilityKey,
+    retryFocuses: coach.review.review.nextFocus,
+  });
 
-  return { events: [reviewEvent, scoreEvent], review, score, stageStates, measuredCapability, confidence, effect };
+  const commit = await reviewCommit.run({
+    state,
+    commandId,
+    review: coach.review.review,
+    judgment: coach.review.judgment,
+    score: computed.score.score,
+    provenance: computed.score.provenance,
+  });
+
+  return {
+    events: commit.events,
+    review: coach.review.review,
+    score: computed.score.score,
+    stageStates: computed.score.stageStates,
+    measuredCapability: computed.score.measuredCapability,
+    confidence: coach.review.confidence,
+    effect: profile.effect,
+  };
 }
