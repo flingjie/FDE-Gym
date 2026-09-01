@@ -1,6 +1,7 @@
 import type { RunCommand, RunEvent, RunPhase } from "./domain.js";
 import { InvalidPhaseCommandError, RunAlreadyExistsError } from "./errors.js";
 import { PHASE_EDGES } from "../graph/phase-spec.js";
+import { GRAPH_VERSION } from "../graph/fde-graph.js";
 
 /**
  * Phase legality only — emits NO events and performs NO model I/O. Throws the
@@ -28,31 +29,26 @@ export function assertCommandPhase(
 }
 
 /**
- * The `start` command's event batch: `run.started` (carrying the optional
- * verified scenario-bundle digest) plus the anchor `phase.changed`
- * (SCENARIO -> SCENARIO). Byte-stable with the earlier event shape.
+ * The `start` command's event batch: `run.started` (carrying the graph version
+ * the run was started under, plus the optional verified scenario-bundle digest)
+ * and the anchor `phase.changed` (SCENARIO -> SCENARIO). Byte-stable with the
+ * earlier event shape.
  */
 export function buildRunStartedEvents(
   runId: string,
   command: Extract<RunCommand, { type: "start" }>,
 ): RunEvent[] {
-  const started: RunEvent =
-    command.scenarioBundleDigest !== undefined
-      ? {
-          type: "run.started",
-          runId,
-          commandId: command.commandId,
-          scenarioId: command.scenarioId,
-          locale: command.locale,
-          scenarioBundleDigest: command.scenarioBundleDigest,
-        }
-      : {
-          type: "run.started",
-          runId,
-          commandId: command.commandId,
-          scenarioId: command.scenarioId,
-          locale: command.locale,
-        };
+  const started: RunEvent = {
+    type: "run.started",
+    runId,
+    commandId: command.commandId,
+    scenarioId: command.scenarioId,
+    locale: command.locale,
+    graphVersion: GRAPH_VERSION,
+    ...(command.scenarioBundleDigest !== undefined
+      ? { scenarioBundleDigest: command.scenarioBundleDigest }
+      : {}),
+  };
   return [started, buildPhaseChangedEvent(runId, command.commandId, "SCENARIO", "SCENARIO")];
 }
 

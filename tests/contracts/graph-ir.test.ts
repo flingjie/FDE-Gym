@@ -5,6 +5,7 @@ import { validateGraph } from "../../src/graph/validator.js";
 import { toEdgeCatalog, toMermaid } from "../../src/graph/generators.js";
 import { PHASE_TRANSITIONS } from "../../src/graph/phase-spec.js";
 import { EVENT_PROTOCOLS } from "../../src/graph/event-protocols.js";
+import { GUARD_REGISTRY } from "../../src/graph/guards.js";
 import type { GraphDefinition } from "../../src/graph/definition.js";
 import type { GraphEdgeDefinition, GraphNodeDefinition } from "../../src/graph/types.js";
 
@@ -35,6 +36,15 @@ describe("FDE_GRAPH", () => {
     );
     const specTransitions = new Set(PHASE_TRANSITIONS.map((t) => `${t.from}→${t.to}`));
     expect(graphTransitions).toEqual(specTransitions);
+  });
+
+  it("references only registered guards (no ghost guard)", () => {
+    const guardIds = new Set(Object.keys(GUARD_REGISTRY));
+    for (const edge of FDE_GRAPH.edges) {
+      if (edge.guard) {
+        expect(guardIds.has(edge.guard), `${edge.id} references unknown guard ${edge.guard}`).toBe(true);
+      }
+    }
   });
 });
 

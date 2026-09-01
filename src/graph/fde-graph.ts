@@ -83,9 +83,12 @@ export const EDGES: readonly GraphEdgeDefinition[] = [
   })),
 ];
 
+/** The graph version, recorded in `run.started` so a run replays under the graph it was started with. */
+export const GRAPH_VERSION = "1" as const;
+
 export const FDE_GRAPH: GraphDefinition = {
   id: "fde-gym",
-  version: "1",
+  version: GRAPH_VERSION,
   initialPhase: null,
   nodes: NODES,
   edges: EDGES,

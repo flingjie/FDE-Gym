@@ -630,6 +630,8 @@ export const RunStartedEventSchema = z
     locale: LocaleSchema,
     /** Verified scenario-bundle digest at run start; absent on provenance-legacy (pre-Task 7) runs. */
     scenarioBundleDigest: z.string().length(64).optional(),
+    /** The graph version the run was started under (G5-03); absent on pre-graph-version runs. */
+    graphVersion: z.string().min(1).optional(),
   })
   .strict();
 

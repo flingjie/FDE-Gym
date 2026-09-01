@@ -12,6 +12,7 @@ import {
   buildPhaseChangedEvent,
   buildRunStartedEvents,
 } from "../../src/core/state-machine";
+import { GRAPH_VERSION } from "../../src/graph/fde-graph.js";
 
 const RUN_ID = "run-1";
 
@@ -100,7 +101,7 @@ describe("buildRunStartedEvents", () => {
         locale: "zh-CN",
       }),
     ).toEqual([
-      { type: "run.started", runId: RUN_ID, commandId: "c0", scenarioId: "s1", locale: "zh-CN" },
+      { type: "run.started", runId: RUN_ID, commandId: "c0", scenarioId: "s1", locale: "zh-CN", graphVersion: GRAPH_VERSION },
       { type: "phase.changed", runId: RUN_ID, commandId: "c0", from: "SCENARIO", to: "SCENARIO" },
     ]);
   });
@@ -123,6 +124,7 @@ describe("buildRunStartedEvents", () => {
         scenarioId: "s1",
         locale: "en-US",
         scenarioBundleDigest: digest,
+        graphVersion: GRAPH_VERSION,
       },
       { type: "phase.changed", runId: RUN_ID, commandId: "c0", from: "SCENARIO", to: "SCENARIO" },
     ]);
