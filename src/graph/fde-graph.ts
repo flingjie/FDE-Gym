@@ -34,6 +34,9 @@ export const NODES: readonly GraphNodeDefinition[] = [
   { id: "coach.review.invoke", phase: "REVIEW", kind: "agent", contextPolicy: { role: "coach_evaluator", capsule: "evaluator" } },
   { id: "score.compute", phase: "REVIEW", kind: "deterministic" },
   { id: "profile.apply", phase: "REVIEW", kind: "deterministic" },
+  { id: "run.retry-ready", phase: "RETRY_READY", kind: "deterministic" },
+  { id: "run.completed", phase: "COMPLETED", kind: "deterministic" },
+  { id: "run.aborted", phase: "ABORTED", kind: "deterministic" },
 ];
 
 export const EDGES: readonly GraphEdgeDefinition[] = [
@@ -68,15 +71,15 @@ export const EDGES: readonly GraphEdgeDefinition[] = [
   { id: "review.review.review", from: "coach.review.invoke", to: "coach.review.invoke", trigger: "review", effects: [], protocol: EVENT_PROTOCOLS.review },
 
   // Terminal: retry (two-step), complete, abort.
-  { id: "retry.review.retry-ready", from: "coach.review.invoke", to: "score.compute", trigger: "retry", effects: [pc("REVIEW", "RETRY_READY")], protocol: EVENT_PROTOCOLS.retry },
-  { id: "start-retry.retry-ready.discovery", from: "score.compute", to: "run.start", trigger: "start-retry", effects: [{ type: "spawn-run" }], protocol: EVENT_PROTOCOLS["start-retry"] },
-  { id: "complete.review.completed", from: "coach.review.invoke", to: "profile.apply", trigger: "complete", effects: [pc("REVIEW", "COMPLETED")], protocol: EVENT_PROTOCOLS.complete },
+  { id: "retry.review.retry-ready", from: "coach.review.invoke", to: "run.retry-ready", trigger: "retry", effects: [pc("REVIEW", "RETRY_READY")], protocol: EVENT_PROTOCOLS.retry },
+  { id: "start-retry.retry-ready.discovery", from: "run.retry-ready", to: "run.start", trigger: "start-retry", effects: [{ type: "spawn-run" }], protocol: EVENT_PROTOCOLS["start-retry"] },
+  { id: "complete.review.completed", from: "coach.review.invoke", to: "run.completed", trigger: "complete", effects: [pc("REVIEW", "COMPLETED")], protocol: EVENT_PROTOCOLS.complete },
 
   // abort (from every active phase).
   ...(["SCENARIO", "DISCOVERY", "PROBLEM_FRAMING", "SOLUTION_DESIGN", "CHALLENGE", "PITCH", "REVIEW", "RETRY_READY"] as const).map((from) => ({
     id: `abort.${from}.aborted`,
     from: "run.start",
-    to: "profile.apply",
+    to: "run.aborted",
     trigger: "abort" as const,
     effects: [pc(from, "ABORTED")],
     protocol: EVENT_PROTOCOLS.abort,

@@ -65,7 +65,7 @@ export async function dispatchNode<I>(
   telemetry?: DispatchTelemetry,
 ): Promise<DispatchResult> {
   const failureClass: NodeFailureClass = handler.definition.failurePolicy?.failureClass ?? "TRANSIENT_RUNTIME";
-  const start = telemetry ? Date.now() : 0;
+  const start = telemetry ? performance.now() : 0;
   let result: DispatchResult;
   try {
     const execution = await handler.run(input);
@@ -89,7 +89,7 @@ export async function dispatchNode<I>(
       outcome: result.execution ? "success" : result.pending ? "pending" : "failure",
       failureClass: result.failure?.failureClass,
       failureCode: result.failure?.code,
-      durationMs: Date.now() - start,
+      durationMs: performance.now() - start,
     });
   }
   return result;

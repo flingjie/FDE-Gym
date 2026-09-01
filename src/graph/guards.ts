@@ -400,7 +400,9 @@ const guardJudgmentValid: Guard = (input: unknown): GuardResult => {
   if (!isRecord(input)) return invalidInput();
   const { role, result, outputSchema, canaries } = input;
   if (typeof role !== "string" || !VALID_AGENT_ROLES.includes(role)) return invalidInput();
-  if (!isRecord(result) || typeof result.invocationId !== "string") return invalidInput();
+  if (!isRecord(result) || typeof result.invocationId !== "string" || !("output" in result)) {
+    return invalidInput();
+  }
   if (
     typeof outputSchema !== "object" ||
     outputSchema === null ||

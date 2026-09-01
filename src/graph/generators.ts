@@ -13,7 +13,7 @@ function mermaidId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 
-/** A Mermaid flowchart (LR) of the graph's edges, labelled `trigger / guard`. */
+/** A Mermaid flowchart (LR) of the graph's edges, labelled `trigger [/ guard] (phase change)`. */
 export function toMermaid(graph: GraphDefinition): string {
   const lines = ["flowchart LR"];
   const phaseOf = new Map(graph.nodes.map((node) => [node.id, node.phase]));
@@ -24,7 +24,9 @@ export function toMermaid(graph: GraphDefinition): string {
   for (const edge of graph.edges) {
     const from = mermaidId(edge.from);
     const to = mermaidId(edge.to);
-    const label = edge.guard ? `${edge.trigger} / ${edge.guard}` : edge.trigger;
+    const change = edge.effects.find((effect) => effect.type === "phase-change");
+    const changeLabel = change && change.type === "phase-change" ? ` (${change.from}→${change.to})` : "";
+    const label = `${edge.trigger}${edge.guard ? ` / ${edge.guard}` : ""}${changeLabel}`;
     lines.push(`  ${from}["${labelOf(edge.from)}"] -->|${label}| ${to}["${labelOf(edge.to)}"]`);
   }
   return lines.join("\n");
