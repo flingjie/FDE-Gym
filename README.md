@@ -11,7 +11,7 @@ FDE Gym 是面向 **Forward-Deployed Engineer** 和 **Applied AI Engineer** 的�
 用证据定义问题、设计方案、处理挑战并完成 Pitch。整个过程可评分、可回放，Review 之后
 可以针对薄弱能力开启一轮干净的聚焦重训。
 
-![FDE Gym 产品概览](raw/FDEGym.png)
+![FDE Gym 产品概览](raw/FDEGym.jpg)
 
 ## 30 秒训练体验（示意）
 
